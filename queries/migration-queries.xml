@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<migration>
+  <!-- 데이터베이스 연결 설정 (dbinfo.json 참조) -->
+  <databases>
+    <source>devSourceDB</source>
+    <target>devTargetDB</target>
+  </databases>
+
+  <!-- 전역 변수 정의 -->
+  <variables>
+    <var name="startDate">2024-01-01</var>
+    <var name="endDate">2024-12-31</var>
+    <var name="batchSize">1000</var>
+    <var name="companyCode">COMPANY01</var>
+    <var name="statusList">["ACTIVE", "PENDING", "APPROVED"]</var>
+    <var name="categoryIds">[1, 2, 3, 5, 8]</var>
+    <var name="departmentCodes">["IT", "HR", "SALES", "MARKETING"]</var>
+    <var name="enableForeignKeyOrder">true</var>
+  </variables>
+
+  <!-- 동적 변수 정의 -->
+  <dynamicVariables>
+    <dynamicVar id="extract_active_user_ids" 
+                description="활성 사용자 ID 목록 추출"
+                variableName="activeUserIds"
+                extractType="single_column"
+                columnName="user_id"
+                enabled="true">
+      <![CDATA[
+        SELECT user_id FROM users WHERE status = 'ACTIVE' AND last_login_date >= '${startDate}'
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_company_mapping"
+                description="회사 코드-이름 매핑 추출" 
+                variableName="companyMapping"
+                extractType="key_value_pairs"
+                enabled="false">
+      <![CDATA[
+        SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_max_order_id"
+                description="최대 주문 ID 추출"
+                variableName="maxOrderId"
+                extractType="single_value"
+                enabled="false">
+      <![CDATA[
+        SELECT MAX(order_id) as max_id FROM orders
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_category_products"
+                description="특정 카테고리의 모든 상품 ID 추출"
+                variableName="categoryProductIds"
+                extractType="multiple_columns"
+                columns="product_id,category_id"
+                enabled="false">
+      <![CDATA[
+        SELECT product_id, category_id FROM products WHERE category_id IN (${categoryIds})
+      ]]>
+    </dynamicVar>
+  </dynamicVariables>
+
+  <!-- 쿼리 정의 -->
+  <queries>
+    <!-- 사용자 테이블 데이터 이관 -->
+    <query id="migrate_users"
+           description="사용자 테이블 데이터 이관"
+           targetTable="users"
+           targetColumns="user_id,username,email,created_date,company_code"
+           batchSize="${batchSize}"
+           primaryKey="user_id"
+           deleteBeforeInsert="false"
+           enabled="true">
+      <sourceQuery>
+        <![CDATA[
+          SELECT user_id, username, email, created_date, company_code 
+          FROM users 
+          WHERE created_date >= '${startDate}' 
+            AND created_date <= '${endDate}' 
+            AND company_code = '${companyCode}' 
+          ORDER BY user_id
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE created_date >= '${startDate}' 
+            AND created_date <= '${endDate}' 
+            AND company_code = '${companyCode}' 
+          ORDER BY user_id
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_products_all"
+           description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
+           targetTable="products"
+           targetColumns=""
+           batchSize="${batchSize}"
+           primaryKey="product_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY product_id
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE status = 'ACTIVE'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 주문 테이블 데이터 이관 (SQL 파일 사용) -->
+    <query id="migrate_orders_from_file"
+           description="주문 테이블 데이터 이관 (SQL 파일 사용)"
+           sourceQueryFile="sql/orders_migration.sql"
+           targetTable="orders"
+           targetColumns="order_id,customer_id,order_date,total_amount,status"
+           batchSize="${batchSize}"
+           primaryKey="order_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <deleteWhere>
+        <![CDATA[
+          WHERE order_date >= '${startDate}' AND order_date <= '${endDate}'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 특정 상태의 상품 데이터 이관 (IN절 사용) -->
+    <query id="migrate_products_by_status"
+           description="특정 상태의 상품 데이터 이관 (IN절 사용)"
+           targetTable="products"
+           targetColumns="product_id,product_name,category_id,price,status"
+           batchSize="${batchSize}"
+           primaryKey="product_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT product_id, product_name, category_id, price, status 
+          FROM products 
+          WHERE status IN (${statusList}) 
+            AND category_id IN (${categoryIds}) 
+          ORDER BY product_id
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE status IN (${statusList}) AND category_id IN (${categoryIds})
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 특정 부서 직원 데이터 이관 (IN절 사용) -->
+    <query id="migrate_employees_by_department"
+           description="특정 부서 직원 데이터 이관 (IN절 사용)"
+           targetTable="employees"
+           targetColumns="emp_id,emp_name,department_code,hire_date,salary"
+           batchSize="${batchSize}"
+           primaryKey="emp_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT emp_id, emp_name, department_code, hire_date, salary 
+          FROM employees 
+          WHERE department_code IN (${departmentCodes}) 
+            AND hire_date >= '${startDate}' 
+          ORDER BY emp_id
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE department_code IN (${departmentCodes}) AND hire_date >= '${startDate}'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용) -->
+    <query id="migrate_products_from_file_with_in"
+           description="상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용)"
+           sourceQueryFile="sql/products_in_clause_example.sql"
+           targetTable="products"
+           targetColumns="product_id,product_name,category_id,price,status,created_date,updated_date,category_name"
+           batchSize="${batchSize}"
+           primaryKey="product_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <deleteWhere>
+        <![CDATA[
+          WHERE status IN (${statusList}) 
+            AND category_id IN (${categoryIds}) 
+            AND created_date >= '${startDate}' 
+            AND created_date <= '${endDate}'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
+    <query id="migrate_user_orders_dynamic"
+           description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
+           targetTable="orders"
+           targetColumns="order_id,user_id,order_date,total_amount,status"
+           batchSize="${batchSize}"
+           primaryKey="order_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT order_id, user_id, order_date, total_amount, status 
+          FROM orders 
+          WHERE user_id IN (${activeUserIds}) 
+            AND order_date >= '${startDate}' 
+          ORDER BY order_date DESC
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE user_id IN (${activeUserIds}) AND order_date >= '${startDate}'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 추출된 상품 관련 데이터 이관 (동적 변수 사용) -->
+    <query id="migrate_related_products_dynamic"
+           description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
+           targetTable="product_reviews"
+           targetColumns=""
+           batchSize="${batchSize}"
+           primaryKey="review_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT * FROM product_reviews 
+          WHERE product_id IN (${categoryProductIds}) 
+            AND rating >= 4
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE product_id IN (${categoryProductIds}) AND rating >= 4
+        ]]>
+      </deleteWhere>
+    </query>
+  </queries>
+</migration> 

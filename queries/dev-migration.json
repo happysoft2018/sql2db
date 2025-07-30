@@ -1,0 +1,54 @@
+{
+  "name": "개발 환경 데이터 이관",
+  "description": "개발용 데이터베이스 간 데이터 이관 작업",
+  "version": "1.0.0",
+  "databases": {
+    "source": "devSourceDB",
+    "target": "devTargetDB"
+  },
+  "variables": {
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "batchSize": 500,
+    "companyCode": "DEV_COMPANY",
+    "statusList": ["ACTIVE", "PENDING"],
+    "enableForeignKeyOrder": true
+  },
+  "dynamicVariables": [
+    {
+      "id": "extract_dev_user_ids",
+      "description": "개발용 활성 사용자 ID 목록 추출",
+      "variableName": "activeUserIds",
+      "query": "SELECT user_id FROM users WHERE status = 'ACTIVE' AND environment = 'DEV'",
+      "extractType": "single_column",
+      "columnName": "user_id",
+      "enabled": true
+    }
+  ],
+  "queries": [
+    {
+      "id": "migrate_dev_users",
+      "description": "개발용 사용자 테이블 데이터 이관",
+      "sourceQuery": "SELECT user_id, username, email, created_date FROM users WHERE created_date >= '${startDate}' AND environment = 'DEV'",
+      "deleteWhere": "WHERE environment = 'DEV'",
+      "targetTable": "users",
+      "targetColumns": ["user_id", "username", "email", "created_date"],
+      "batchSize": "${batchSize}",
+      "primaryKey": "user_id",
+      "deleteBeforeInsert": true,
+      "enabled": true
+    },
+    {
+      "id": "migrate_dev_orders",
+      "description": "개발용 주문 데이터 이관",
+      "sourceQuery": "SELECT order_id, user_id, order_date, total_amount, status FROM orders WHERE user_id IN (${activeUserIds})",
+      "deleteWhere": "WHERE user_id IN (${activeUserIds})",
+      "targetTable": "orders",
+      "targetColumns": ["order_id", "user_id", "order_date", "total_amount", "status"],
+      "batchSize": "${batchSize}",
+      "primaryKey": "order_id",
+      "deleteBeforeInsert": false,
+      "enabled": false
+    }
+  ]
+} 

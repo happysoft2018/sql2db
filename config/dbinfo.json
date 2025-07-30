@@ -1,0 +1,88 @@
+{
+  "dbs": {
+    "sampleDB": {
+      "user": "sample",
+      "password": "sample1234!",
+      "server": "localhost",
+      "database": "SampleDB",
+      "port": 1433,
+      "options": { 
+        "encrypt": true, 
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    },
+    "erpDB": {
+      "user": "erp",
+      "password": "erp1234!",
+      "server": "localhost",
+      "database": "ERP_DB",
+      "port": 1433,
+      "options": { 
+        "encrypt": true, 
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    },
+    "devSourceDB": {
+      "user": "dev_user",
+      "password": "dev_pass123!",
+      "server": "dev-source-server.company.com",
+      "database": "DevSourceDB",
+      "port": 1433,
+      "options": { 
+        "encrypt": true, 
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    },
+    "devTargetDB": {
+      "user": "dev_user",
+      "password": "dev_pass123!",
+      "server": "dev-target-server.company.com",
+      "database": "DevTargetDB",
+      "port": 1433,
+      "options": { 
+        "encrypt": true, 
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    },
+    "prodSourceDB": {
+      "user": "prod_user",
+      "password": "prod_pass123!",
+      "server": "prod-source-server.company.com",
+      "database": "ProdSourceDB",
+      "port": 1433,
+      "options": { 
+        "encrypt": true, 
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    },
+    "prodTargetDB": {
+      "user": "prod_user",
+      "password": "prod_pass123!",
+      "server": "prod-target-server.company.com",
+      "database": "ProdTargetDB",
+      "port": 1433,
+      "options": { 
+        "encrypt": true, 
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    }
+  }
+} 

@@ -1,0 +1,19 @@
+{
+  "name": "mssql-data-migrator",
+  "version": "1.0.0",
+  "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
+  "main": "src/migrate-cli.js",
+  "scripts": {
+    "migrate": "node src/migrate-cli.js migrate",
+    "validate": "node src/migrate-cli.js validate",
+    "test-connections": "node src/migrate-cli.js test",
+    "help": "node src/migrate-cli.js help"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "mssql": "^11.0.1",
+    "mysql2": "^3.14.1",
+    "pg": "^8.16.2",
+    "xml2js": "^0.6.2"
+  }
+}

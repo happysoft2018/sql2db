@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<migration>
+  <!-- 운영 환경 데이터베이스 연결 설정 (dbinfo.json 참조) -->
+  <databases>
+    <source>prodSourceDB</source>
+    <target>prodTargetDB</target>
+  </databases>
+
+  <!-- 운영 환경 전역 변수 정의 -->
+  <variables>
+    <var name="startDate">2024-01-01</var>
+    <var name="endDate">2024-12-31</var>
+    <var name="batchSize">2000</var>
+    <var name="companyCode">PROD_COMPANY</var>
+    <var name="statusList">["ACTIVE", "APPROVED", "COMPLETED"]</var>
+    <var name="categoryIds">[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]</var>
+    <var name="enableForeignKeyOrder">true</var>
+  </variables>
+
+  <!-- 운영 환경 동적 변수 정의 -->
+  <dynamicVariables>
+    <dynamicVar id="extract_prod_active_users" 
+                description="운영용 활성 사용자 ID 목록 추출"
+                variableName="activeUserIds"
+                extractType="single_column"
+                columnName="user_id"
+                enabled="true">
+      <![CDATA[
+        SELECT user_id FROM users 
+        WHERE status = 'ACTIVE' 
+          AND environment = 'PROD'
+          AND last_login_date >= '${startDate}'
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_prod_companies"
+                description="운영 환경 회사 정보 추출"
+                variableName="companyMapping"
+                extractType="key_value_pairs"
+                enabled="false">
+      <![CDATA[
+        SELECT company_code, company_name 
+        FROM companies 
+        WHERE status = 'ACTIVE' AND environment = 'PROD'
+      ]]>
+    </dynamicVar>
+  </dynamicVariables>
+
+  <!-- 운영 환경 쿼리 정의 -->
+  <queries>
+    <!-- 운영용 사용자 테이블 데이터 이관 -->
+    <query id="migrate_prod_users"
+           description="운영용 사용자 테이블 데이터 이관"
+           targetTable="users"
+           targetColumns="user_id,username,email,created_date,company_code"
+           batchSize="${batchSize}"
+           primaryKey="user_id"
+           deleteBeforeInsert="true"
+           enabled="true">
+      <sourceQuery>
+        <![CDATA[
+          SELECT user_id, username, email, created_date, company_code 
+          FROM users 
+          WHERE created_date >= '${startDate}' 
+            AND created_date <= '${endDate}' 
+            AND environment = 'PROD'
+            AND company_code = '${companyCode}' 
+          ORDER BY user_id
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE environment = 'PROD' 
+            AND company_code = '${companyCode}'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 운영용 주문 데이터 이관 (동적 변수 사용) -->
+    <query id="migrate_prod_orders"
+           description="운영용 주문 데이터 이관 (활성 사용자만)"
+           targetTable="orders"
+           targetColumns="order_id,user_id,order_date,total_amount,status"
+           batchSize="${batchSize}"
+           primaryKey="order_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT order_id, user_id, order_date, total_amount, status 
+          FROM orders 
+          WHERE user_id IN (${activeUserIds}) 
+            AND order_date >= '${startDate}'
+            AND status IN (${statusList})
+          ORDER BY order_date DESC
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE user_id IN (${activeUserIds}) 
+            AND order_date >= '${startDate}'
+        ]]>
+      </deleteWhere>
+    </query>
+
+    <!-- 운영용 상품 데이터 이관 -->
+    <query id="migrate_prod_products"
+           description="운영용 상품 데이터 이관"
+           targetTable="products"
+           targetColumns=""
+           batchSize="${batchSize}"
+           primaryKey="product_id"
+           deleteBeforeInsert="false"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT * FROM products 
+          WHERE category_id IN (${categoryIds}) 
+            AND status IN (${statusList})
+            AND environment = 'PROD'
+          ORDER BY product_id
+        ]]>
+      </sourceQuery>
+      <deleteWhere>
+        <![CDATA[
+          WHERE category_id IN (${categoryIds}) 
+            AND environment = 'PROD'
+        ]]>
+      </deleteWhere>
+    </query>
+  </queries>
+</migration> 
