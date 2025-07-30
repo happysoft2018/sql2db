@@ -5,7 +5,7 @@ const MSSQLConnectionManager = require('./mssql-connection-manager');
 require('dotenv').config();
 
 class MSSQLDataMigrator {
-    constructor(configPath, dbInfoPath) {
+    constructor(configPath, dbInfoPath, dryRun = false) {
         this.configPath = configPath || path.join(__dirname, '../queries/migration-queries.json');
         this.dbInfoPath = dbInfoPath || path.join(__dirname, '../config/dbinfo.json');
         this.connectionManager = new MSSQLConnectionManager();
@@ -16,6 +16,7 @@ class MSSQLDataMigrator {
         this.logFile = null;
         this.enableLogging = process.env.ENABLE_LOGGING === 'true';
         this.enableTransaction = process.env.ENABLE_TRANSACTION === 'true';
+        this.dryRun = dryRun; // DRY RUN 모드
     }
 
     // DB 정보 파일 로드
@@ -942,6 +943,159 @@ class MSSQLDataMigrator {
         } catch (error) {
             console.error('연결 테스트 실패:', error.message);
             return false;
+        }
+    }
+
+    // DRY RUN 모드로 마이그레이션 시뮬레이션 실행
+    async executeDryRun() {
+        console.log('🧪 DRY RUN 모드: 데이터 마이그레이션 시뮬레이션\n');
+        
+        const startTime = Date.now();
+        let totalQueries = 0;
+        let totalRows = 0;
+        const results = [];
+        
+        try {
+            // 설정 파일 로드
+            await this.loadConfig();
+            
+            // 소스 데이터베이스만 연결 (읽기 전용)
+            console.log('📡 소스 데이터베이스 연결 중...');
+            await this.connectionManager.connectSource();
+            
+            // 동적 변수 추출 시뮬레이션
+            if (this.config.dynamicVariables && this.config.dynamicVariables.length > 0) {
+                console.log(`\n🔍 동적 변수 추출 시뮬레이션: ${this.config.dynamicVariables.length}개`);
+                
+                for (const extractConfig of this.config.dynamicVariables) {
+                    if (extractConfig.enabled !== false) {
+                        console.log(`  • ${extractConfig.id}: ${extractConfig.description || '설명 없음'}`);
+                        
+                        try {
+                            const processedQuery = this.replaceVariables(extractConfig.query);
+                            console.log(`    쿼리: ${processedQuery.substring(0, 100)}${processedQuery.length > 100 ? '...' : ''}`);
+                            
+                            const data = await this.connectionManager.querySource(processedQuery);
+                            console.log(`    ✅ ${data.length}개 값 추출 예정 → 변수: ${extractConfig.variableName}`);
+                        } catch (error) {
+                            console.log(`    ❌ 추출 실패: ${error.message}`);
+                        }
+                    }
+                }
+            }
+            
+            // 쿼리 시뮬레이션
+            const enabledQueries = this.config.queries.filter(q => q.enabled !== false);
+            console.log(`\n📋 마이그레이션 쿼리 시뮬레이션: ${enabledQueries.length}개`);
+            console.log('=' .repeat(80));
+            
+            for (let i = 0; i < enabledQueries.length; i++) {
+                const queryConfig = enabledQueries[i];
+                console.log(`\n${i + 1}. 쿼리 ID: ${queryConfig.id}`);
+                console.log(`   설명: ${queryConfig.description || '설명 없음'}`);
+                console.log(`   대상 테이블: ${queryConfig.targetTable}`);
+                
+                try {
+                    // 소스 쿼리 처리
+                    let sourceQuery = queryConfig.sourceQuery;
+                    if (queryConfig.sourceQueryFile) {
+                        console.log(`   소스 파일: ${queryConfig.sourceQueryFile}`);
+                        sourceQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile);
+                    }
+                    
+                    const processedQuery = this.replaceVariables(sourceQuery);
+                    console.log(`   처리된 쿼리: ${processedQuery.substring(0, 100)}${processedQuery.length > 100 ? '...' : ''}`);
+                    
+                    // 데이터 건수 확인
+                    const sourceData = await this.connectionManager.querySource(processedQuery);
+                    const rowCount = sourceData.length;
+                    totalRows += rowCount;
+                    totalQueries++;
+                    
+                    console.log(`   📊 이관 예정 데이터: ${rowCount}행`);
+                    
+                    if (queryConfig.deleteWhere) {
+                        const processedDeleteWhere = this.replaceVariables(queryConfig.deleteWhere);
+                        console.log(`   🗑️ 삭제 조건: ${processedDeleteWhere}`);
+                    }
+                    
+                    // 대상 컬럼 정보
+                    if (queryConfig.targetColumns) {
+                        console.log(`   📝 대상 컬럼: ${queryConfig.targetColumns.join(', ')}`);
+                    } else if (sourceData.length > 0) {
+                        const sourceColumns = Object.keys(sourceData[0]);
+                        console.log(`   📝 자동 감지 컬럼: ${sourceColumns.join(', ')}`);
+                    }
+                    
+                    results.push({
+                        id: queryConfig.id,
+                        targetTable: queryConfig.targetTable,
+                        rowCount: rowCount,
+                        status: 'success'
+                    });
+                    
+                    console.log(`   ✅ 시뮬레이션 성공`);
+                    
+                } catch (error) {
+                    console.log(`   ❌ 시뮬레이션 실패: ${error.message}`);
+                    results.push({
+                        id: queryConfig.id,
+                        targetTable: queryConfig.targetTable,
+                        rowCount: 0,
+                        status: 'error',
+                        error: error.message
+                    });
+                }
+            }
+            
+            // 결과 요약
+            const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+            const successCount = results.filter(r => r.status === 'success').length;
+            const failureCount = results.filter(r => r.status === 'error').length;
+            
+            console.log('\n' + '=' .repeat(80));
+            console.log('🎯 DRY RUN 시뮬레이션 결과 요약');
+            console.log('=' .repeat(80));
+            console.log(`⏱️  실행 시간: ${duration}초`);
+            console.log(`📊 총 쿼리 수: ${totalQueries}개`);
+            console.log(`📈 총 이관 예정 데이터: ${totalRows.toLocaleString()}행`);
+            console.log(`✅ 성공한 쿼리: ${successCount}개`);
+            console.log(`❌ 실패한 쿼리: ${failureCount}개`);
+            
+            if (failureCount > 0) {
+                console.log('\n❌ 실패한 쿼리 목록:');
+                results.filter(r => r.status === 'error').forEach(r => {
+                    console.log(`  • ${r.id} (${r.targetTable}): ${r.error}`);
+                });
+            }
+            
+            console.log('\n💡 참고: DRY RUN 모드에서는 실제 데이터 변경이 일어나지 않습니다.');
+            console.log('실제 마이그레이션을 실행하려면 --dry-run 옵션을 제거하고 다시 실행하세요.');
+            
+            return {
+                success: failureCount === 0,
+                totalQueries,
+                totalRows,
+                successCount,
+                failureCount,
+                duration: parseFloat(duration),
+                results
+            };
+            
+        } catch (error) {
+            console.error('❌ DRY RUN 실행 중 오류:', error.message);
+            return {
+                success: false,
+                error: error.message,
+                totalQueries: 0,
+                totalRows: 0,
+                successCount: 0,
+                failureCount: 1,
+                duration: ((Date.now() - startTime) / 1000).toFixed(2),
+                results: []
+            };
+        } finally {
+            await this.connectionManager.closeConnections();
         }
     }
 }

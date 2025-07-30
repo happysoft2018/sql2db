@@ -176,9 +176,17 @@ async function main() {
                 
                 if (options.dryRun) {
                     console.log('*** DRY RUN 모드 - 실제 데이터 변경 없음 ***\n');
-                    // TODO: DRY RUN 모드 구현
-                    console.log('DRY RUN 모드는 아직 구현되지 않았습니다.');
-                    return;
+                    
+                    const dryRunMigrator = new MSSQLDataMigrator(options.config, null, true);
+                    const result = await dryRunMigrator.executeDryRun();
+                    
+                    if (result.success) {
+                        console.log('\n✅ DRY RUN 시뮬레이션이 성공적으로 완료되었습니다!');
+                        process.exit(0);
+                    } else {
+                        console.log('\n❌ DRY RUN 시뮬레이션 중 오류가 발생했습니다.');
+                        process.exit(1);
+                    }
                 }
                 
                 const result = await migrator.executeMigration();
