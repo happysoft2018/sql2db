@@ -19,6 +19,7 @@ MSSQL 데이터 이관 도구
   validate                   설정 파일 검증
   test                       데이터베이스 연결 테스트
   list                       사용 가능한 작업 설정 파일 목록 표시
+  list-dbs                   사용 가능한 데이터베이스 목록 표시 (isWritable 정보 포함)
   help                       도움말 표시
 
 옵션:
@@ -33,6 +34,7 @@ MSSQL 데이터 이관 도구
   node src/migrate-cli.js migrate --job user
   node src/migrate-cli.js migrate --job order
   node src/migrate-cli.js list
+  node src/migrate-cli.js list-dbs
   node src/migrate-cli.js validate --job product
   node src/migrate-cli.js test
 
@@ -202,13 +204,18 @@ async function main() {
                 
             case 'validate':
                 console.log('설정 파일 검증 중...\n');
-                const isValid = await migrator.validateConfiguration();
-                
-                if (isValid) {
-                    console.log('✅ 설정 파일이 유효합니다.');
-                    process.exit(0);
-                } else {
-                    console.log('❌ 설정 파일에 오류가 있습니다.');
+                try {
+                    const isValid = await migrator.validateConfiguration();
+                    
+                    if (isValid) {
+                        console.log('✅ 설정 파일이 유효합니다.');
+                        process.exit(0);
+                    } else {
+                        console.log('❌ 설정 파일에 오류가 있습니다.');
+                        process.exit(1);
+                    }
+                } catch (error) {
+                    console.error('❌ 설정 파일 검증 실패:', error.message);
                     process.exit(1);
                 }
                 break;
@@ -228,6 +235,75 @@ async function main() {
                 
             case 'list':
                 // 이미 위에서 처리됨
+                break;
+                
+            case 'list-dbs':
+                console.log('사용 가능한 데이터베이스 목록을 조회합니다...\n');
+                try {
+                    const tempMigrator = new MSSQLDataMigrator();
+                    await tempMigrator.loadDbInfo();
+                    
+                    if (!tempMigrator.dbInfo || !tempMigrator.dbInfo.dbs) {
+                        console.log('❌ config/dbinfo.json 파일을 찾을 수 없거나 DB 정보가 없습니다.');
+                        console.log('환경 변수(.env) 방식을 사용 중입니다.');
+                        process.exit(1);
+                    }
+                    
+                    const dbs = tempMigrator.dbInfo.dbs;
+                    const dbList = Object.keys(dbs);
+                    
+                    console.log('📊 데이터베이스 목록 및 권한 정보');
+                    console.log('=' .repeat(80));
+                    console.log(`총 ${dbList.length}개의 데이터베이스가 정의되어 있습니다.\n`);
+                    
+                    // 쓰기 가능한 DB (타겟 DB로 사용 가능)
+                    const writableDbs = dbList.filter(id => dbs[id].isWritable);
+                    const readOnlyDbs = dbList.filter(id => !dbs[id].isWritable);
+                    
+                    console.log('🟢 타겟 DB로 사용 가능 (isWritable: true)');
+                    console.log('-' .repeat(50));
+                    if (writableDbs.length > 0) {
+                        writableDbs.forEach(id => {
+                            const db = dbs[id];
+                            console.log(`  📝 ${id}`);
+                            console.log(`     서버: ${db.server}:${db.port || 1433}`);
+                            console.log(`     데이터베이스: ${db.database}`);
+                            console.log(`     설명: ${db.description || '설명 없음'}`);
+                            console.log(`     사용자: ${db.user}`);
+                            console.log('');
+                        });
+                    } else {
+                        console.log('  ⚠️ 쓰기 가능한 데이터베이스가 없습니다.');
+                        console.log('');
+                    }
+                    
+                    console.log('🔶 읽기 전용 (isWritable: false)');
+                    console.log('-' .repeat(50));
+                    if (readOnlyDbs.length > 0) {
+                        readOnlyDbs.forEach(id => {
+                            const db = dbs[id];
+                            console.log(`  📖 ${id}`);
+                            console.log(`     서버: ${db.server}:${db.port || 1433}`);
+                            console.log(`     데이터베이스: ${db.database}`);
+                            console.log(`     설명: ${db.description || '설명 없음'}`);
+                            console.log(`     사용자: ${db.user}`);
+                            console.log('');
+                        });
+                    } else {
+                        console.log('  📝 모든 데이터베이스가 쓰기 가능합니다.');
+                        console.log('');
+                    }
+                    
+                    console.log('💡 사용법:');
+                    console.log('  - 소스 DB: 모든 DB 사용 가능');
+                    console.log('  - 타겟 DB: isWritable=true인 DB만 사용 가능');
+                    console.log('  - 설정 변경: config/dbinfo.json에서 isWritable 속성 수정');
+                    
+                    process.exit(0);
+                } catch (error) {
+                    console.error('❌ 데이터베이스 목록 조회 실패:', error.message);
+                    process.exit(1);
+                }
                 break;
                 
             default:

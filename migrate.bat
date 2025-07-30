@@ -23,14 +23,6 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: .env 파일 확인
-if not exist ".env" (
-    echo ⚠️  .env 파일이 없습니다.
-    echo    queries\env.example 파일을 참고하여 .env 파일을 생성해주세요.
-    echo.
-    pause
-    exit /b 0
-)
 
 :MENU
 echo ══════════════════════════════════════════════════════════════════

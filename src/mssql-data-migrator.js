@@ -56,6 +56,8 @@ class MSSQLDataMigrator {
             database: dbConfig.database,
             user: dbConfig.user,
             password: dbConfig.password,
+            isWritable: dbConfig.isWritable ?? false, // 기본값은 읽기 전용
+            description: dbConfig.description || `${dbId} 데이터베이스`,
             options: {
                 encrypt: dbConfig.options?.encrypt ?? true,
                 trustServerCertificate: dbConfig.options?.trustServerCertificate ?? true,
@@ -100,21 +102,32 @@ class MSSQLDataMigrator {
                 if (typeof this.config.databases.source === 'string') {
                     const sourceId = this.config.databases.source;
                     sourceConfig = this.getDbConfigById(sourceId);
-                    console.log('소스 DB ID:', sourceId, '→', sourceConfig.database, '@', sourceConfig.server);
+                    console.log('소스 DB ID:', sourceId, '→', sourceConfig.database, '@', sourceConfig.server, `(${sourceConfig.description})`);
                 } else if (this.config.databases.source) {
                     // 기존 방식 (직접 설정)
                     sourceConfig = this.config.databases.source;
-                    console.log('소스 DB:', sourceConfig.database, '@', sourceConfig.server);
+                    sourceConfig.description = sourceConfig.description || '직접 설정된 소스 데이터베이스';
+                    console.log('소스 DB:', sourceConfig.database, '@', sourceConfig.server, '(직접 설정)');
                 }
                 
                 if (typeof this.config.databases.target === 'string') {
                     const targetId = this.config.databases.target;
                     targetConfig = this.getDbConfigById(targetId);
-                    console.log('타겟 DB ID:', targetId, '→', targetConfig.database, '@', targetConfig.server);
+                    
+                    // 타겟 DB의 isWritable 속성 검증
+                    if (!targetConfig.isWritable) {
+                        throw new Error(`타겟 DB '${targetId}'는 읽기 전용 데이터베이스입니다. isWritable=true인 DB만 타겟으로 사용할 수 있습니다.\n` +
+                                      `DB 설명: ${targetConfig.description}\n` +
+                                      `쓰기 가능한 DB를 선택하거나 config/dbinfo.json에서 isWritable 속성을 true로 변경하세요.`);
+                    }
+                    
+                    console.log('타겟 DB ID:', targetId, '→', targetConfig.database, '@', targetConfig.server, `(${targetConfig.description})`);
                 } else if (this.config.databases.target) {
-                    // 기존 방식 (직접 설정)
+                    // 기존 방식 (직접 설정) - 기본적으로 쓰기 가능으로 간주
                     targetConfig = this.config.databases.target;
-                    console.log('타겟 DB:', targetConfig.database, '@', targetConfig.server);
+                    targetConfig.isWritable = targetConfig.isWritable ?? true; // 명시되지 않은 경우 쓰기 가능으로 간주
+                    targetConfig.description = targetConfig.description || '직접 설정된 타겟 데이터베이스';
+                    console.log('타겟 DB:', targetConfig.database, '@', targetConfig.server, '(직접 설정)');
                 }
                 
                 this.connectionManager.setCustomDatabaseConfigs(sourceConfig, targetConfig);
@@ -893,26 +906,31 @@ class MSSQLDataMigrator {
         try {
             await this.loadConfig();
             
-            // 필수 환경 변수 확인
-            const requiredEnvVars = [
-                'SOURCE_DB_SERVER', 'SOURCE_DB_DATABASE', 'SOURCE_DB_USER', 'SOURCE_DB_PASSWORD',
-                'TARGET_DB_SERVER', 'TARGET_DB_DATABASE', 'TARGET_DB_USER', 'TARGET_DB_PASSWORD'
-            ];
-            
-            const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-            if (missingVars.length > 0) {
-                throw new Error(`필수 환경 변수가 설정되지 않았습니다: ${missingVars.join(', ')}`);
+            // 설정 파일에 DB 정보가 없는 경우에만 환경 변수 확인
+            if (!this.config.databases) {
+                // 필수 환경 변수 확인
+                const requiredEnvVars = [
+                    'SOURCE_DB_SERVER', 'SOURCE_DB_DATABASE', 'SOURCE_DB_USER', 'SOURCE_DB_PASSWORD',
+                    'TARGET_DB_SERVER', 'TARGET_DB_DATABASE', 'TARGET_DB_USER', 'TARGET_DB_PASSWORD'
+                ];
+                
+                const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+                if (missingVars.length > 0) {
+                    throw new Error(`필수 환경 변수가 설정되지 않았습니다: ${missingVars.join(', ')}`);
+                }
             }
             
             // 쿼리 설정 검증
-            const enabledQueries = this.config.queries.filter(q => q.enabled);
+            const enabledQueries = this.config.queries ? this.config.queries.filter(q => q.enabled !== false) : [];
             if (enabledQueries.length === 0) {
-                throw new Error('활성화된 쿼리가 없습니다.');
+                console.log('⚠️ 활성화된 쿼리가 없습니다. (설정 파일 구조 검증은 성공)');
             }
             
-            for (const query of enabledQueries) {
-                if (!query.id || (!query.sourceQuery && !query.sourceQueryFile) || !query.targetTable) {
-                    throw new Error(`쿼리 설정이 불완전합니다: ${query.id || '이름 없음'}`);
+            if (enabledQueries.length > 0) {
+                for (const query of enabledQueries) {
+                    if (!query.id || (!query.sourceQuery && !query.sourceQueryFile) || !query.targetTable) {
+                        throw new Error(`쿼리 설정이 불완전합니다: ${query.id || '이름 없음'}`);
+                    }
                 }
             }
             

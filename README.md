@@ -121,6 +121,15 @@ test-dry-run.bat
 - 다양한 설정 파일 형식 지원 (JSON/XML/작업별)
 - 상세한 시뮬레이션 결과 리포트 제공
 
+#### 8. isWritable 속성 테스트 (🆕 신규)
+```bash
+test-iswritable.bat
+```
+- DB 읽기/쓰기 권한 관리 기능 테스트
+- 읽기 전용 DB를 타겟으로 사용 시 오류 발생 확인
+- 쓰기 가능 DB를 타겟으로 사용 시 정상 처리 확인
+- 데이터베이스 목록 및 권한 정보 표시
+
 ### 명령줄 인터페이스
 
 #### 1. 도움말 보기
@@ -173,7 +182,23 @@ node src/migrate-cli.js migrate --job user --dry-run
 - ⚡ 빠른 검증을 통한 사전 오류 발견
 - 📋 상세한 시뮬레이션 결과 리포트 제공
 
-#### 6. 사용자 정의 설정 파일 사용
+#### 6. 데이터베이스 목록 조회 (🆕 신규)
+```bash
+# npm 스크립트 사용
+npm run list-dbs
+
+# 직접 실행
+node src/migrate-cli.js list-dbs
+```
+
+**DB 목록 조회 기능:**
+- 📊 config/dbinfo.json에 정의된 모든 DB 정보 표시
+- 🟢 타겟 DB로 사용 가능한 DB (isWritable: true) 구분 표시
+- 🔶 읽기 전용 DB (isWritable: false) 구분 표시
+- 💡 각 DB의 서버, 포트, 데이터베이스명, 설명 정보 제공
+- ⚡ 타겟 DB 선택 시 사전 권한 확인 가능
+
+#### 7. 사용자 정의 설정 파일 사용
 ```bash
 # JSON 형식 사용
 node src/migrate-cli.js migrate --config ./custom-config.json
@@ -630,6 +655,8 @@ migrate-by-job.bat
       "server": "dev-source-server.company.com",
       "database": "DevSourceDB",
       "port": 1433,
+      "isWritable": false,
+      "description": "개발 환경 소스 데이터베이스 (읽기 전용)",
       "options": {
         "encrypt": true,
         "trustServerCertificate": true,
@@ -644,13 +671,43 @@ migrate-by-job.bat
       "server": "dev-target-server.company.com",
       "database": "DevTargetDB",
       "port": 1433,
-      "options": { /* 옵션들 */ }
+      "isWritable": true,
+      "description": "개발 환경 타겟 데이터베이스 (읽기/쓰기)",
+      "options": {
+        "encrypt": true,
+        "trustServerCertificate": true
+      }
     },
-    "prodSourceDB": { /* 운영 DB 설정 */ },
-    "prodTargetDB": { /* 운영 DB 설정 */ }
+    "prodSourceDB": {
+      "isWritable": false,
+      "description": "운영 환경 소스 데이터베이스 (읽기 전용)"
+      /* 기타 연결 설정 */
+    },
+    "prodTargetDB": {
+      "isWritable": true,
+      "description": "운영 환경 타겟 데이터베이스 (읽기/쓰기)"
+      /* 기타 연결 설정 */
+    }
   }
 }
 ```
+
+#### 🛡️ isWritable 속성 (🆕 신규)
+
+**속성 설명:**
+- `isWritable`: 데이터베이스 쓰기 권한 설정 (boolean)
+  - `true`: 읽기/쓰기 가능 (타겟 DB로 사용 가능)
+  - `false`: 읽기 전용 (소스 DB로만 사용 가능)
+  - 기본값: `false` (안전성을 위해 읽기 전용)
+
+- `description`: 데이터베이스 설명 (string, 선택사항)
+  - DB 목록 조회 시 표시되는 설명
+  - 용도나 환경 정보 명시 권장
+
+**보안 특징:**
+- 🛡️ **실수 방지**: 읽기 전용 DB를 타겟으로 사용하려 할 때 오류 발생
+- 🔒 **권한 제어**: 운영 DB 보호를 위한 명시적 권한 설정
+- 📊 **가시성**: `npm run list-dbs`로 모든 DB의 권한 상태 확인 가능
 
 #### JSON 형식 마이그레이션 설정 (DB ID 참조)
 ```json

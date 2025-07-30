@@ -8,6 +8,7 @@
     "dry-run": "node src/migrate-cli.js migrate --dry-run",
     "validate": "node src/migrate-cli.js validate",
     "test-connections": "node src/migrate-cli.js test",
+    "list-dbs": "node src/migrate-cli.js list-dbs",
     "help": "node src/migrate-cli.js help"
   },
   "dependencies": {
