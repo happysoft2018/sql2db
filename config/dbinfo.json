@@ -33,10 +33,10 @@
       }
     },
     "devSourceDB": {
-      "user": "dev_user",
-      "password": "dev_pass123!",
-      "server": "dev-source-server.company.com",
-      "database": "DevSourceDB",
+      "user": "sample",
+      "password": "sample1234!",
+      "server": "localhost",
+      "database": "sourceDB",
       "port": 1433,
       "isWritable": false,
       "description": "개발 환경 소스 데이터베이스 (읽기 전용)",
@@ -49,10 +49,10 @@
       }
     },
     "devTargetDB": {
-      "user": "dev_user",
-      "password": "dev_pass123!",
-      "server": "dev-target-server.company.com",
-      "database": "DevTargetDB",
+      "user": "sample",
+      "password": "sample1234!",
+      "server": "localhost",
+      "database": "targetDB",
       "port": 1433,
       "isWritable": true,
       "description": "개발 환경 타겟 데이터베이스 (읽기/쓰기)",
