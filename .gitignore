@@ -2,3 +2,5 @@
 node_modules/
 logs/
 .env
+dbinfo.json
+queries/
