@@ -54,11 +54,11 @@ ENABLE_LOGGING=true
 ```
 
 ### 3. 쿼리 설정 파일 구성
-`queries/migration-queries.json` 또는 `queries/migration-queries.xml` 파일을 수정하여 이관할 쿼리를 정의하세요.
+설정 파일을 생성하여 이관할 쿼리를 정의하세요. `--config` 옵션으로 파일 경로를 지정하세요.
 
 #### 지원 형식
-- **JSON 형식**: `migration-queries.json` (기존 방식)
-- **XML 형식**: `migration-queries.xml` (🆕 새로 추가됨)
+- **JSON 형식**: `.json` 확장자 (기존 방식)
+- **XML 형식**: `.xml` 확장자 (🆕 새로 추가됨)
 
 둘 다 동일한 기능을 제공하며, 선호하는 형식을 선택하여 사용할 수 있습니다.
 
@@ -170,9 +170,6 @@ node src/migrate-cli.js migrate --dry-run
 
 # 사용자 정의 설정 파일로 DRY RUN
 node src/migrate-cli.js migrate --config ./custom-config.json --dry-run
-
-# 작업별 설정으로 DRY RUN
-node src/migrate-cli.js migrate --job user --dry-run
 ```
 
 **DRY RUN 모드 특징:**
@@ -209,7 +206,7 @@ node src/migrate-cli.js migrate --config ./custom-config.xml
 
 ## 설정 파일 구조
 
-### migration-queries.json
+### 설정 파일 형식 (JSON)
 
 ```json
 {
@@ -495,70 +492,7 @@ queries/
 node src/migrate-cli.js list
 ```
 
-**작업별 실행:**
-```bash
-# 사용자 데이터 이관
-node src/migrate-cli.js migrate --job user
 
-# 주문 데이터 이관
-node src/migrate-cli.js migrate --job order
-
-# 상품 데이터 이관
-node src/migrate-cli.js migrate --job product
-```
-
-**작업별 검증:**
-```bash
-node src/migrate-cli.js validate --job user
-node src/migrate-cli.js test --job order
-```
-
-### 배치 파일 사용
-```bash
-# 작업별 이관 실행
-migrate-by-job.bat
-```
-
-### 작업별 설정 파일 예시
-
-**사용자 데이터 이관 (user-migration.json):**
-```json
-{
-  "name": "사용자 데이터 이관",
-  "description": "사용자 관련 테이블 데이터 이관 작업",
-  "version": "1.0.0",
-  "variables": {
-    "startDate": "2024-01-01",
-    "endDate": "2024-12-31",
-    "activeStatus": "ACTIVE",
-    "userTypes": ["CUSTOMER", "ADMIN", "MANAGER"]
-  },
-  "dynamicVariables": [
-    {
-      "id": "extract_active_user_ids",
-      "variableName": "activeUserIds",
-      "query": "SELECT user_id FROM users WHERE status = '${activeStatus}'",
-      "extractType": "single_column",
-      "enabled": true
-    }
-  ],
-  "queries": [
-    {
-      "id": "migrate_users",
-      "description": "사용자 기본 정보 이관",
-      "sourceQuery": "SELECT * FROM users WHERE status = '${activeStatus}' AND user_type IN (${userTypes})",
-      "targetTable": "users",
-      "enabled": true
-    }
-  ]
-}
-```
-
-### 장점
-- **체계적 관리**: 작업 유형별 설정 분리
-- **재사용성**: 동일한 작업 반복 실행 가능
-- **유지보수성**: 각 작업별 독립적 관리
-- **협업 효율성**: 팀원별 담당 영역 분리 가능
 
 ## 🆕 XML vs JSON 설정 형식 비교
 

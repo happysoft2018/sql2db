@@ -18,31 +18,19 @@ MSSQL 데이터 이관 도구
   migrate                    데이터 이관 실행
   validate                   설정 파일 검증
   test                       데이터베이스 연결 테스트
-  list                       사용 가능한 작업 설정 파일 목록 표시
   list-dbs                   사용 가능한 데이터베이스 목록 표시 (isWritable 정보 포함)
   help                       도움말 표시
 
 옵션:
   --config <파일경로>        사용자 정의 설정 파일 경로 (JSON 또는 XML)
-  --job <작업명>             작업별 설정 파일 사용 (예: user, order, product)
   --dry-run                  실제 이관 없이 시뮬레이션만 실행
 
 예시:
-  node src/migrate-cli.js migrate
   node src/migrate-cli.js migrate --config ./my-config.json
   node src/migrate-cli.js migrate --config ./my-config.xml
-  node src/migrate-cli.js migrate --job user
-  node src/migrate-cli.js migrate --job order
-  node src/migrate-cli.js list
   node src/migrate-cli.js list-dbs
-  node src/migrate-cli.js validate --job product
+  node src/migrate-cli.js validate --config ./my-config.json
   node src/migrate-cli.js test
-
-작업별 설정 파일:
-  queries/ 디렉토리에 있는 작업별 설정 파일을 사용할 수 있습니다.
-  - user-migration.json     : 사용자 데이터 이관
-  - order-migration.json    : 주문 데이터 이관
-  - product-migration.json  : 상품 데이터 이관
 
 환경 변수 설정:
   .env 파일 또는 시스템 환경 변수로 데이터베이스 연결 정보를 설정하세요.
@@ -50,69 +38,10 @@ MSSQL 데이터 이관 도구
 `);
 }
 
-// 사용 가능한 작업 설정 파일 목록 표시
-function listJobConfigs() {
-    const configsDir = path.join(__dirname, '../queries');
-    
-    if (!fs.existsSync(configsDir)) {
-        console.log('❌ 작업 설정 파일 디렉토리가 없습니다:', configsDir);
-        return;
-    }
-    
-    console.log('📋 사용 가능한 작업 설정 파일:');
-    console.log('=' .repeat(50));
-    
-    const files = fs.readdirSync(configsDir).filter(file => file.endsWith('.json'));
-    
-    if (files.length === 0) {
-        console.log('사용 가능한 작업 설정 파일이 없습니다.');
-        return;
-    }
-    
-    files.forEach(file => {
-        const filePath = path.join(configsDir, file);
-        try {
-            const config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            const jobName = file.replace('-migration.json', '');
-            console.log(`\n🔧 ${jobName}`);
-            console.log(`   이름: ${config.name}`);
-            console.log(`   설명: ${config.description}`);
-            console.log(`   버전: ${config.version}`);
-            console.log(`   파일: ${file}`);
-            console.log(`   쿼리 수: ${config.queries?.length || 0}`);
-            console.log(`   동적 변수 수: ${config.dynamicVariables?.length || 0}`);
-            console.log(`   사용법: --job ${jobName}`);
-        } catch (error) {
-            console.log(`\n❌ ${file}: 설정 파일 읽기 실패 - ${error.message}`);
-        }
-    });
-    
-    console.log('\n' + '=' .repeat(50));
-    console.log('사용 예시:');
-    console.log('  node src/migrate-cli.js migrate --job user');
-    console.log('  node src/migrate-cli.js validate --job order');
-}
-
-// 작업별 설정 파일 경로 해석
-function resolveConfigPath(jobName) {
-    if (!jobName) return null;
-    
-    const configsDir = path.join(__dirname, '../queries');
-    const configFile = `${jobName}-migration.json`;
-    const configPath = path.join(configsDir, configFile);
-    
-    if (!fs.existsSync(configPath)) {
-        throw new Error(`작업 설정 파일을 찾을 수 없습니다: ${configPath}`);
-    }
-    
-    return configPath;
-}
-
 // 옵션 파싱
 function parseOptions(args) {
     const options = {
         configPath: null,
-        jobName: null,
         dryRun: false
     };
     
@@ -122,19 +51,10 @@ function parseOptions(args) {
                 options.configPath = args[i + 1];
                 i++; // 다음 인수 건너뛰기
                 break;
-            case '--job':
-                options.jobName = args[i + 1];
-                i++; // 다음 인수 건너뛰기
-                break;
             case '--dry-run':
                 options.dryRun = true;
                 break;
         }
-    }
-    
-    // 작업명이 지정된 경우 해당 설정 파일 경로 설정
-    if (options.jobName && !options.configPath) {
-        options.configPath = resolveConfigPath(options.jobName);
     }
     
     return options;
@@ -148,16 +68,17 @@ async function main() {
             return;
         }
 
-        console.log('--------------- Arguments ----------------------');
+        console.log('--------------- 인수 ----------------------');
         console.log(args);
         console.log('------------------------------------------------');
         
         const options = parseOptions(args.slice(1));
         
-        // list 명령은 migrator 객체 없이 실행
-        if (command === 'list') {
-            listJobConfigs();
-            return;
+        if (!options.configPath) {
+            console.log('❌ 설정 파일이 지정되지 않았습니다.');
+            console.log('사용법:');
+            console.log('  --config <파일경로>  : 사용자 정의 설정 파일 사용');
+            process.exit(1);
         }
         
         const migrator = new MSSQLDataMigrator(options.configPath);
@@ -166,14 +87,7 @@ async function main() {
         console.log('=====================================');
         
         // 사용 중인 설정 파일 정보 표시
-        if (options.jobName) {
-            console.log(`📋 작업: ${options.jobName}`);
-            console.log(`📁 설정 파일: ${options.configPath}`);
-        } else if (options.configPath) {
-            console.log(`📁 설정 파일: ${options.configPath}`);
-        } else {
-            console.log('📁 설정 파일: 기본 설정 (queries/migration-queries.xml)');
-        }
+        console.log(`📁 설정 파일: ${options.configPath}`);
         console.log('');
         
         switch (command) {
@@ -183,7 +97,7 @@ async function main() {
                 if (options.dryRun) {
                     console.log('*** DRY RUN 모드 - 실제 데이터 변경 없음 ***\n');
                     
-                    const dryRunMigrator = new MSSQLDataMigrator(options.config, null, true);
+                    const dryRunMigrator = new MSSQLDataMigrator(options.configPath, null, true);
                     const result = await dryRunMigrator.executeDryRun();
                     
                     if (result.success) {
@@ -235,10 +149,6 @@ async function main() {
                     console.log('❌ 데이터베이스 연결에 실패했습니다.');
                     process.exit(1);
                 }
-                break;
-                
-            case 'list':
-                // 이미 위에서 처리됨
                 break;
                 
             case 'list-dbs':

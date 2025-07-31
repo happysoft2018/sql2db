@@ -14,10 +14,9 @@ echo.
 echo [선택] 테스트할 환경을 선택하세요:
 echo [1] 개발 환경 (dev-migration.json)
 echo [2] 운영 환경 (prod-migration.xml)
-echo [3] 기본 설정 (migration-queries.json)
-echo [4] 기본 설정 (migration-queries.xml)
+echo [3] 사용자 정의 설정 파일 입력
 echo.
-set /p env_choice="선택 (1-4): "
+set /p env_choice="선택 (1-3): "
 
 if "!env_choice!"=="1" (
     set "config_file=queries/dev-migration.json"
@@ -28,13 +27,10 @@ if "!env_choice!"=="1" (
     set "env_name=운영 환경"
     set "format_name=XML"
 ) else if "!env_choice!"=="3" (
-    set "config_file=queries/migration-queries.json"
-    set "env_name=기본 설정"
-    set "format_name=JSON"
-) else if "!env_choice!"=="4" (
-    set "config_file=queries/migration-queries.xml"
-    set "env_name=기본 설정"
-    set "format_name=XML"
+    echo.
+    set /p config_file="설정 파일 경로를 입력하세요: "
+    set "env_name=사용자 정의"
+    set "format_name=사용자 정의"
 ) else (
     echo [오류] 잘못된 선택입니다.
     echo.

@@ -11,20 +11,10 @@ echo [정보] 설정 파일에 포함된 DB 연결 정보를 사용한 마이그
 echo [정보] .env 파일의 DB 설정을 무시하고 설정 파일 내부의 DB 정보를 사용합니다.
 echo.
 
-echo [선택] 테스트할 설정 파일 형식을 선택하세요:
-echo [1] JSON 형식 (migration-queries.json)
-echo [2] XML 형식 (migration-queries.xml)
-echo.
-set /p format_choice="선택 (1 또는 2): "
-
-if "!format_choice!"=="1" (
-    set "config_file=queries/migration-queries.json"
-    set "format_name=JSON"
-) else if "!format_choice!"=="2" (
-    set "config_file=queries/migration-queries.xml"
-    set "format_name=XML"
-) else (
-    echo [오류] 잘못된 선택입니다.
+echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+set /p config_file=
+if "!config_file!"=="" (
+    echo 설정 파일 경로가 입력되지 않았습니다.
     echo.
     echo 아무 키나 누르면 창이 닫힙니다...
     pause >nul
@@ -32,7 +22,7 @@ if "!format_choice!"=="1" (
 )
 
 echo.
-echo [정보] 선택된 설정: !format_name! 형식 (!config_file!)
+echo [정보] 선택된 설정: 사용자 정의 형식 (!config_file!)
 echo.
 
 :: 1. 설정 파일 검증

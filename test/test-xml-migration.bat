@@ -8,12 +8,25 @@ echo =========================================
 echo.
 
 echo [정보] XML 설정 파일을 사용한 데이터 이관 테스트를 시작합니다.
-echo [정보] 설정 파일: queries/migration-queries.xml
+echo.
+
+:: 설정 파일 경로 입력
+echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+set /p config_file=
+if "!config_file!"=="" (
+    echo 설정 파일 경로가 입력되지 않았습니다.
+    echo.
+    echo 아무 키나 누르면 창이 닫힙니다...
+    pause >nul
+    exit /b 1
+)
+
+echo [정보] 설정 파일: !config_file!
 echo.
 
 :: 1. 설정 파일 검증
 echo [1단계] 설정 파일 검증 중...
-node src/migrate-cli.js validate --config queries/migration-queries.xml
+node src/migrate-cli.js validate --config "!config_file!"
 if errorlevel 1 (
     echo.
     echo [오류] 설정 파일 검증에 실패했습니다.
@@ -50,7 +63,7 @@ set /p confirm="실제 데이터 이관을 실행하려면 'Y'를 입력하세�
 if /i "!confirm!"=="Y" (
     echo.
     echo [3단계] XML 설정을 사용한 데이터 이관 실행 중...
-    node src/migrate-cli.js migrate --config queries/migration-queries.xml
+    node src/migrate-cli.js migrate --config "!config_file!"
     
     if errorlevel 1 (
         echo.

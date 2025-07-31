@@ -26,7 +26,7 @@ if %errorlevel% equ 0 (
     echo 확인할 항목:
     echo    - .env 파일 존재 여부
     echo    - 필수 환경 변수 설정
-    echo    - migration-queries.json 파일 구문
+    echo    - 설정 파일 구문 (JSON 또는 XML)
     echo    - 활성화된 쿼리 존재 여부
 )
 

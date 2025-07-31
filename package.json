@@ -4,9 +4,9 @@
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
   "main": "src/migrate-cli.js",
   "scripts": {
-    "migrate": "node src/migrate-cli.js migrate",
-    "dry-run": "node src/migrate-cli.js migrate --dry-run",
-    "validate": "node src/migrate-cli.js validate",
+    "migrate": "echo '사용법: npm run migrate -- --config <파일경로>' && node src/migrate-cli.js migrate",
+    "dry-run": "echo '사용법: npm run dry-run -- --config <파일경로>' && node src/migrate-cli.js migrate --dry-run",
+    "validate": "echo '사용법: npm run validate -- --config <파일경로>' && node src/migrate-cli.js validate",
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
     "help": "node src/migrate-cli.js help"

@@ -58,10 +58,19 @@ echo ═════════════════════════
 echo                        설정 파일 검증                             
 echo ══════════════════════════════════════════════════════════════════
 echo.
+echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+set /p config_file=
+if "%config_file%"=="" (
+    echo 설정 파일 경로가 입력되지 않았습니다.
+    echo.
+    pause
+    goto MENU
+)
+
+echo.
 echo 설정 파일을 검증하고 있습니다...
 echo.
-
-npm run validate
+node src/migrate-cli.js validate --config "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
@@ -84,7 +93,7 @@ echo.
 echo 데이터베이스 연결을 테스트하고 있습니다...
 echo.
 
-npm run test-connections
+node src/migrate-cli.js test
 
 if %errorlevel% equ 0 (
     echo.
@@ -107,6 +116,16 @@ echo ═════════════════════════
 echo.
 echo ⚠️  주의: 데이터 이관을 실행하기 전에 대상 데이터베이스를 백업해주세요.
 echo.
+echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+set /p config_file=
+if "%config_file%"=="" (
+    echo 설정 파일 경로가 입력되지 않았습니다.
+    echo.
+    pause
+    goto MENU
+)
+
+echo.
 echo 정말로 데이터 이관을 실행하시겠습니까? (Y/N)
 set /p confirm=
 if /i "!confirm!" neq "Y" (
@@ -119,11 +138,9 @@ if /i "!confirm!" neq "Y" (
 echo.
 echo 데이터 이관을 시작합니다...
 echo.
-
 :: 시작 시간 기록
 set start_time=%time%
-
-npm run migrate
+node src/migrate-cli.js migrate --config "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
@@ -204,7 +221,7 @@ echo.
 echo 편집할 파일을 선택하세요:
 echo.
 echo 1. .env (데이터베이스 연결 설정)
-echo 2. migration-queries.xml (쿼리 설정)
+echo 2. 사용자 정의 설정 파일
 echo 3. 돌아가기
 echo.
 set /p edit_choice=선택하세요 (1-3): 
@@ -224,10 +241,13 @@ if "%edit_choice%"=="1" (
         )
     )
 ) else if "%edit_choice%"=="2" (
-    if exist "queries\migration-queries.xml" (
-        notepad "queries\migration-queries.xml"
+    echo.
+    echo 편집할 설정 파일 경로를 입력하세요:
+    set /p edit_file=
+    if exist "!edit_file!" (
+        notepad "!edit_file!"
     ) else (
-        echo migration-queries.xml 파일을 찾을 수 없습니다.
+        echo 해당 파일을 찾을 수 없습니다: !edit_file!
     )
 ) else if "%edit_choice%"=="3" (
     goto MENU
