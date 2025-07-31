@@ -3,6 +3,7 @@
 const MSSQLDataMigrator = require('./mssql-data-migrator');
 const path = require('path');
 const fs = require('fs');
+const logger = require('./logger');
 
 // 명령줄 인수 파싱
 const args = process.argv.slice(2);
@@ -63,25 +64,31 @@ function parseOptions(args) {
 // 메인 실행 함수
 async function main() {
     try {
+        // 로거 초기화
+        logger.logLevelInfo();
+        
         if (!command || command === 'help') {
             showHelp();
             return;
         }
 
-        console.log('--------------- 인수 ----------------------');
-        console.log(args);
-        console.log('------------------------------------------------');
+        logger.debug('명령줄 인수', args);
         
         const options = parseOptions(args.slice(1));
         
         if (!options.configPath) {
-            console.log('❌ 설정 파일이 지정되지 않았습니다.');
+            logger.error('설정 파일이 지정되지 않았습니다.');
             console.log('사용법:');
             console.log('  --config <파일경로>  : 사용자 정의 설정 파일 사용');
             process.exit(1);
         }
         
         const migrator = new MSSQLDataMigrator(options.configPath);
+        
+        logger.info('MSSQL 데이터 이관 도구 시작', {
+            version: 'v1.0.0',
+            configPath: options.configPath
+        });
         
         console.log('MSSQL 데이터 이관 도구 v1.0.0');
         console.log('=====================================');

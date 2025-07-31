@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const xml2js = require('xml2js');
 const MSSQLConnectionManager = require('./mssql-connection-manager');
+const logger = require('./logger');
 require('dotenv').config();
 
 class MSSQLDataMigrator {
@@ -26,21 +27,23 @@ class MSSQLDataMigrator {
     async loadDbInfo() {
         try {
             if (!fs.existsSync(this.dbInfoPath)) {
-                console.log(`DB 정보 파일을 찾을 수 없습니다: ${this.dbInfoPath}`);
-                console.log('환경 변수(.env)를 사용합니다.');
+                logger.warn(`DB 정보 파일을 찾을 수 없습니다: ${this.dbInfoPath}`);
+                logger.info('환경 변수(.env)를 사용합니다.');
                 return null;
             }
 
             const dbInfoData = fs.readFileSync(this.dbInfoPath, 'utf8');
             this.dbInfo = JSON.parse(dbInfoData);
             
-            console.log('DB 정보 파일 로드 완료:', this.dbInfoPath);
-            console.log('사용 가능한 DB 목록:', Object.keys(this.dbInfo.dbs || {}));
+            logger.info('DB 정보 파일 로드 완료', {
+                path: this.dbInfoPath,
+                availableDbs: Object.keys(this.dbInfo.dbs || {})
+            });
             
             return this.dbInfo;
         } catch (error) {
-            console.error('DB 정보 파일 로드 실패:', error.message);
-            console.log('환경 변수(.env)를 사용합니다.');
+            logger.error('DB 정보 파일 로드 실패', error);
+            logger.info('환경 변수(.env)를 사용합니다.');
             return null;
         }
     }
@@ -96,7 +99,7 @@ class MSSQLDataMigrator {
             
             // 설정 파일에 DB 설정이 있으면 연결 관리자에 적용
             if (this.config.databases) {
-                console.log('설정 파일에서 DB 연결 정보를 발견했습니다.');
+                logger.info('설정 파일에서 DB 연결 정보를 발견했습니다.');
                 
                 let sourceConfig = null;
                 let targetConfig = null;
@@ -105,12 +108,20 @@ class MSSQLDataMigrator {
                 if (typeof this.config.databases.source === 'string') {
                     const sourceId = this.config.databases.source;
                     sourceConfig = this.getDbConfigById(sourceId);
-                    console.log('소스 DB ID:', sourceId, '→', sourceConfig.database, '@', sourceConfig.server, `(${sourceConfig.description})`);
+                    logger.info('소스 DB 설정', {
+                        id: sourceId,
+                        database: sourceConfig.database,
+                        server: sourceConfig.server,
+                        description: sourceConfig.description
+                    });
                 } else if (this.config.databases.source) {
                     // 기존 방식 (직접 설정)
                     sourceConfig = this.config.databases.source;
                     sourceConfig.description = sourceConfig.description || '직접 설정된 소스 데이터베이스';
-                    console.log('소스 DB:', sourceConfig.database, '@', sourceConfig.server, '(직접 설정)');
+                    logger.info('소스 DB 설정 (직접)', {
+                        database: sourceConfig.database,
+                        server: sourceConfig.server
+                    });
                 }
                 
                 if (typeof this.config.databases.target === 'string') {
@@ -124,28 +135,40 @@ class MSSQLDataMigrator {
                                       `쓰기 가능한 DB를 선택하거나 config/dbinfo.json에서 isWritable 속성을 true로 변경하세요.`);
                     }
                     
-                    console.log('타겟 DB ID:', targetId, '→', targetConfig.database, '@', targetConfig.server, `(${targetConfig.description})`);
+                    logger.info('타겟 DB 설정', {
+                        id: targetId,
+                        database: targetConfig.database,
+                        server: targetConfig.server,
+                        description: targetConfig.description,
+                        isWritable: targetConfig.isWritable
+                    });
                 } else if (this.config.databases.target) {
                     // 기존 방식 (직접 설정) - 기본적으로 쓰기 가능으로 간주
                     targetConfig = this.config.databases.target;
                     targetConfig.isWritable = targetConfig.isWritable ?? true; // 명시되지 않은 경우 쓰기 가능으로 간주
                     targetConfig.description = targetConfig.description || '직접 설정된 타겟 데이터베이스';
-                    console.log('타겟 DB:', targetConfig.database, '@', targetConfig.server, '(직접 설정)');
+                    logger.info('타겟 DB 설정 (직접)', {
+                        database: targetConfig.database,
+                        server: targetConfig.server,
+                        isWritable: targetConfig.isWritable
+                    });
                 }
                 
                 this.connectionManager.setCustomDatabaseConfigs(sourceConfig, targetConfig);
             } else {
-                console.log('환경 변수(.env)에서 DB 연결 정보를 사용합니다.');
+                logger.info('환경 변수(.env)에서 DB 연결 정보를 사용합니다.');
             }
             
-            console.log('설정 파일 로드 완료:', this.configPath);
-            console.log('파일 형식:', isXmlFile ? 'XML' : 'JSON');
-            console.log('정의된 변수:', this.variables);
-            console.log('활성화된 쿼리 수:', this.config.queries.filter(q => q.enabled).length);
+            logger.info('설정 파일 로드 완료', {
+                path: this.configPath,
+                format: isXmlFile ? 'XML' : 'JSON',
+                variables: this.variables,
+                enabledQueries: this.config.queries.filter(q => q.enabled).length
+            });
             
             return this.config;
         } catch (error) {
-            console.error('설정 파일 로드 실패:', error.message);
+            logger.error('설정 파일 로드 실패', error);
             throw new Error(`설정 파일 로드 실패: ${error.message}`);
         }
     }

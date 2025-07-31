@@ -50,7 +50,10 @@ TARGET_DB_PASSWORD=target_password
 # 이관 설정
 BATCH_SIZE=1000
 ENABLE_TRANSACTION=true
-ENABLE_LOGGING=true
+
+# 로깅 설정
+LOG_LEVEL=INFO
+ENABLE_FILE_LOGGING=true
 ```
 
 ### 3. 쿼리 설정 파일 구성
@@ -129,6 +132,15 @@ test-iswritable.bat
 - 읽기 전용 DB를 타겟으로 사용 시 오류 발생 확인
 - 쓰기 가능 DB를 타겟으로 사용 시 정상 처리 확인
 - 데이터베이스 목록 및 권한 정보 표시
+
+#### 9. 로그 레벨 테스트 (🆕 신규)
+```bash
+test-log-levels.bat
+```
+- 5단계 로그 레벨 시스템 테스트
+- ERROR, WARN, INFO, DEBUG, TRACE 레벨별 출력 확인
+- 로그 파일 생성 및 확인 기능
+- 환경별 로그 레벨 설정 가이드 제공
 
 ### 명령줄 인터페이스
 
@@ -251,7 +263,56 @@ node src/migrate-cli.js migrate --config ./custom-config.xml
 
 ## 🆕 새로운 기능
 
-### 1. SELECT * 자동 컬럼 감지
+### 1. 5단계 로그 레벨 시스템 (🆕 신규)
+
+환경과 목적에 따라 로그 출력 레벨을 조정할 수 있습니다.
+
+#### 로그 레벨 설정
+`.env` 파일에서 `LOG_LEVEL` 환경 변수로 설정:
+
+```env
+# 로그 레벨 설정 (ERROR, WARN, INFO, DEBUG, TRACE)
+LOG_LEVEL=INFO
+```
+
+#### 로그 레벨별 특징
+
+| 레벨 | 설명 | 출력 내용 | 사용 환경 |
+|------|------|-----------|-----------|
+| **ERROR** | 오류만 | 오류 메시지만 출력 | 운영 환경 (최소 로그) |
+| **WARN** | 경고와 오류 | 경고와 오류 메시지 | 운영 환경 |
+| **INFO** | 일반 정보 | 정보, 경고, 오류 (기본값) | 일반적인 사용 |
+| **DEBUG** | 디버그 정보 | 상세한 디버그 정보 포함 | 개발 환경 |
+| **TRACE** | 모든 로그 | 모든 로그 출력 | 문제 해결 |
+
+#### 로그 파일 관리
+- 로그는 `logs/` 디렉토리에 날짜별로 저장
+- 파일명: `migration-YYYY-MM-DD.log`
+- ANSI 색상 코드는 파일에서 제거되어 저장
+- 콘솔과 파일에 동시 출력
+
+#### 로그 테스트
+```bash
+# 로그 레벨 테스트
+test-log-levels.bat
+```
+
+#### 환경별 권장 설정
+```env
+# 운영 환경
+LOG_LEVEL=WARN
+
+# 개발 환경
+LOG_LEVEL=INFO
+
+# 디버깅
+LOG_LEVEL=DEBUG
+
+# 문제 해결
+LOG_LEVEL=TRACE
+```
+
+### 2. SELECT * 자동 컬럼 감지
 
 `SELECT *`를 사용하면 대상 테이블의 모든 컬럼을 자동으로 감지하여 `targetColumns`에 설정합니다.
 
