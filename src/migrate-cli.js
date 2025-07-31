@@ -147,6 +147,10 @@ async function main() {
             showHelp();
             return;
         }
+
+        console.log('--------------- Arguments ----------------------');
+        console.log(args);
+        console.log('------------------------------------------------');
         
         const options = parseOptions(args.slice(1));
         
@@ -168,7 +172,7 @@ async function main() {
         } else if (options.configPath) {
             console.log(`📁 설정 파일: ${options.configPath}`);
         } else {
-            console.log('📁 설정 파일: 기본 설정 (queries/migration-queries.json)');
+            console.log('📁 설정 파일: 기본 설정 (queries/migration-queries.xml)');
         }
         console.log('');
         

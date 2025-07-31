@@ -204,7 +204,7 @@ echo.
 echo 편집할 파일을 선택하세요:
 echo.
 echo 1. .env (데이터베이스 연결 설정)
-echo 2. migration-queries.json (쿼리 설정)
+echo 2. migration-queries.xml (쿼리 설정)
 echo 3. 돌아가기
 echo.
 set /p edit_choice=선택하세요 (1-3): 
@@ -224,10 +224,10 @@ if "%edit_choice%"=="1" (
         )
     )
 ) else if "%edit_choice%"=="2" (
-    if exist "queries\migration-queries.json" (
-        notepad "queries\migration-queries.json"
+    if exist "queries\migration-queries.xml" (
+        notepad "queries\migration-queries.xml"
     ) else (
-        echo migration-queries.json 파일을 찾을 수 없습니다.
+        echo migration-queries.xml 파일을 찾을 수 없습니다.
     )
 ) else if "%edit_choice%"=="3" (
     goto MENU

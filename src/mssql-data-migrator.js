@@ -6,7 +6,7 @@ require('dotenv').config();
 
 class MSSQLDataMigrator {
     constructor(configPath, dbInfoPath, dryRun = false) {
-        this.configPath = configPath || path.join(__dirname, '../queries/migration-queries.json');
+        this.configPath = configPath || path.join(__dirname, '../queries/migration-queries.xml');
         this.dbInfoPath = dbInfoPath || path.join(__dirname, '../config/dbinfo.json');
         this.connectionManager = new MSSQLConnectionManager();
         this.config = null;
@@ -308,7 +308,8 @@ class MSSQLDataMigrator {
                     if (q.sourceQueryFile) {
                         query.sourceQueryFile = q.sourceQueryFile;
                     } else if (q.sourceQuery) {
-                        query.sourceQuery = q.sourceQuery._.trim();
+                        // query.sourceQuery = q.sourceQuery._.trim();
+                        query.sourceQuery = q.sourceQuery.trim();
                     }
                     
                     // deleteWhere 처리
@@ -550,11 +551,15 @@ class MSSQLDataMigrator {
             // 계산된 순서대로 테이블 삭제
             for (const tableName of deletionOrder.order) {
                 const queryConfig = deletionQueries.find(q => q.targetTable === tableName);
-                if (queryConfig && queryConfig.deleteWhere) {
-                    this.log(`테이블 삭제 중: ${tableName}`);
+
+                if (queryConfig) {
+                    this.log(`테이블 삭제 중: ${tableName} ...`);
                     
                     // 변수 치환 적용
-                    const processedDeleteWhere = this.replaceVariables(queryConfig.deleteWhere);
+                    const processedDeleteWhere = '';
+                    if (queryConfig.deleteWhere) {
+                        processedDeleteWhere = this.replaceVariables(queryConfig.deleteWhere);
+                    }
                     
                     try {
                         await this.connectionManager.deleteFromTarget(tableName, processedDeleteWhere);
