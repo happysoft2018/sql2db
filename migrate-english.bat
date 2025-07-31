@@ -69,7 +69,7 @@ if "%config_file%"=="" (
 echo.
 echo Validating configuration file...
 echo.
-node src/migrate-cli.js validate --config "%config_file%"
+node src/migrate-cli.js validate --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
@@ -139,7 +139,7 @@ echo Starting data migration...
 echo.
 :: Record start time
 set start_time=%time%
-node src/migrate-cli.js migrate --config "%config_file%"
+node src/migrate-cli.js migrate --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.

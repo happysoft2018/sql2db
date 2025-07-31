@@ -49,7 +49,7 @@ echo 임시 설정 파일 생성 완료: temp-readonly-test.json
 echo 내용: source=sampleDB, target=erpDB(읽기전용)
 echo.
 
-node src/migrate-cli.js validate --config temp-readonly-test.json
+node src/migrate-cli.js validate --query temp-readonly-test.json
 
 if errorlevel 1 (
     echo.
@@ -83,7 +83,7 @@ echo 임시 설정 파일 생성 완료: temp-writable-test.json
 echo 내용: source=devSourceDB, target=devTargetDB(쓰기가능)
 echo.
 
-node src/migrate-cli.js validate --config temp-writable-test.json
+node src/migrate-cli.js validate --query temp-writable-test.json
 
 if errorlevel 1 (
     echo.

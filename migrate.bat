@@ -69,7 +69,7 @@ if "%config_file%"=="" (
 echo.
 echo 설정 파일을 검증하고 있습니다...
 echo.
-node src/migrate-cli.js validate --config "%config_file%"
+node src/migrate-cli.js validate --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
@@ -139,7 +139,7 @@ echo 데이터 이관을 시작합니다...
 echo.
 :: Record start time
 set start_time=%time%
-node src/migrate-cli.js migrate --config "%config_file%"
+node src/migrate-cli.js migrate --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.

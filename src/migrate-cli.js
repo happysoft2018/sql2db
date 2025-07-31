@@ -23,14 +23,14 @@ MSSQL 데이터 이관 도구
   help                       도움말 표시
 
 옵션:
-  --config <파일경로>        사용자 정의 설정 파일 경로 (JSON 또는 XML)
+  --query, -q <파일경로>     사용자 정의 설정 파일 경로 (JSON 또는 XML)
   --dry-run                  실제 이관 없이 시뮬레이션만 실행
 
 예시:
-  node src/migrate-cli.js migrate --config ./my-config.json
-  node src/migrate-cli.js migrate --config ./my-config.xml
+  node src/migrate-cli.js migrate --query ./my-config.json
+  node src/migrate-cli.js migrate -q ./my-config.xml
   node src/migrate-cli.js list-dbs
-  node src/migrate-cli.js validate --config ./my-config.json
+  node src/migrate-cli.js validate --query ./my-config.json
   node src/migrate-cli.js test
 
 환경 변수 설정:
@@ -48,7 +48,8 @@ function parseOptions(args) {
     
     for (let i = 0; i < args.length; i++) {
         switch (args[i]) {
-            case '--config':
+            case '--query':
+            case '-q':
                 options.configPath = args[i + 1];
                 i++; // 다음 인수 건너뛰기
                 break;
@@ -79,7 +80,7 @@ async function main() {
         if (!options.configPath) {
             logger.error('설정 파일이 지정되지 않았습니다.');
             console.log('사용법:');
-            console.log('  --config <파일경로>  : 사용자 정의 설정 파일 사용');
+            console.log('  --query, -q <파일경로>  : 사용자 정의 설정 파일 사용');
             process.exit(1);
         }
         

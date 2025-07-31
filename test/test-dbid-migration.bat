@@ -59,7 +59,7 @@ echo.
 
 :: 2. 설정 파일 검증
 echo [1단계] 설정 파일 검증 중...
-node src/migrate-cli.js validate --config !config_file!
+node src/migrate-cli.js validate --query !config_file!
 if errorlevel 1 (
     echo.
     echo [오류] 설정 파일 검증에 실패했습니다.
@@ -78,7 +78,7 @@ echo.
 :: 3. 데이터베이스 연결 테스트
 echo [2단계] 데이터베이스 연결 테스트 중...
 echo [정보] config/dbinfo.json에서 DB ID로 조회한 연결 정보를 테스트합니다.
-node src/migrate-cli.js test --config !config_file!
+node src/migrate-cli.js test --query !config_file!
 if errorlevel 1 (
     echo.
     echo [오류] 데이터베이스 연결 테스트에 실패했습니다.
@@ -107,7 +107,7 @@ set /p confirm="실제 데이터 이관을 실행하려면 'Y'를 입력하세�
 if /i "!confirm!"=="Y" (
     echo.
     echo [3단계] DB ID 참조 방식을 사용한 데이터 이관 실행 중...
-    node src/migrate-cli.js migrate --config !config_file!
+    node src/migrate-cli.js migrate --query !config_file!
     
     if errorlevel 1 (
         echo.

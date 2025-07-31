@@ -8,7 +8,7 @@ require('dotenv').config();
 class MSSQLDataMigrator {
     constructor(configPath, dbInfoPath, dryRun = false) {
         if (!configPath) {
-            throw new Error('설정 파일 경로가 필요합니다. --config 옵션을 사용하여 파일 경로를 지정하세요.');
+            throw new Error('설정 파일 경로가 필요합니다. --query 또는 -q 옵션을 사용하여 파일 경로를 지정하세요.');
         }
         this.configPath = configPath;
         this.dbInfoPath = dbInfoPath || path.join(__dirname, '../config/dbinfo.json');

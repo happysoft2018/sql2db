@@ -26,7 +26,7 @@ echo.
 
 :: 1. 설정 파일 검증
 echo [1단계] 설정 파일 검증 중...
-node src/migrate-cli.js validate --config "!config_file!"
+node src/migrate-cli.js validate --query "!config_file!"
 if errorlevel 1 (
     echo.
     echo [오류] 설정 파일 검증에 실패했습니다.
@@ -63,7 +63,7 @@ set /p confirm="실제 데이터 이관을 실행하려면 'Y'를 입력하세�
 if /i "!confirm!"=="Y" (
     echo.
     echo [3단계] XML 설정을 사용한 데이터 이관 실행 중...
-    node src/migrate-cli.js migrate --config "!config_file!"
+    node src/migrate-cli.js migrate --query "!config_file!"
     
     if errorlevel 1 (
         echo.

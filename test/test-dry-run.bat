@@ -32,7 +32,7 @@ echo.
 echo [1단계] DRY RUN 시뮬레이션 실행 중...
 echo.
 
-node src/migrate-cli.js migrate --config "!config_file!" --dry-run
+node src/migrate-cli.js migrate --query "!config_file!" --dry-run
 
 if errorlevel 1 (
     echo.

@@ -96,7 +96,7 @@ echo [설정] test/sample-migration-test.json
 echo.
 
 if exist "test\sample-migration-test.json" (
-    node ..\src\migrate-cli.js validate --config test\sample-migration-test.json
+    node ..\src\migrate-cli.js validate --query test\sample-migration-test.json
     
     if errorlevel 1 (
         echo.
@@ -125,7 +125,7 @@ echo [실행] DRY RUN 모드로 마이그레이션을 시뮬레이션합니다..
 echo [모드] 실제 데이터 변경 없이 검증만 수행
 echo.
 
-node ..\src\migrate-cli.js migrate --config test\sample-migration-test.json --dry-run
+node ..\src\migrate-cli.js migrate --query test\sample-migration-test.json --dry-run
 
 if errorlevel 1 (
     echo.
@@ -154,7 +154,7 @@ if /i not "%run_migration%"=="Y" (
     echo.
     echo [완료] DRY RUN 테스트까지 완료되었습니다.
     echo [참고] 실제 마이그레이션을 원하면 다음 명령을 실행하세요:
-    echo        node ..\src\migrate-cli.js migrate --config test\sample-migration-test.json
+    echo        node ..\src\migrate-cli.js migrate --query test\sample-migration-test.json
     echo.
     echo 아무 키나 누르면 창이 닫힙니다...
     pause >nul
@@ -165,7 +165,7 @@ echo.
 echo [실행] 실제 마이그레이션을 시작합니다...
 echo.
 
-node ..\src\migrate-cli.js migrate --config test\sample-migration-test.json
+node ..\src\migrate-cli.js migrate --query test\sample-migration-test.json
 
 if errorlevel 1 (
     echo.

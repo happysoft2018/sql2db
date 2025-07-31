@@ -75,7 +75,7 @@ echo.
 
 :: 선택된 로그 레벨로 환경 변수 설정하고 테스트 실행
 set LOG_LEVEL=!log_level!
-node src/migrate-cli.js validate --config queries\test-log-config.json
+node src/migrate-cli.js validate --query queries\test-log-config.json
 
 if errorlevel 1 (
     echo.

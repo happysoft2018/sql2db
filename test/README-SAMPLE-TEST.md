@@ -118,13 +118,13 @@ sqlcmd -S "서버명" -d "데이터베이스명" -i "test/insert-sample-data.sql
 #### 3단계: 마이그레이션 테스트
 ```bash
 # 설정 검증
-node ../src/migrate-cli.js validate --config test/sample-migration-test.json
+node ../src/migrate-cli.js validate --query test/sample-migration-test.json
 
 # DRY RUN 테스트
-node ../src/migrate-cli.js migrate --config test/sample-migration-test.json --dry-run
+node ../src/migrate-cli.js migrate --query test/sample-migration-test.json --dry-run
 
 # 실제 마이그레이션
-node ../src/migrate-cli.js migrate --config test/sample-migration-test.json
+node ../src/migrate-cli.js migrate --query test/sample-migration-test.json
 ```
 
 ## 🎯 테스트되는 기능들

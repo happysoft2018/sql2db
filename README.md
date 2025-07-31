@@ -57,7 +57,7 @@ ENABLE_FILE_LOGGING=true
 ```
 
 ### 3. 쿼리 설정 파일 구성
-설정 파일을 생성하여 이관할 쿼리를 정의하세요. `--config` 옵션으로 파일 경로를 지정하세요.
+설정 파일을 생성하여 이관할 쿼리를 정의하세요. `--query` 또는 `-q` 옵션으로 파일 경로를 지정하세요.
 
 #### 지원 형식
 - **JSON 형식**: `.json` 확장자 (기존 방식)
@@ -181,7 +181,7 @@ npm run dry-run
 node src/migrate-cli.js migrate --dry-run
 
 # 사용자 정의 설정 파일로 DRY RUN
-node src/migrate-cli.js migrate --config ./custom-config.json --dry-run
+node src/migrate-cli.js migrate --query ./custom-config.json --dry-run
 ```
 
 **DRY RUN 모드 특징:**
@@ -210,10 +210,10 @@ node src/migrate-cli.js list-dbs
 #### 7. 사용자 정의 설정 파일 사용
 ```bash
 # JSON 형식 사용
-node src/migrate-cli.js migrate --config ./custom-config.json
+node src/migrate-cli.js migrate --query ./custom-config.json
 
 # XML 형식 사용 (🆕 신규)
-node src/migrate-cli.js migrate --config ./custom-config.xml
+node src/migrate-cli.js migrate --query ./custom-config.xml
 ```
 
 ## 설정 파일 구조
@@ -843,11 +843,11 @@ node src/migrate-cli.js list
 
 ```bash
 # DB ID 참조 방식 (권장)
-node src/migrate-cli.js migrate --config dev-migration.json
-node src/migrate-cli.js migrate --config prod-migration.xml
+node src/migrate-cli.js migrate --query dev-migration.json
+node src/migrate-cli.js migrate --query prod-migration.xml
 
 # 직접 설정 방식 (기존)
-node src/migrate-cli.js migrate --config custom-db-config.json
+node src/migrate-cli.js migrate --query custom-db-config.json
 
 # 테스트 배치 파일 사용
 test-dbid-migration.bat          # DB ID 참조 방식 테스트
