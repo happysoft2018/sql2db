@@ -1,7 +1,7 @@
 {
   "databases": {
-    "source": "devSourceDB",
-    "target": "devTargetDB"
+    "source": "prodDB",
+    "target": "devDB"
   },
   "variables": {
     "startDate": "2024-01-01",

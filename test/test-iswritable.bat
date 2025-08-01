@@ -32,21 +32,21 @@ echo =========================================
 echo.
 
 echo [2단계] 읽기 전용 DB를 타겟으로 설정하여 오류 발생 확인
-echo [테스트] erpDB(읽기 전용)를 타겟으로 사용 시도...
+echo [테스트] prodDB(읽기 전용)를 타겟으로 사용 시도...
 echo.
 
 :: 임시 설정 파일 생성 (읽기 전용 DB를 타겟으로 설정)
 echo {> temp-readonly-test.json
 echo   "databases": {>> temp-readonly-test.json
 echo     "source": "sampleDB",>> temp-readonly-test.json
-echo     "target": "erpDB">> temp-readonly-test.json
+echo     "target": "prodDB">> temp-readonly-test.json
 echo   },>> temp-readonly-test.json
 echo   "variables": {},>> temp-readonly-test.json
 echo   "queries": []>> temp-readonly-test.json
 echo }>> temp-readonly-test.json
 
 echo 임시 설정 파일 생성 완료: temp-readonly-test.json
-echo 내용: source=sampleDB, target=erpDB(읽기전용)
+echo 내용: source=sampleDB, target=prodDB(읽기전용)
 echo.
 
 node src/migrate-cli.js validate --query temp-readonly-test.json
@@ -66,21 +66,21 @@ echo =========================================
 echo.
 
 echo [3단계] 쓰기 가능 DB를 타겟으로 설정하여 정상 작동 확인
-echo [테스트] devTargetDB(쓰기 가능)를 타겟으로 사용 시도...
+echo [테스트] devDB(쓰기 가능)를 타겟으로 사용 시도...
 echo.
 
 :: 임시 설정 파일 생성 (쓰기 가능 DB를 타겟으로 설정)
 echo {> temp-writable-test.json
 echo   "databases": {>> temp-writable-test.json
-echo     "source": "devSourceDB",>> temp-writable-test.json
-echo     "target": "devTargetDB">> temp-writable-test.json
+echo     "source": "prodDB",>> temp-writable-test.json
+echo     "target": "devDB">> temp-writable-test.json
 echo   },>> temp-writable-test.json
 echo   "variables": {},>> temp-writable-test.json
 echo   "queries": []>> temp-writable-test.json
 echo }>> temp-writable-test.json
 
 echo 임시 설정 파일 생성 완료: temp-writable-test.json
-echo 내용: source=devSourceDB, target=devTargetDB(쓰기가능)
+echo 내용: source=devDB, target=devDB(쓰기가능)
 echo.
 
 node src/migrate-cli.js validate --query temp-writable-test.json
