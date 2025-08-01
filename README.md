@@ -23,29 +23,56 @@
 npm install
 ```
 
-### 2. 환경 변수 설정
-`queries/env.example` 파일을 참고하여 `.env` 파일을 생성하고 데이터베이스 연결 정보를 설정하세요.
+### 2. 데이터베이스 연결 설정
 
-```bash
-# .env 파일 생성
-cp queries/env.example .env
+#### 권장 방법: config/dbinfo.json 사용
+
+ DB 연결 정보 관리를 위해 `config/dbinfo.json` 파일을 사용 합니다.
+
+`config/dbinfo.json` 파일 예시:
+```json
+{
+  "dbs": {
+    "sourceDB": {
+      "user": "source_user",
+      "password": "source_password",
+      "server": "source-server.com",
+      "database": "source_db",
+      "port": 1433,
+      "isWritable": false,
+      "description": "소스 데이터베이스 (읽기 전용)",
+      "options": {
+        "encrypt": true,
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    },
+    "targetDB": {
+      "user": "target_user",
+      "password": "target_password",
+      "server": "target-server.com",
+      "database": "target_db",
+      "port": 1433,
+      "isWritable": true,
+      "description": "타겟 데이터베이스 (읽기/쓰기)",
+      "options": {
+        "encrypt": true,
+        "trustServerCertificate": true,
+        "enableArithAbort": true,
+        "requestTimeout": 300000,
+        "connectionTimeout": 30000
+      }
+    }
+  }
+}
 ```
+
+#### 기타 환경설정: .env 파일 사용
 
 `.env` 파일 예시:
 ```env
-# 소스 데이터베이스
-SOURCE_DB_SERVER=source-server.com
-SOURCE_DB_PORT=1433
-SOURCE_DB_DATABASE=source_db
-SOURCE_DB_USER=source_user
-SOURCE_DB_PASSWORD=source_password
-
-# 대상 데이터베이스
-TARGET_DB_SERVER=target-server.com
-TARGET_DB_PORT=1433
-TARGET_DB_DATABASE=target_db
-TARGET_DB_USER=target_user
-TARGET_DB_PASSWORD=target_password
 
 # 이관 설정
 BATCH_SIZE=1000
@@ -98,14 +125,6 @@ test-xml-migration.bat
 ```
 - XML 형식의 설정 파일을 사용한 완전한 테스트
 - 검증 → 연결 테스트 → 이관 실행의 전체 플로우 제공
-
-#### 5. 설정 파일 DB 연결 테스트 (🆕 신규)
-```bash
-test-config-db-migration.bat
-```
-- 설정 파일에 포함된 DB 연결 정보를 사용한 테스트
-- .env 파일 설정을 무시하고 설정 파일 내부의 DB 정보 우선 사용
-- JSON/XML 형식 선택 가능
 
 #### 6. DB ID 참조 방식 테스트 (🆕 신규)
 ```bash
@@ -222,6 +241,37 @@ node src/migrate-cli.js migrate --query ./custom-config.xml
 
 ```json
 {
+  "databases": {
+    "source": "sourceDB",
+    "target": "targetDB"
+  },
+  "variables": {
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "batchSize": 1000,
+    "companyCode": "COMPANY01"
+  },
+  "queries": [
+    {
+      "id": "migrate_users",
+      "description": "사용자 테이블 데이터 이관",
+      "sourceQuery": "SELECT user_id, username, email FROM users WHERE created_date >= '${startDate}'",
+      "deleteWhere": "WHERE created_date >= '${startDate}' AND created_date <= '${endDate}'",
+      "targetTable": "users",
+      "targetColumns": ["user_id", "username", "email"],
+      "batchSize": "${batchSize}",
+      "primaryKey": "user_id",
+      "deleteBeforeInsert": false,
+      "enabled": true
+    }
+  ]
+}
+```
+
+#### 기존 방식 (.env 파일 사용)
+
+```json
+{
   "variables": {
     "startDate": "2024-01-01",
     "endDate": "2024-12-31",
@@ -247,6 +297,9 @@ node src/migrate-cli.js migrate --query ./custom-config.xml
 
 #### 설정 옵션 설명
 
+- **databases**: DB 연결 정보 (선택사항)
+  - `source`: 소스 DB ID 또는 직접 연결 정보 (config/dbinfo.json의 DB ID 권장)
+  - `target`: 타겟 DB ID 또는 직접 연결 정보 (config/dbinfo.json의 DB ID 권장)
 - **variables**: 쿼리에서 사용할 변수들을 정의
 - **queries**: 이관할 쿼리 목록
   - `id`: 쿼리 고유 식별자
@@ -268,7 +321,7 @@ node src/migrate-cli.js migrate --query ./custom-config.xml
 환경과 목적에 따라 로그 출력 레벨을 조정할 수 있습니다.
 
 #### 로그 레벨 설정
-`.env` 파일에서 `LOG_LEVEL` 환경 변수로 설정:
+`.env` 파일 또는 환경 변수에서 `LOG_LEVEL`로 설정:
 
 ```env
 # 로그 레벨 설정 (ERROR, WARN, INFO, DEBUG, TRACE)
@@ -387,33 +440,60 @@ ORDER BY o.order_date DESC
 
 ## 설정 예시
 
-### 기본 설정
+### 기본 설정 
 ```json
 {
-  "id": "basic_migration",
-  "sourceQuery": "SELECT id, name, email FROM users",
-  "targetTable": "users",
-  "targetColumns": ["id", "name", "email"]
+  "databases": {
+    "source": "sourceDB",
+    "target": "targetDB"
+  },
+  "queries": [
+    {
+      "id": "basic_migration",
+      "sourceQuery": "SELECT id, name, email FROM users",
+      "targetTable": "users",
+      "targetColumns": ["id", "name", "email"],
+      "enabled": true
+    }
+  ]
 }
 ```
 
 ### SELECT * 사용
 ```json
 {
-  "id": "auto_columns",
-  "sourceQuery": "SELECT * FROM products",
-  "targetTable": "products",
-  "targetColumns": []  // 자동 설정
+  "databases": {
+    "source": "sourceDB",
+    "target": "targetDB"
+  },
+  "queries": [
+    {
+      "id": "auto_columns",
+      "sourceQuery": "SELECT * FROM products",
+      "targetTable": "products",
+      "targetColumns": [],  // 자동 설정
+      "enabled": true
+    }
+  ]
 }
 ```
 
 ### SQL 파일 + SELECT *
 ```json
 {
-  "id": "file_with_auto_columns",
-  "sourceQueryFile": "sql/complex_query.sql",  // SELECT * FROM table_name
-  "targetTable": "target_table",
-  "targetColumns": []  // 자동 설정
+  "databases": {
+    "source": "sourceDB",
+    "target": "targetDB"
+  },
+  "queries": [
+    {
+      "id": "file_with_auto_columns",
+      "sourceQueryFile": "sql/complex_query.sql",  // SELECT * FROM table_name
+      "targetTable": "target_table",
+      "targetColumns": [],  // 자동 설정
+      "enabled": true
+    }
+  ]
 }
 ```
 
@@ -624,21 +704,15 @@ node src/migrate-cli.js list
 - 엄격한 스키마 검증이 필요한 경우
 - CDATA 섹션으로 SQL을 깔끔하게 관리하고 싶은 경우
 
-## 🆕 설정 파일 내 DB 연결 정보 관리
+## 🆕 고급 DB 연결 정보 관리
 
-설정 파일에서 DB 연결 정보를 관리하는 두 가지 방식을 지원합니다:
-1. **직접 설정 방식**: 설정 파일에 연결 정보 직접 포함
-2. **DB ID 참조 방식**: config/dbinfo.json에 정의된 DB ID 참조 (🆕 권장)
+1. config/dbinfo.json에 정의된 DB ID 참조 (권장)
 
 ### 기능 개요
 
-- **우선순위**: 설정 파일 > .env 파일 > 환경 변수
 - **프로젝트별 설정**: 각 마이그레이션 작업별로 다른 DB 사용 가능
 - **팀 협업 지원**: 일관된 DB 설정을 프로젝트와 함께 공유
-- **보안 고려**: 민감한 정보는 여전히 환경 변수 사용 권장
 - **중앙 집중 관리**: config/dbinfo.json에서 모든 DB 연결 정보 관리 (🆕)
-
-### 🆕 DB ID 참조 방식 (권장)
 
 #### config/dbinfo.json 설정
 ```json
@@ -729,89 +803,6 @@ node src/migrate-cli.js list
 </migration>
 ```
 
-### 직접 설정 방식 (기존 방식)
-
-#### JSON 형식 DB 설정
-```json
-{
-  "databases": {
-    "source": {
-      "id": "sourceDB",
-      "server": "source-server.company.com",
-      "port": 1433,
-      "database": "SourceDB",
-      "user": "source_user",
-      "password": "source_pass123!",
-      "options": {
-        "encrypt": true,
-        "trustServerCertificate": true,
-        "enableArithAbort": true,
-        "requestTimeout": 300000,
-        "connectionTimeout": 30000
-      }
-    },
-    "target": {
-      "id": "targetDB",
-      "server": "target-server.company.com", 
-      "port": 1433,
-      "database": "TargetDB",
-      "user": "target_user",
-      "password": "target_pass123!",
-      "options": {
-        "encrypt": true,
-        "trustServerCertificate": true,
-        "enableArithAbort": true,
-        "requestTimeout": 300000,
-        "connectionTimeout": 30000
-      }
-    }
-  },
-  "variables": { ... },
-  "queries": [ ... ]
-}
-```
-
-### XML 형식 DB 설정
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<migration>
-  <databases>
-    <source id="sourceDB">
-      <server>source-server.company.com</server>
-      <port>1433</port>
-      <database>SourceDB</database>
-      <user>source_user</user>
-      <password>source_pass123!</password>
-      <options>
-        <encrypt>true</encrypt>
-        <trustServerCertificate>true</trustServerCertificate>
-        <enableArithAbort>true</enableArithAbort>
-        <requestTimeout>300000</requestTimeout>
-        <connectionTimeout>30000</connectionTimeout>
-      </options>
-    </source>
-    <target id="targetDB">
-      <server>target-server.company.com</server>
-      <port>1433</port>
-      <database>TargetDB</database>
-      <user>target_user</user>
-      <password>target_pass123!</password>
-      <options>
-        <encrypt>true</encrypt>
-        <trustServerCertificate>true</trustServerCertificate>
-        <enableArithAbort>true</enableArithAbort>
-        <requestTimeout>300000</requestTimeout>
-        <connectionTimeout>30000</connectionTimeout>
-      </options>
-    </target>
-  </databases>
-  
-  <variables>...</variables>
-  <queries>...</queries>
-</migration>
-```
-
 ### 설정 속성 설명
 
 | 속성명 | 필수 | 설명 | 기본값 |
@@ -827,31 +818,16 @@ node src/migrate-cli.js list
 | `options.requestTimeout` | ❌ | 요청 타임아웃 (ms) | 300000 |
 | `options.connectionTimeout` | ❌ | 연결 타임아웃 (ms) | 30000 |
 
-### 방식별 장단점 비교
-
-| 기능 | DB ID 참조 방식 | 직접 설정 방식 |
-|------|-----------------|----------------|
-| **설정 파일 크기** | ✅ 간결함 | ❌ 상세함 |
-| **중앙 집중 관리** | ✅ config/dbinfo.json | ❌ 분산 관리 |
-| **재사용성** | ✅ 높음 | ❌ 낮음 |
-| **보안** | ✅ 분리된 관리 | ⚠️ 설정 파일에 노출 |
-| **환경별 분리** | ✅ DB ID로 구분 | ⚠️ 파일별 관리 |
-| **설정 복잡도** | ✅ 단순 | ❌ 복잡 |
-| **즉시 사용** | ⚠️ dbinfo.json 필요 | ✅ 독립적 |
 
 ### 사용법
 
 ```bash
-# DB ID 참조 방식 (권장)
 node src/migrate-cli.js migrate --query dev-migration.json
 node src/migrate-cli.js migrate --query prod-migration.xml
 
-# 직접 설정 방식 (기존)
-node src/migrate-cli.js migrate --query custom-db-config.json
 
 # 테스트 배치 파일 사용
-test-dbid-migration.bat          # DB ID 참조 방식 테스트
-test-config-db-migration.bat     # 직접 설정 방식 테스트
+test-dbid-migration.bat 
 ```
 
 ### 장점
