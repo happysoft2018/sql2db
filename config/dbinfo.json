@@ -16,11 +16,11 @@
         "connectionTimeout": 30000
       }
     },
-    "devDB": {
-      "user": "dev",
-      "password": "dev1234!",
+    "targetDB": {
+      "user": "sample",
+      "password": "sample1234!",
       "server": "localhost",
-      "database": "devDB",
+      "database": "targetDB",
       "port": 1433,
       "isWritable": true,
       "description": "개발 환경 소스 데이터베이스 (읽기/쓰기 가능)",
@@ -32,11 +32,11 @@
         "connectionTimeout": 30000
       }
     },
-    "prodDB": {
-      "user": "prod",
-      "password": "prod1234!",
+    "sourceDB": {
+      "user": "sample",
+      "password": "sample1234!",
       "server": "localhost",
-      "database": "prodDB",
+      "database": "sourceDB",
       "port": 1433,
       "isWritable": false,
       "description": "운영 환경 소스 데이터베이스 (읽기 전용)",

@@ -718,11 +718,11 @@ node src/migrate-cli.js list
 ```json
 {
   "dbs": {
-    "prodDB": {
+    "sourceDB": {
       "user": "prod",
       "password": "prod1234!",
       "server": "localhost",
-      "database": "devDB",
+      "database": "targetDB",
       "port": 1433,
       "isWritable": false,
       "description": "개발 환경 소스 데이터베이스 (읽기 전용)",
@@ -734,11 +734,11 @@ node src/migrate-cli.js list
         "connectionTimeout": 30000
       }
     },
-    "devDB": {
+    "targetDB": {
       "user": "dev",
       "password": "dev1234!",
       "server": "localhost",
-      "database": "devDB",
+      "database": "targetDB",
       "port": 1433,
       "isWritable": true,
       "description": "개발 환경 타겟 데이터베이스 (읽기/쓰기)",
@@ -772,8 +772,8 @@ node src/migrate-cli.js list
 ```json
 {
   "databases": {
-    "source": "devDB",
-    "target": "devDB"
+    "source": "targetDB",
+    "target": "targetDB"
   },
   "variables": { /* 변수들 */ },
   "queries": [ /* 쿼리들 */ ]
@@ -785,8 +785,8 @@ node src/migrate-cli.js list
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
   <databases>
-    <source>devDB</source>
-    <target>devDB</target>
+    <source>targetDB</source>
+    <target>targetDB</target>
   </databases>
   <variables>...</variables>
   <queries>...</queries>

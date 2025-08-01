@@ -2,8 +2,8 @@
 <migration>
   <!-- 운영 환경 데이터베이스 연결 설정 (dbinfo.json 참조) -->
   <databases>
-    <source>prodDB</source>
-    <target>devDB</target>
+    <source>sourceDB</source>
+    <target>targetDB</target>
   </databases>
 
   <!-- 운영 환경 전역 변수 정의 -->

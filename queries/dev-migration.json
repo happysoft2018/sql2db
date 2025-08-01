@@ -3,8 +3,8 @@
   "description": "개발용 데이터베이스 간 데이터 이관 작업",
   "version": "1.0.0",
   "databases": {
-    "source": "prodDB",
-    "target": "devDB"
+    "source": "sourceDB",
+    "target": "targetDB"
   },
   "variables": {
     "startDate": "2024-01-01",
