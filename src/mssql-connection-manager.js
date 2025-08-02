@@ -15,93 +15,26 @@ class MSSQLConnectionManager {
     setCustomDatabaseConfigs(sourceConfig, targetConfig) {
         this.customSourceConfig = sourceConfig;
         this.customTargetConfig = targetConfig;
+        console.log('--------------> customSourceConfig', this.customSourceConfig);
+        console.log('--------------> customTargetConfig', this.customTargetConfig);
     }
 
     // 소스 데이터베이스 연결 설정
-    getSourceConfig() {
-        // 커스텀 설정이 있으면 우선 사용
-        if (this.customSourceConfig) {
-            return {
-                server: this.customSourceConfig.server,
-                port: this.customSourceConfig.port || 1433,
-                database: this.customSourceConfig.database,
-                user: this.customSourceConfig.user,
-                password: this.customSourceConfig.password,
-                options: {
-                    encrypt: this.customSourceConfig.options?.encrypt ?? true,
-                    trustServerCertificate: this.customSourceConfig.options?.trustServerCertificate ?? true,
-                    enableArithAbort: this.customSourceConfig.options?.enableArithAbort ?? true,
-                    requestTimeout: this.customSourceConfig.options?.requestTimeout ?? 300000,
-                    connectionTimeout: this.customSourceConfig.options?.connectionTimeout ?? 30000
-                },
-                pool: {
-                    max: 10,
-                    min: 0,
-                    idleTimeoutMillis: 30000
-                }
-            };
-        }
-        
-        // 환경 변수 기반 설정 (기존 방식)
-        return {
-            server: process.env.SOURCE_DB_SERVER,
-            port: parseInt(process.env.SOURCE_DB_PORT) || 1433,
-            database: process.env.SOURCE_DB_DATABASE,
-            user: process.env.SOURCE_DB_USER,
-            password: process.env.SOURCE_DB_PASSWORD,
-            options: {
-                encrypt: true, // Azure SQL의 경우 true
-                trustServerCertificate: true, // 개발 환경에서 true
-                enableArithAbort: true,
-                requestTimeout: 300000, // 5분
-                connectionTimeout: 30000 // 30초
-            },
-            pool: {
-                max: 10,
-                min: 0,
-                idleTimeoutMillis: 30000
-            }
-        };
-    }
+    getDBConfig(dbConfig) {
 
-    // 대상 데이터베이스 연결 설정
-    getTargetConfig() {
-        // 커스텀 설정이 있으면 우선 사용
-        if (this.customTargetConfig) {
-            return {
-                server: this.customTargetConfig.server,
-                port: this.customTargetConfig.port || 1433,
-                database: this.customTargetConfig.database,
-                user: this.customTargetConfig.user,
-                password: this.customTargetConfig.password,
-                options: {
-                    encrypt: this.customTargetConfig.options?.encrypt ?? true,
-                    trustServerCertificate: this.customTargetConfig.options?.trustServerCertificate ?? true,
-                    enableArithAbort: this.customTargetConfig.options?.enableArithAbort ?? true,
-                    requestTimeout: this.customTargetConfig.options?.requestTimeout ?? 300000,
-                    connectionTimeout: this.customTargetConfig.options?.connectionTimeout ?? 30000
-                },
-                pool: {
-                    max: 10,
-                    min: 0,
-                    idleTimeoutMillis: 30000
-                }
-            };
-        }
-        
-        // 환경 변수 기반 설정 (기존 방식)
+        console.log('--------------> dbConfig', dbConfig);
         return {
-            server: process.env.TARGET_DB_SERVER,
-            port: parseInt(process.env.TARGET_DB_PORT) || 1433,
-            database: process.env.TARGET_DB_DATABASE,
-            user: process.env.TARGET_DB_USER,
-            password: process.env.TARGET_DB_PASSWORD,
+            server: dbConfig.server,
+            port: dbConfig.port || 1433,
+            database: dbConfig.database,
+            user: dbConfig.user,
+            password: dbConfig.password,
             options: {
-                encrypt: true,
-                trustServerCertificate: true,
-                enableArithAbort: true,
-                requestTimeout: 300000,
-                connectionTimeout: 30000
+                encrypt: dbConfig.options?.encrypt ?? true,
+                trustServerCertificate: dbConfig.options?.trustServerCertificate ?? true,
+                enableArithAbort: dbConfig.options?.enableArithAbort ?? true,
+                requestTimeout: dbConfig.options?.requestTimeout ?? 300000,
+                connectionTimeout: dbConfig.options?.connectionTimeout ?? 30000
             },
             pool: {
                 max: 10,
@@ -119,7 +52,7 @@ class MSSQLConnectionManager {
                 return this.sourcePool;
             }
 
-            const config = this.getSourceConfig();
+            const config = this.getDBConfig(this.customSourceConfig);
             console.log(`소스 데이터베이스에 연결 중... (${config.server}:${config.port}/${config.database})`);
             
             this.sourcePool = new sql.ConnectionPool(config);
@@ -142,7 +75,7 @@ class MSSQLConnectionManager {
                 return this.targetPool;
             }
 
-            const config = this.getTargetConfig();
+            const config = this.getDBConfig(this.customTargetConfig);
             console.log(`대상 데이터베이스에 연결 중... (${config.server}:${config.port}/${config.database})`);
             
             this.targetPool = new sql.ConnectionPool(config);
