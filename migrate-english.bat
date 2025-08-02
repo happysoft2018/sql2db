@@ -92,7 +92,7 @@ echo.
 echo Testing database connection...
 echo.
 
-node src/migrate-cli.js test
+node src/migrate-cli.js list-dbs
 
 if %errorlevel% equ 0 (
     echo.

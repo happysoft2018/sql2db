@@ -7,9 +7,7 @@ require('dotenv').config();
 
 class MSSQLDataMigrator {
     constructor(queryFilePath, dryRun = false) {
-        if (!queryFilePath) {
-            throw new Error('쿼리문정의 파일 경로가 필요합니다. --query 또는 -q 옵션을 사용하여 파일 경로를 지정하세요.');
-        }
+        // list-dbs 명령 등에서는 쿼리 파일이 필요하지 않을 수 있음
         this.queryFilePath = queryFilePath;
         this.dbInfoPath = path.join(__dirname, '../config/dbinfo.json');
         this.connectionManager = new MSSQLConnectionManager();
@@ -958,6 +956,38 @@ class MSSQLDataMigrator {
         } catch (error) {
             console.error('설정 검증 실패:', error.message);
             return false;
+        }
+    }
+
+    // 개별 DB 연결 테스트
+    async testSingleDbConnection(dbConfig) {
+        const sql = require('mssql');
+        let pool = null;
+        
+        try {
+            pool = new sql.ConnectionPool(dbConfig);
+            await pool.connect();
+            await pool.close();
+            
+            return {
+                success: true,
+                message: '연결 성공',
+                responseTime: null
+            };
+        } catch (error) {
+            if (pool) {
+                try {
+                    await pool.close();
+                } catch (closeError) {
+                    // 무시
+                }
+            }
+            
+            return {
+                success: false,
+                message: error.message,
+                error: error.code || 'UNKNOWN_ERROR'
+            };
         }
     }
 

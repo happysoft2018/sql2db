@@ -81,26 +81,30 @@ async function main() {
         const options = parseOptions(args.slice(1));
         console.log('--------------> options', options);
         
-        if (!options.queryFilePath) {
+        // list-dbs 명령은 쿼리 파일이 필요하지 않음
+        if (!options.queryFilePath && command !== 'list-dbs') {
             logger.error('쿼리문정의 파일이 지정되지 않았습니다.');
             console.log('사용법:');
             console.log('  --query, -q <파일경로>  : 사용자 정의 쿼리문정의 파일 사용');
             process.exit(1);
         }
         
-        const migrator = new MSSQLDataMigrator(options.queryFilePath);
+        // list-dbs 명령은 쿼리 파일 없이 실행
+        const migrator = command === 'list-dbs' ? new MSSQLDataMigrator() : new MSSQLDataMigrator(options.queryFilePath);
         
         logger.info('MSSQL 데이터 이관 도구 시작', {
             version: 'v1.0.0',
-            queryFilePath: options.queryFilePath
+            queryFilePath: options.queryFilePath || 'N/A (list-dbs 명령)'
         });
         
         console.log('MSSQL 데이터 이관 도구 v1.0.0');
         console.log('=====================================');
         
-        // 사용 중인 쿼리문정의 파일 정보 표시
-        console.log(`📁 쿼리문정의 파일 : ${options.queryFilePath}`);
-        console.log('');
+        // 사용 중인 쿼리문정의 파일 정보 표시 (list-dbs 명령 제외)
+        if (command !== 'list-dbs') {
+            console.log(`📁 쿼리문정의 파일 : ${options.queryFilePath}`);
+            console.log('');
+        }
         
         switch (command) {
             case 'migrate':
@@ -150,19 +154,6 @@ async function main() {
                 }
                 break;
                 
-            case 'test':
-                console.log('데이터베이스 연결 테스트 중...\n');
-                const connectionOk = await migrator.testConnections();
-                
-                if (connectionOk) {
-                    console.log('✅ 모든 데이터베이스 연결이 정상입니다.');
-                    process.exit(0);
-                } else {
-                    console.log('❌ 데이터베이스 연결에 실패했습니다.');
-                    process.exit(1);
-                }
-                break;
-                
             case 'list-dbs':
                 console.log('사용 가능한 데이터베이스 목록을 조회합니다...\n');
                 try {
@@ -178,9 +169,30 @@ async function main() {
                     const dbs = tempMigrator.dbInfo.dbs;
                     const dbList = Object.keys(dbs);
                     
-                    console.log('📊 데이터베이스 목록 및 권한 정보');
+                    console.log('📊 데이터베이스 목록 및 연결 상태');
                     console.log('=' .repeat(80));
                     console.log(`총 ${dbList.length}개의 데이터베이스가 정의되어 있습니다.\n`);
+                    
+                    // 각 DB의 연결 상태 테스트
+                    console.log('🔍 연결 상태 테스트 중...\n');
+                    const connectionResults = {};
+                    
+                    for (const dbId of dbList) {
+                        const db = dbs[dbId];
+                        process.stdout.write(`  테스트: ${dbId} (${db.server}:${db.port || 1433}/${db.database}) ... `);
+                        
+                        const dbConfig = tempMigrator.getDbConfigById(dbId);
+                        const result = await tempMigrator.testSingleDbConnection(dbConfig);
+                        connectionResults[dbId] = result;
+                        
+                        if (result.success) {
+                            console.log('✅ 연결 성공');
+                        } else {
+                            console.log(`❌ 연결 실패: ${result.message}`);
+                        }
+                    }
+                    
+                    console.log('');
                     
                     // 쓰기 가능한 DB (타겟 DB로 사용 가능)
                     const writableDbs = dbList.filter(id => dbs[id].isWritable);
@@ -191,11 +203,18 @@ async function main() {
                     if (writableDbs.length > 0) {
                         writableDbs.forEach(id => {
                             const db = dbs[id];
-                            console.log(`  📝 ${id}`);
+                            const connectionStatus = connectionResults[id];
+                            const statusIcon = connectionStatus.success ? '🟢' : '🔴';
+                            const statusText = connectionStatus.success ? '연결 가능' : '연결 불가';
+                            
+                            console.log(`  📝 ${id} ${statusIcon} ${statusText}`);
                             console.log(`     서버: ${db.server}:${db.port || 1433}`);
                             console.log(`     데이터베이스: ${db.database}`);
                             console.log(`     설명: ${db.description || '설명 없음'}`);
                             console.log(`     사용자: ${db.user}`);
+                            if (!connectionStatus.success) {
+                                console.log(`     ⚠️ 오류: ${connectionStatus.message}`);
+                            }
                             console.log('');
                         });
                     } else {
@@ -208,11 +227,18 @@ async function main() {
                     if (readOnlyDbs.length > 0) {
                         readOnlyDbs.forEach(id => {
                             const db = dbs[id];
-                            console.log(`  📖 ${id}`);
+                            const connectionStatus = connectionResults[id];
+                            const statusIcon = connectionStatus.success ? '🟢' : '🔴';
+                            const statusText = connectionStatus.success ? '연결 가능' : '연결 불가';
+                            
+                            console.log(`  📖 ${id} ${statusIcon} ${statusText}`);
                             console.log(`     서버: ${db.server}:${db.port || 1433}`);
                             console.log(`     데이터베이스: ${db.database}`);
                             console.log(`     설명: ${db.description || '설명 없음'}`);
                             console.log(`     사용자: ${db.user}`);
+                            if (!connectionStatus.success) {
+                                console.log(`     ⚠️ 오류: ${connectionStatus.message}`);
+                            }
                             console.log('');
                         });
                     } else {
@@ -220,10 +246,21 @@ async function main() {
                         console.log('');
                     }
                     
+                    // 연결 상태 요약
+                    const successCount = Object.values(connectionResults).filter(r => r.success).length;
+                    const failureCount = dbList.length - successCount;
+                    
+                    console.log('📈 연결 상태 요약');
+                    console.log('-' .repeat(50));
+                    console.log(`✅ 연결 성공: ${successCount}개`);
+                    console.log(`❌ 연결 실패: ${failureCount}개`);
+                    console.log('');
+                    
                     console.log('💡 사용법:');
-                    console.log('  - 소스 DB: 모든 DB 사용 가능');
-                    console.log('  - 타겟 DB: isWritable=true인 DB만 사용 가능');
+                    console.log('  - 소스 DB: 연결 가능한 모든 DB 사용 가능');
+                    console.log('  - 타겟 DB: isWritable=true이고 연결 가능한 DB만 사용 가능');
                     console.log('  - 설정 변경: config/dbinfo.json에서 isWritable 속성 수정');
+                    console.log('  - 연결 문제: 서버 주소, 포트, 자격증명, 네트워크 상태 확인');
                     
                     process.exit(0);
                 } catch (error) {

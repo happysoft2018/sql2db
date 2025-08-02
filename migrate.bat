@@ -92,7 +92,7 @@ echo.
 echo 데이터베이스 연결을 테스트하고 있습니다...
 echo.
 
-node src/migrate-cli.js test --query "%config_file%"
+node src/migrate-cli.js list-dbs
 
 if %errorlevel% equ 0 (
     echo.
