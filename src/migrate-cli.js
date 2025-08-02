@@ -17,9 +17,9 @@ MSSQL 데이터 이관 도구
 사용법: node src/migrate-cli.js <명령> [옵션]
 
 명령:
-  migrate                    데이터 이관 실행
   validate                   쿼리문정의 파일 검증
   list-dbs                   데이터베이스 목록 표시 (연결 가능 여부 포함)
+  migrate                    데이터 이관 실행
   help                       도움말 표시
 
 옵션:
@@ -27,10 +27,10 @@ MSSQL 데이터 이관 도구
   --dry-run                  실제 이관 없이 시뮬레이션만 실행
 
 예시:
+  node src/migrate-cli.js validate --query ./queries/migration-queries.xml
+  node src/migrate-cli.js list-dbs
   node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
   node src/migrate-cli.js migrate -q ./queries/migration-queries.xml
-  node src/migrate-cli.js list-dbs
-  node src/migrate-cli.js validate --query ./queries/migration-queries.xml
 
 환경 변수 설정:
   .env 파일 또는 시스템 환경 변수로 데이터베이스 연결 정보를 설정하세요.
