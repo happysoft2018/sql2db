@@ -7,10 +7,8 @@ const logger = require('./logger');
 
 // 명령줄 인수 파싱
 const args = process.argv.slice(2);
-console.log('--------------> process.argv', process.argv);
 const command = args[0];
 
-const options = parseOptions(args.slice(1));
 
 // 도움말 표시
 function showHelp() {
@@ -76,7 +74,6 @@ async function main() {
             return;
         }
         console.log('--------------> args', args);
-        // logger.debug('명령줄 인수', args);
         
         const options = parseOptions(args.slice(1));
         console.log('--------------> options', options);

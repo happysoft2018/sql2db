@@ -15,14 +15,11 @@ class MSSQLConnectionManager {
     setCustomDatabaseConfigs(sourceConfig, targetConfig) {
         this.customSourceConfig = sourceConfig;
         this.customTargetConfig = targetConfig;
-        console.log('--------------> customSourceConfig', this.customSourceConfig);
-        console.log('--------------> customTargetConfig', this.customTargetConfig);
     }
 
     // 소스 데이터베이스 연결 설정
     getDBConfig(dbConfig) {
 
-        console.log('--------------> dbConfig', dbConfig);
         return {
             server: dbConfig.server,
             port: dbConfig.port || 1433,
