@@ -189,57 +189,25 @@ async function main() {
                     
                     console.log('');
                     
-                    // 쓰기 가능한 DB (타겟 DB로 사용 가능)
-                    const writableDbs = dbList.filter(id => dbs[id].isWritable);
-                    const readOnlyDbs = dbList.filter(id => !dbs[id].isWritable);
-                    
-                    console.log('🟢 타겟 DB로 사용 가능 (isWritable: true)');
+                    console.log('상세 목록 ');
                     console.log('-' .repeat(50));
-                    if (writableDbs.length > 0) {
-                        writableDbs.forEach(id => {
-                            const db = dbs[id];
-                            const connectionStatus = connectionResults[id];
+                    for (const dbId of dbList) {
+                        const db = dbs[dbId];
+                            const connectionStatus = connectionResults[dbId];
                             const statusIcon = connectionStatus.success ? '🟢' : '🔴';
                             const statusText = connectionStatus.success ? '연결 가능' : '연결 불가';
                             
-                            console.log(`  📝 ${id} ${statusIcon} ${statusText}`);
+                            console.log(`  📝 ${dbId} ${statusIcon} ${statusText}`);
                             console.log(`     서버: ${db.server}:${db.port || 1433}`);
                             console.log(`     데이터베이스: ${db.database}`);
+                            console.log(`     쓰기 여부: ${db.isWritable}`);
                             console.log(`     설명: ${db.description || '설명 없음'}`);
                             console.log(`     사용자: ${db.user}`);
                             if (!connectionStatus.success) {
                                 console.log(`     ⚠️ 오류: ${connectionStatus.message}`);
                             }
                             console.log('');
-                        });
-                    } else {
-                        console.log('  ⚠️ 쓰기 가능한 데이터베이스가 없습니다.');
-                        console.log('');
-                    }
-                    
-                    console.log('🔶 읽기 전용 (isWritable: false)');
-                    console.log('-' .repeat(50));
-                    if (readOnlyDbs.length > 0) {
-                        readOnlyDbs.forEach(id => {
-                            const db = dbs[id];
-                            const connectionStatus = connectionResults[id];
-                            const statusIcon = connectionStatus.success ? '🟢' : '🔴';
-                            const statusText = connectionStatus.success ? '연결 가능' : '연결 불가';
-                            
-                            console.log(`  📖 ${id} ${statusIcon} ${statusText}`);
-                            console.log(`     서버: ${db.server}:${db.port || 1433}`);
-                            console.log(`     데이터베이스: ${db.database}`);
-                            console.log(`     설명: ${db.description || '설명 없음'}`);
-                            console.log(`     사용자: ${db.user}`);
-                            if (!connectionStatus.success) {
-                                console.log(`     ⚠️ 오류: ${connectionStatus.message}`);
-                            }
-                            console.log('');
-                        });
-                    } else {
-                        console.log('  📝 모든 데이터베이스가 쓰기 가능합니다.');
-                        console.log('');
-                    }
+                        }
                     
                     // 연결 상태 요약
                     const successCount = Object.values(connectionResults).filter(r => r.success).length;
