@@ -31,19 +31,15 @@ echo 1. Validate Configuration File
 echo 2. Test Database Connection
 echo 3. Execute Data Migration
 echo 4. Show Help
-echo 5. View Log Files
-echo 6. Edit Configuration Files
 echo 0. Exit
 echo =========================================
 echo.
-set /p choice=Select (0-6): 
+set /p choice=Select (0-4): 
 
 if "%choice%"=="1" goto VALIDATE
 if "%choice%"=="2" goto TEST
 if "%choice%"=="3" goto MIGRATE
 if "%choice%"=="4" goto HELP
-if "%choice%"=="5" goto LOGS
-if "%choice%"=="6" goto EDIT
 if "%choice%"=="0" goto EXIT
 
 echo Invalid selection. Please try again.

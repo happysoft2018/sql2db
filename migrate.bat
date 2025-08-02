@@ -27,23 +27,21 @@ if %errorlevel% neq 0 (
 echo =========================================
 echo   메뉴 선택
 echo =========================================
-echo 1. 쿼리문정의 파일 검증
-echo 2. 데이터베이스 연결 테스트
+echo 1. 쿼리문정의 파일 Syntax검증
+
+echo 2. DB연결 테스트 (연결 가능 여부 포함)
+
 echo 3. 데이터 이관 실행
 echo 4. 도움말 보기
-echo 5. 로그 파일 보기
-echo 6. 쿼리문정의 파일 편집
 echo 0. 종료
 echo =========================================
 echo.
-set /p choice=선택하세요 (0-6): 
+set /p choice=선택하세요 (0-4): 
 
 if "%choice%"=="1" goto VALIDATE
 if "%choice%"=="2" goto TEST
 if "%choice%"=="3" goto MIGRATE
 if "%choice%"=="4" goto HELP
-if "%choice%"=="5" goto LOGS
-if "%choice%"=="6" goto EDIT
 if "%choice%"=="0" goto EXIT
 
 echo 잘못된 선택입니다. 다시 선택해주세요.
