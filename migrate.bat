@@ -27,12 +27,12 @@ if %errorlevel% neq 0 (
 echo =========================================
 echo   메뉴 선택
 echo =========================================
-echo 1. 설정 파일 검증
+echo 1. 쿼리문정의 파일 검증
 echo 2. 데이터베이스 연결 테스트
 echo 3. 데이터 이관 실행
 echo 4. 도움말 보기
 echo 5. 로그 파일 보기
-echo 6. 설정 파일 편집
+echo 6. 쿼리문정의 파일 편집
 echo 0. 종료
 echo =========================================
 echo.
@@ -54,29 +54,29 @@ goto MENU
 :VALIDATE
 echo.
 echo =========================================
-echo   설정 파일 검증
+echo   쿼리문정의 파일 검증
 echo =========================================
 echo.
-echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+echo 쿼리문정의 파일 경로를 입력하세요 (예: queries/my-config.xml):
 set /p config_file=
 if "%config_file%"=="" (
-    echo 설정 파일 경로가 입력되지 않았습니다.
+    echo 쿼리문정의 파일 경로가 입력되지 않았습니다.
     echo.
     pause
     goto MENU
 )
 
 echo.
-echo 설정 파일을 검증하고 있습니다...
+echo 쿼리문정의 파일 을 검증하고 있습니다...
 echo.
 node src/migrate-cli.js validate --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
-    echo 설정 파일 검증이 완료되었습니다.
+    echo 쿼리문정의 파일 검증이 완료되었습니다.
 ) else (
     echo.
-    echo 설정 파일에 오류가 있습니다.
+    echo 쿼리문정의 파일에 오류가 있습니다.
 )
 
 echo.
@@ -92,7 +92,7 @@ echo.
 echo 데이터베이스 연결을 테스트하고 있습니다...
 echo.
 
-node src/migrate-cli.js test
+node src/migrate-cli.js test --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
@@ -115,10 +115,10 @@ echo =========================================
 echo.
 echo 주의: 데이터 이관을 실행하기 전에 대상 데이터베이스를 백업해주세요.
 echo.
-echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+echo 쿼리문정의 파일 경로를 입력하세요 (예: queries/my-config.xml):
 set /p config_file=
 if "%config_file%"=="" (
-    echo 설정 파일 경로가 입력되지 않았습니다.
+    echo 쿼리문정의 파일 경로가 입력되지 않았습니다.
     echo.
     pause
     goto MENU
@@ -214,13 +214,13 @@ goto MENU
 :EDIT
 echo.
 echo =========================================
-echo   설정 파일 편집
+echo   쿼리문정의 파일 편집
 echo =========================================
 echo.
 echo 편집할 파일을 선택하세요:
 echo.
 echo 1. .env (데이터베이스 연결 설정)
-echo 2. 사용자 정의 설정 파일
+echo 2. 사용자 정의 쿼리문정의 파일 
 echo 3. 돌아가기
 echo.
 set /p edit_choice=선택하세요 (1-3): 
@@ -241,7 +241,7 @@ if "%edit_choice%"=="1" (
     )
 ) else if "%edit_choice%"=="2" (
     echo.
-    echo 편집할 설정 파일 경로를 입력하세요:
+    echo 편집할 쿼리문정의 파일 경로를 입력하세요:
     set /p edit_file=
     if exist "!edit_file!" (
         notepad "!edit_file!"

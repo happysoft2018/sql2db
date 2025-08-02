@@ -11,10 +11,10 @@ echo [정보] DRY RUN 모드로 데이터 마이그레이션 시뮬레이션을 
 echo [정보] 실제 데이터 변경은 일어나지 않으며, 소스 DB에서만 데이터를 읽습니다.
 echo.
 
-echo 설정 파일 경로를 입력하세요 (예: queries/my-config.xml):
+echo 쿼리문정의 파일 경로를 입력하세요 (예: queries/my-config.xml):
 set /p config_file=
 if "!config_file!"=="" (
-    echo 설정 파일 경로가 입력되지 않았습니다.
+    echo 쿼리문정의 파일 경로가 입력되지 않았습니다.
     echo.
     echo 아무 키나 누르면 창이 닫힙니다...
     pause >nul

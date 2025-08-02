@@ -47,8 +47,8 @@ echo.
 echo [정보] 선택된 로그 레벨: !log_level! (!description!)
 echo.
 
-:: 테스트용 설정 파일 생성
-echo 테스트용 설정 파일을 생성합니다...
+:: 테스트용 쿼리문정의 파일 생성
+echo 테스트용 쿼리문정의 파일 을 생성합니다...
 if not exist "queries" mkdir queries
 
 echo {> queries\test-log-config.json

@@ -110,7 +110,7 @@ if exist "test\sample-migration-test.json" (
     echo.
     echo ✅ 마이그레이션 설정 검증 성공!
 ) else (
-    echo [오류] 마이그레이션 설정 파일을 찾을 수 없습니다: test\sample-migration-test.json
+    echo [오류] 마이그레이션 쿼리문정의 파일 을 찾을 수 없습니다: test\sample-migration-test.json
     pause
     exit /b 1
 )

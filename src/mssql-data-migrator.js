@@ -6,12 +6,12 @@ const logger = require('./logger');
 require('dotenv').config();
 
 class MSSQLDataMigrator {
-    constructor(configPath, dbInfoPath, dryRun = false) {
-        if (!configPath) {
-            throw new Error('설정 파일 경로가 필요합니다. --query 또는 -q 옵션을 사용하여 파일 경로를 지정하세요.');
+    constructor(queryFilePath, dryRun = false) {
+        if (!queryFilePath) {
+            throw new Error('쿼리문정의 파일 경로가 필요합니다. --query 또는 -q 옵션을 사용하여 파일 경로를 지정하세요.');
         }
-        this.configPath = configPath;
-        this.dbInfoPath = dbInfoPath || path.join(__dirname, '../config/dbinfo.json');
+        this.queryFilePath = queryFilePath;
+        this.dbInfoPath = path.join(__dirname, '../config/dbinfo.json');
         this.connectionManager = new MSSQLConnectionManager();
         this.config = null;
         this.dbInfo = null;
@@ -28,7 +28,6 @@ class MSSQLDataMigrator {
         try {
             if (!fs.existsSync(this.dbInfoPath)) {
                 logger.warn(`DB 정보 파일을 찾을 수 없습니다: ${this.dbInfoPath}`);
-                logger.info('환경 변수(.env)를 사용합니다.');
                 return null;
             }
 
@@ -43,7 +42,6 @@ class MSSQLDataMigrator {
             return this.dbInfo;
         } catch (error) {
             logger.error('DB 정보 파일 로드 실패', error);
-            logger.info('환경 변수(.env)를 사용합니다.');
             return null;
         }
     }
@@ -74,20 +72,20 @@ class MSSQLDataMigrator {
         };
     }
 
-    // 설정 파일 로드 및 파싱
+    // 쿼리문정의 파일 로드 및 파싱
     async loadConfig() {
         try {
             // DB 정보 파일 먼저 로드
             await this.loadDbInfo();
             
-            if (!fs.existsSync(this.configPath)) {
-                throw new Error(`설정 파일을 찾을 수 없습니다: ${this.configPath}`);
+            if (!fs.existsSync(this.queryFilePath)) {
+                throw new Error(`쿼리문정의 파일 을 찾을 수 없습니다: ${this.queryFilePath}`);
             }
 
-            const configData = fs.readFileSync(this.configPath, 'utf8');
+            const configData = fs.readFileSync(this.queryFilePath, 'utf8');
             
             // 파일 확장자로 형식 판단
-            const isXmlFile = this.configPath.toLowerCase().endsWith('.xml');
+            const isXmlFile = this.queryFilePath.toLowerCase().endsWith('.xml');
             
             if (isXmlFile) {
                 this.config = await this.parseXmlConfig(configData);
@@ -97,9 +95,9 @@ class MSSQLDataMigrator {
             
             this.variables = this.config.variables || {};
             
-            // 설정 파일에 DB 설정이 있으면 연결 관리자에 적용
+            // 쿼리문정의 파일에 DB 설정이 있으면 연결 관리자에 적용
             if (this.config.databases) {
-                logger.info('설정 파일에서 DB 연결 정보를 발견했습니다.');
+                logger.info('쿼리문정의 파일에서 DB 연결 정보를 발견했습니다.');
                 
                 let sourceConfig = null;
                 let targetConfig = null;
@@ -108,12 +106,7 @@ class MSSQLDataMigrator {
                 if (typeof this.config.databases.source === 'string') {
                     const sourceId = this.config.databases.source;
                     sourceConfig = this.getDbConfigById(sourceId);
-                    logger.info('소스 DB 설정', {
-                        id: sourceId,
-                        database: sourceConfig.database,
-                        server: sourceConfig.server,
-                        description: sourceConfig.description
-                    });
+                    logger.info('소스 DB 설정(DB ID)', sourceConfig);
                 } else if (this.config.databases.source) {
                     // 기존 방식 (직접 설정)
                     sourceConfig = this.config.databases.source;
@@ -135,13 +128,7 @@ class MSSQLDataMigrator {
                                       `쓰기 가능한 DB를 선택하거나 config/dbinfo.json에서 isWritable 속성을 true로 변경하세요.`);
                     }
                     
-                    logger.info('타겟 DB 설정', {
-                        id: targetId,
-                        database: targetConfig.database,
-                        server: targetConfig.server,
-                        description: targetConfig.description,
-                        isWritable: targetConfig.isWritable
-                    });
+                    logger.info('타겟 DB 설정 (DB ID)', targetConfig);
                 } else if (this.config.databases.target) {
                     // 기존 방식 (직접 설정) - 기본적으로 쓰기 가능으로 간주
                     targetConfig = this.config.databases.target;
@@ -159,8 +146,8 @@ class MSSQLDataMigrator {
                 logger.info('환경 변수(.env)에서 DB 연결 정보를 사용합니다.');
             }
             
-            logger.info('설정 파일 로드 완료', {
-                path: this.configPath,
+            logger.info('쿼리문정의 파일 로드 완료', {
+                path: this.queryFilePath,
                 format: isXmlFile ? 'XML' : 'JSON',
                 variables: this.variables,
                 enabledQueries: this.config.queries.filter(q => q.enabled).length
@@ -168,12 +155,12 @@ class MSSQLDataMigrator {
             
             return this.config;
         } catch (error) {
-            logger.error('설정 파일 로드 실패', error);
-            throw new Error(`설정 파일 로드 실패: ${error.message}`);
+            logger.error('쿼리문정의 파일 로드 실패', error);
+            throw new Error(`쿼리문정의 파일 로드 실패: ${error.message}`);
         }
     }
 
-    // XML 설정 파일 파싱
+    // XML 쿼리문정의 파일 파싱
     async parseXmlConfig(xmlData) {
         try {
             const parser = new xml2js.Parser({
@@ -404,7 +391,7 @@ class MSSQLDataMigrator {
             }
         });
         
-        // 설정 파일의 변수 치환
+        // 쿼리문정의 파일 의 변수 치환
         Object.entries(this.variables).forEach(([key, value]) => {
             const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
             
@@ -667,8 +654,8 @@ class MSSQLDataMigrator {
             const fs = require('fs').promises;
             const path = require('path');
             
-            // 상대 경로인 경우 설정 파일 기준으로 해석
-            const fullPath = path.isAbsolute(filePath) ? filePath : path.resolve(path.dirname(this.configPath), filePath);
+            // 상대 경로인 경우 쿼리문정의 파일 기준으로 해석
+            const fullPath = path.isAbsolute(filePath) ? filePath : path.resolve(path.dirname(this.queryFilePath), filePath);
             
             this.log(`SQL 파일에서 쿼리 로드 중: ${fullPath}`);
             const queryContent = await fs.readFile(fullPath, 'utf8');
@@ -804,7 +791,7 @@ class MSSQLDataMigrator {
             this.initializeLogging();
             this.log('MSSQL 데이터 이관 프로세스 시작');
             
-            // 설정 파일 로드
+            // 쿼리문정의 파일 로드
             await this.loadConfig();
             
             // 데이터베이스 연결
@@ -937,7 +924,7 @@ class MSSQLDataMigrator {
         try {
             await this.loadConfig();
             
-            // 설정 파일에 DB 정보가 없는 경우에만 환경 변수 확인
+            // 쿼리문정의 파일에 DB 정보가 없는 경우에만 환경 변수 확인
             if (!this.config.databases) {
                 // 필수 환경 변수 확인
                 const requiredEnvVars = [
@@ -954,7 +941,7 @@ class MSSQLDataMigrator {
             // 쿼리 설정 검증
             const enabledQueries = this.config.queries ? this.config.queries.filter(q => q.enabled !== false) : [];
             if (enabledQueries.length === 0) {
-                console.log('⚠️ 활성화된 쿼리가 없습니다. (설정 파일 구조 검증은 성공)');
+                console.log('⚠️ 활성화된 쿼리가 없습니다. (쿼리문정의 파일 구조 검증은 성공)');
             }
             
             if (enabledQueries.length > 0) {
@@ -978,6 +965,8 @@ class MSSQLDataMigrator {
     async testConnections() {
         try {
             console.log('데이터베이스 연결 테스트 중...');
+
+            this.connectionManager.setCustomDatabaseConfigs(sourceConfig, targetConfig);
             
             await this.connectionManager.connectSource();
             console.log('✓ 소스 데이터베이스 연결 성공');
@@ -1005,7 +994,7 @@ class MSSQLDataMigrator {
         const results = [];
         
         try {
-            // 설정 파일 로드
+            // 쿼리문정의 파일 로드
             await this.loadConfig();
             
             // 소스 데이터베이스만 연결 (읽기 전용)

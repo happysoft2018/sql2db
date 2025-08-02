@@ -149,12 +149,12 @@ class Logger {
         }
     }
     
-    // 설정 파일 로깅
-    logConfig(configPath, success, error = null) {
+    // 쿼리문정의 파일 로깅
+    logConfig(queryFilePath, success, error = null) {
         if (success) {
-            this.info(`설정 파일 로드 성공: ${configPath}`);
+            this.info(`쿼리문정의 파일 로드 성공: ${queryFilePath}`);
         } else {
-            this.error(`설정 파일 로드 실패: ${configPath}`, error);
+            this.error(`쿼리문정의 파일 로드 실패: ${queryFilePath}`, error);
         }
     }
     

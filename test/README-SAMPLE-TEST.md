@@ -148,7 +148,7 @@ node ../src/migrate-cli.js migrate --query test/sample-migration-test.json
 
 ### 4. 시뮬레이션 및 검증
 - ✅ DRY RUN 모드
-- ✅ 설정 파일 검증
+- ✅ 쿼리문정의 파일 검증
 - ✅ 연결 테스트
 
 ## 📈 성능 테스트
@@ -194,7 +194,7 @@ node ../src/migrate-cli.js migrate --query test/sample-migration-test.json
 test/
 ├── create-sample-tables.sql      # 테이블 생성 스크립트
 ├── insert-sample-data.sql        # 샘플 데이터 입력 스크립트
-├── sample-migration-test.json    # 마이그레이션 설정 파일
+├── sample-migration-test.json    # 마이그레이션 쿼리문정의 파일 
 ├── run-sample-test.bat          # 통합 테스트 실행 스크립트
 └── README-SAMPLE-TEST.md        # 이 문서
 ```

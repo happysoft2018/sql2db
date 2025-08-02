@@ -7,7 +7,10 @@ const logger = require('./logger');
 
 // 명령줄 인수 파싱
 const args = process.argv.slice(2);
+console.log('--------------> process.argv', process.argv);
 const command = args[0];
+
+const options = parseOptions(args.slice(1));
 
 // 도움말 표시
 function showHelp() {
@@ -17,13 +20,13 @@ MSSQL 데이터 이관 도구
 
 명령:
   migrate                    데이터 이관 실행
-  validate                   설정 파일 검증
+  validate                   쿼리문정의 파일 검증
   test                       데이터베이스 연결 테스트
   list-dbs                   사용 가능한 데이터베이스 목록 표시 (isWritable 정보 포함)
   help                       도움말 표시
 
 옵션:
-  --query, -q <파일경로>     사용자 정의 설정 파일 경로 (JSON 또는 XML)
+  --query, -q <파일경로>     사용자 정의 쿼리문정의 파일 경로 (JSON 또는 XML)
   --dry-run                  실제 이관 없이 시뮬레이션만 실행
 
 예시:
@@ -42,7 +45,7 @@ MSSQL 데이터 이관 도구
 // 옵션 파싱
 function parseOptions(args) {
     const options = {
-        configPath: null,
+        queryFilePath: null,
         dryRun: false
     };
     
@@ -50,7 +53,7 @@ function parseOptions(args) {
         switch (args[i]) {
             case '--query':
             case '-q':
-                options.configPath = args[i + 1];
+                options.queryFilePath = args[i + 1];
                 i++; // 다음 인수 건너뛰기
                 break;
             case '--dry-run':
@@ -72,30 +75,31 @@ async function main() {
             showHelp();
             return;
         }
-
-        logger.debug('명령줄 인수', args);
+        console.log('--------------> args', args);
+        // logger.debug('명령줄 인수', args);
         
         const options = parseOptions(args.slice(1));
+        console.log('--------------> options', options);
         
-        if (!options.configPath) {
-            logger.error('설정 파일이 지정되지 않았습니다.');
+        if (!options.queryFilePath) {
+            logger.error('쿼리문정의 파일이 지정되지 않았습니다.');
             console.log('사용법:');
-            console.log('  --query, -q <파일경로>  : 사용자 정의 설정 파일 사용');
+            console.log('  --query, -q <파일경로>  : 사용자 정의 쿼리문정의 파일 사용');
             process.exit(1);
         }
         
-        const migrator = new MSSQLDataMigrator(options.configPath);
+        const migrator = new MSSQLDataMigrator(options.queryFilePath);
         
         logger.info('MSSQL 데이터 이관 도구 시작', {
             version: 'v1.0.0',
-            configPath: options.configPath
+            queryFilePath: options.queryFilePath
         });
         
         console.log('MSSQL 데이터 이관 도구 v1.0.0');
         console.log('=====================================');
         
-        // 사용 중인 설정 파일 정보 표시
-        console.log(`📁 설정 파일: ${options.configPath}`);
+        // 사용 중인 쿼리문정의 파일 정보 표시
+        console.log(`📁 쿼리문정의 파일 : ${options.queryFilePath}`);
         console.log('');
         
         switch (command) {
@@ -105,7 +109,7 @@ async function main() {
                 if (options.dryRun) {
                     console.log('*** DRY RUN 모드 - 실제 데이터 변경 없음 ***\n');
                     
-                    const dryRunMigrator = new MSSQLDataMigrator(options.configPath, null, true);
+                    const dryRunMigrator = new MSSQLDataMigrator(options.queryFilePath, true);
                     const result = await dryRunMigrator.executeDryRun();
                     
                     if (result.success) {
@@ -129,19 +133,19 @@ async function main() {
                 break;
                 
             case 'validate':
-                console.log('설정 파일 검증 중...\n');
+                console.log('쿼리문정의 파일 검증 중...\n');
                 try {
                     const isValid = await migrator.validateConfiguration();
                     
                     if (isValid) {
-                        console.log('✅ 설정 파일이 유효합니다.');
+                        console.log('✅ 쿼리문정의 파일이 유효합니다.');
                         process.exit(0);
                     } else {
-                        console.log('❌ 설정 파일에 오류가 있습니다.');
+                        console.log('❌ 쿼리문정의 파일에 오류가 있습니다.');
                         process.exit(1);
                     }
                 } catch (error) {
-                    console.error('❌ 설정 파일 검증 실패:', error.message);
+                    console.error('❌ 쿼리문정의 파일 검증 실패:', error.message);
                     process.exit(1);
                 }
                 break;

@@ -35,7 +35,7 @@ echo [2단계] 읽기 전용 DB를 타겟으로 설정하여 오류 발생 확�
 echo [테스트] sourceDB(읽기 전용)를 타겟으로 사용 시도...
 echo.
 
-:: 임시 설정 파일 생성 (읽기 전용 DB를 타겟으로 설정)
+:: 임시 쿼리문정의 파일 생성 (읽기 전용 DB를 타겟으로 설정)
 echo {> temp-readonly-test.json
 echo   "databases": {>> temp-readonly-test.json
 echo     "source": "sampleDB",>> temp-readonly-test.json
@@ -45,7 +45,7 @@ echo   "variables": {},>> temp-readonly-test.json
 echo   "queries": []>> temp-readonly-test.json
 echo }>> temp-readonly-test.json
 
-echo 임시 설정 파일 생성 완료: temp-readonly-test.json
+echo 임시 쿼리문정의 파일 생성 완료: temp-readonly-test.json
 echo 내용: source=sampleDB, target=sourceDB(읽기전용)
 echo.
 
@@ -69,7 +69,7 @@ echo [3단계] 쓰기 가능 DB를 타겟으로 설정하여 정상 작동 확�
 echo [테스트] targetDB(쓰기 가능)를 타겟으로 사용 시도...
 echo.
 
-:: 임시 설정 파일 생성 (쓰기 가능 DB를 타겟으로 설정)
+:: 임시 쿼리문정의 파일 생성 (쓰기 가능 DB를 타겟으로 설정)
 echo {> temp-writable-test.json
 echo   "databases": {>> temp-writable-test.json
 echo     "source": "sourceDB",>> temp-writable-test.json
@@ -79,7 +79,7 @@ echo   "variables": {},>> temp-writable-test.json
 echo   "queries": []>> temp-writable-test.json
 echo }>> temp-writable-test.json
 
-echo 임시 설정 파일 생성 완료: temp-writable-test.json
+echo 임시 쿼리문정의 파일 생성 완료: temp-writable-test.json
 echo 내용: source=targetDB, target=targetDB(쓰기가능)
 echo.
 

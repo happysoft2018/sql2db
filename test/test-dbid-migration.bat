@@ -1,143 +1,152 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 echo =========================================
-echo   DB ID 참조 방식 마이그레이션 테스트
+echo   DB ID Reference Migration Test
 echo =========================================
 echo.
 
-echo [정보] config/dbinfo.json에 정의된 DB ID를 참조하는 방식을 테스트합니다.
-echo [정보] 설정 파일에서 DB 연결 정보를 직접 정의하지 않고 DB ID만 지정합니다.
+echo [INFO] Testing DB ID reference method defined in config/dbinfo.json.
+echo [INFO] Specify only DB ID without defining DB connection info directly in config file.
 echo.
 
-echo [선택] 테스트할 환경을 선택하세요:
-echo [1] 개발 환경 (dev-migration.json)
-echo [2] 운영 환경 (prod-migration.xml)
-echo [3] 사용자 정의 설정 파일 입력
+echo [SELECT] Choose test environment:
+echo [1] Development Environment (dev-migration.json)
+echo [2] Production Environment (prod-migration.xml)
+echo [3] Enter custom config file
 echo.
-set /p env_choice="선택 (1-3): "
+set /p env_choice="Choose (1-3): "
 
 if "!env_choice!"=="1" (
     set "config_file=queries/dev-migration.json"
-    set "env_name=개발 환경"
+    set "env_name=Development"
     set "format_name=JSON"
 ) else if "!env_choice!"=="2" (
     set "config_file=queries/prod-migration.xml"
-    set "env_name=운영 환경"
+    set "env_name=Production"
     set "format_name=XML"
 ) else if "!env_choice!"=="3" (
     echo.
-    set /p config_file="설정 파일 경로를 입력하세요: "
-    set "env_name=사용자 정의"
-    set "format_name=사용자 정의"
+    set /p config_file="Enter config file path: "
+    set "env_name=Custom"
+    set "format_name=Custom"
 ) else (
-    echo [오류] 잘못된 선택입니다.
+    echo [ERROR] Invalid selection.
     echo.
-    echo 아무 키나 누르면 창이 닫힙니다...
+    echo Press any key to close...
     pause >nul
     exit /b 1
 )
 
 echo.
-echo [정보] 선택된 환경: !env_name! (!format_name! 형식)
-echo [정보] 설정 파일: !config_file!
+echo [INFO] Selected environment: !env_name! (!format_name! format)
+echo [INFO] Config file: !config_file!
 echo.
 
-:: 1. DB 정보 파일 확인
-echo [0단계] config/dbinfo.json 파일 확인...
+:: 1. Check DB info file
+echo ---------------------------------------------------------
+echo [Step 0] Checking config/dbinfo.json file...
+echo ---------------------------------------------------------
+
 if not exist "config/dbinfo.json" (
-    echo [오류] config/dbinfo.json 파일을 찾을 수 없습니다.
-    echo [참고] 이 파일에는 DB 연결 정보가 정의되어야 합니다.
+    echo [ERROR] config/dbinfo.json file not found.
+    echo [NOTE] This file should define DB connection information.
     echo.
-    echo 아무 키나 누르면 창이 닫힙니다...
+    echo Press any key to close...
     pause >nul
     exit /b 1
 )
-echo [성공] config/dbinfo.json 파일이 존재합니다.
+echo [SUCCESS] config/dbinfo.json file exists.
 echo.
 
-:: 2. 설정 파일 검증
-echo [1단계] 설정 파일 검증 중...
+:: 2. Config file validation
+echo ---------------------------------------------------------
+echo [Step 1] Validating config file...
+echo ---------------------------------------------------------
+
 node src/migrate-cli.js validate --query !config_file!
 if errorlevel 1 (
     echo.
-    echo [오류] 설정 파일 검증에 실패했습니다.
-    echo [참고] 설정 파일에서 참조하는 DB ID가 config/dbinfo.json에 정의되어 있는지 확인하세요.
+    echo [ERROR] Config file validation failed.
+    echo [NOTE] Check if DB ID referenced in config file is defined in config/dbinfo.json.
     echo.
-    echo 아무 키나 누르면 창이 닫힙니다...
+    echo Press any key to close...
     pause >nul
     exit /b 1
 )
 
 echo.
-echo [성공] 설정 파일 검증이 완료되었습니다.
-echo [정보] DB ID 참조가 올바르게 파싱되었습니다.
+echo [SUCCESS] Config file validation completed.
+echo [INFO] DB ID reference parsed correctly.
 echo.
 
-:: 3. 데이터베이스 연결 테스트
-echo [2단계] 데이터베이스 연결 테스트 중...
-echo [정보] config/dbinfo.json에서 DB ID로 조회한 연결 정보를 테스트합니다.
+:: 3. Database connection test
+echo ---------------------------------------------------------
+echo [Step 2] Testing database connection...
+echo ---------------------------------------------------------
+echo [INFO] Testing connection info retrieved by DB ID from config/dbinfo.json.
+
 node src/migrate-cli.js test --query !config_file!
 if errorlevel 1 (
     echo.
-    echo [오류] 데이터베이스 연결 테스트에 실패했습니다.
-    echo [참고] config/dbinfo.json의 DB 연결 정보를 확인하세요:
-    echo        - 서버 주소 및 포트가 올바른지 확인
-    echo        - 데이터베이스 이름이 정확한지 확인
-    echo        - 사용자 계정 및 비밀번호가 유효한지 확인
-    echo        - 네트워크 연결 상태 확인
+    echo [ERROR] Database connection test failed.
+    echo [NOTE] Check DB connection info in config/dbinfo.json:
+    echo        - Verify server address and port
+    echo        - Verify database name
+    echo        - Verify user account and password
+    echo        - Check network connection
     echo.
-    echo 아무 키나 누르면 창이 닫힙니다...
+    echo Press any key to close...
     pause >nul
     exit /b 1
 )
 
 echo.
-echo [성공] 데이터베이스 연결 테스트가 완료되었습니다.
-echo [정보] DB ID 참조를 통한 연결이 정상적으로 작동합니다.
+echo [SUCCESS] Database connection test completed.
+echo [INFO] Connection via DB ID reference is working properly.
 echo.
 
-:: 4. 실제 이관 실행 확인
-echo [3단계] 데이터 이관을 실행하시겠습니까?
-echo [주의] config/dbinfo.json에 정의된 타겟 DB에 실제 데이터가 변경됩니다.
-echo [환경] !env_name! (!format_name! 형식)
-set /p confirm="실제 데이터 이관을 실행하려면 'Y'를 입력하세요 (Y/N): "
+:: 4. Actual migration execution confirmation
+echo [Step 3] Do you want to execute data migration?
+echo [WARNING] Actual data will be changed in target DB defined in config/dbinfo.json.
+echo [Environment] !env_name! (!format_name! format)
+set /p confirm="Enter 'Y' to execute actual data migration (Y/N): "
 
 if /i "!confirm!"=="Y" (
     echo.
-    echo [3단계] DB ID 참조 방식을 사용한 데이터 이관 실행 중...
+    echo [Step 3] Executing data migration using DB ID reference method...
     node src/migrate-cli.js migrate --query !config_file!
     
     if errorlevel 1 (
         echo.
-        echo [오류] 데이터 이관 실행 중 오류가 발생했습니다.
+        echo [ERROR] Error occurred during data migration execution.
         echo.
-        echo 아무 키나 누르면 창이 닫힙니다...
+        echo Press any key to close...
         pause >nul
         exit /b 1
     )
     
     echo.
-    echo [성공] DB ID 참조 방식을 사용한 데이터 이관이 완료되었습니다!
-    echo [정보] config/dbinfo.json에서 조회한 DB 정보로 이관이 성공적으로 완료되었습니다.
+    echo [SUCCESS] Data migration using DB ID reference method completed!
+    echo [INFO] Migration successfully completed with DB info retrieved from config/dbinfo.json.
     echo.
 ) else (
     echo.
-    echo [정보] 데이터 이관을 건너뛰었습니다.
+    echo [INFO] Data migration skipped.
     echo.
 )
 
 echo =========================================
-echo   DB ID 참조 방식 테스트 완료
+echo   DB ID Reference Method Test Complete
 echo =========================================
 echo.
-echo [참고] DB ID 참조 방식의 장점:
-echo        ✅ 중앙 집중식 DB 연결 정보 관리
-echo        ✅ 설정 파일 간소화 (DB ID만 지정)
-echo        ✅ 보안 향상 (민감한 정보를 별도 파일에서 관리)
-echo        ✅ 재사용성 (동일한 DB를 여러 설정에서 활용)
-echo        ✅ 환경별 분리 (dev, prod 등 환경별 DB 설정)
+echo [NOTE] Advantages of DB ID reference method:
+echo        ✅ Centralized DB connection info management
+echo        ✅ Simplified config files (specify only DB ID)
+echo        ✅ Enhanced security (manage sensitive info in separate file)
+echo        ✅ Reusability (use same DB in multiple configurations)
+echo        ✅ Environment separation (separate DB settings for dev, prod, etc.)
 echo.
-echo 아무 키나 누르면 창이 닫힙니다...
+echo Press any key to close...
 pause >nul 
