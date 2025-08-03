@@ -9,7 +9,7 @@
   <!-- 전역 변수 정의 -->
   <variables>
     <var name="startDate">2024-01-01</var>
-    <var name="endDate">2024-12-31</var>
+    <var name="endDate">2025-12-31</var>
     <var name="batchSize">1000</var>
     <var name="companyCode">COMPANY01</var>
     <var name="statusList">["ACTIVE", "PENDING", "APPROVED"]</var>
@@ -69,18 +69,17 @@
     <query id="migrate_users"
            description="사용자 테이블 데이터 이관"
            targetTable="users"
-           targetColumns="user_id,username,email,created_date,company_code"
+           targetColumns="user_id,username,email,created_date"
            batchSize="${batchSize}"
            primaryKey="user_id"
-           deleteBeforeInsert="false"
+           deleteBeforeInsert="true"
            enabled="true">
       <sourceQuery>
         <![CDATA[
-          SELECT user_id, username, email, created_date, company_code 
+          SELECT user_id, username, email, created_date 
           FROM users 
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
-            AND company_code = '${companyCode}' 
           ORDER BY user_id
         ]]>
       </sourceQuery>
@@ -88,7 +87,6 @@
         <![CDATA[
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
-            AND company_code = '${companyCode}' 
           ORDER BY user_id
         ]]>
       </deleteWhere>
