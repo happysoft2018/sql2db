@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
-  <!-- 데이터베이스 연결 설정 (dbinfo.json 참조) -->
-  <databases>
+  <!-- 전역 기본 설정 -->
+  <settings>
+    <!-- 데이터베이스 연결 설정 (dbinfo.json 참조) -->
     <source>sampleDB</source>
     <target>targetDB</target>
-  </databases>
+    <!-- 이관 기본 설정 -->
+    <batchSize>${batchSize}</batchSize>
+    <deleteBeforeInsert>true</deleteBeforeInsert>
+  </settings>
 
   <!-- 전역 변수 정의 -->
   <variables>
@@ -70,9 +74,7 @@
            description="사용자 테이블 데이터 이관"
            targetTable="users"
            targetColumns="user_id,username,email,created_date"
-           batchSize="${batchSize}"
            primaryKey="user_id"
-           deleteBeforeInsert="true"
            enabled="true">
       <sourceQuery>
         <![CDATA[
@@ -97,9 +99,7 @@
            description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
            targetTable="products"
            targetColumns=""
-           batchSize="${batchSize}"
            primaryKey="product_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -119,9 +119,7 @@
            sourceQueryFile="sql/orders_migration.sql"
            targetTable="orders"
            targetColumns="order_id,customer_id,order_date,total_amount,status"
-           batchSize="${batchSize}"
            primaryKey="order_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <deleteWhere>
         <![CDATA[
@@ -135,9 +133,7 @@
            description="특정 상태의 상품 데이터 이관 (IN절 사용)"
            targetTable="products"
            targetColumns="product_id,product_name,category_id,price,status"
-           batchSize="${batchSize}"
            primaryKey="product_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -160,9 +156,7 @@
            description="특정 부서 직원 데이터 이관 (IN절 사용)"
            targetTable="employees"
            targetColumns="emp_id,emp_name,department_code,hire_date,salary"
-           batchSize="${batchSize}"
            primaryKey="emp_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -186,9 +180,7 @@
            sourceQueryFile="sql/products_in_clause_example.sql"
            targetTable="products"
            targetColumns="product_id,product_name,category_id,price,status,created_date,updated_date,category_name"
-           batchSize="${batchSize}"
            primaryKey="product_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <deleteWhere>
         <![CDATA[
@@ -205,9 +197,7 @@
            description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
            targetTable="orders"
            targetColumns="order_id,user_id,order_date,total_amount,status"
-           batchSize="${batchSize}"
            primaryKey="order_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -230,9 +220,7 @@
            description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
            targetTable="product_reviews"
            targetColumns=""
-           batchSize="${batchSize}"
            primaryKey="review_id"
-           deleteBeforeInsert="false"
            enabled="false">
       <sourceQuery>
         <![CDATA[

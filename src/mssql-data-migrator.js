@@ -94,20 +94,20 @@ class MSSQLDataMigrator {
             this.variables = this.config.variables || {};
             
             // 쿼리문정의 파일에 DB 설정이 있으면 연결 관리자에 적용
-            if (this.config.databases) {
+            if (this.config.settings) {
                 logger.info('쿼리문정의 파일에서 DB 연결 정보를 발견했습니다.');
                 
                 let sourceConfig = null;
                 let targetConfig = null;
                 
                 // DB ID 문자열인 경우 dbinfo.json에서 조회
-                if (typeof this.config.databases.source === 'string') {
-                    const sourceId = this.config.databases.source;
+                if (typeof this.config.settings.source === 'string') {
+                    const sourceId = this.config.settings.source;
                     sourceConfig = this.getDbConfigById(sourceId);
                     logger.info('소스 DB 설정(DB ID)', sourceConfig);
-                } else if (this.config.databases.source) {
+                } else if (this.config.settings.source) {
                     // 기존 방식 (직접 설정)
-                    sourceConfig = this.config.databases.source;
+                    sourceConfig = this.config.settings.source;
                     sourceConfig.description = sourceConfig.description || '직접 설정된 소스 데이터베이스';
                     logger.info('소스 DB 설정 (직접)', {
                         database: sourceConfig.database,
@@ -115,8 +115,8 @@ class MSSQLDataMigrator {
                     });
                 }
                 
-                if (typeof this.config.databases.target === 'string') {
-                    const targetId = this.config.databases.target;
+                if (typeof this.config.settings.target === 'string') {
+                    const targetId = this.config.settings.target;
                     targetConfig = this.getDbConfigById(targetId);
                     
                     // 타겟 DB의 isWritable 속성 검증
@@ -127,9 +127,9 @@ class MSSQLDataMigrator {
                     }
                     
                     logger.info('타겟 DB 설정 (DB ID)', targetConfig);
-                } else if (this.config.databases.target) {
+                } else if (this.config.settings.target) {
                     // 기존 방식 (직접 설정) - 기본적으로 쓰기 가능으로 간주
-                    targetConfig = this.config.databases.target;
+                    targetConfig = this.config.settings.target;
                     targetConfig.isWritable = targetConfig.isWritable ?? true; // 명시되지 않은 경우 쓰기 가능으로 간주
                     targetConfig.description = targetConfig.description || '직접 설정된 타겟 데이터베이스';
                     logger.info('타겟 DB 설정 (직접)', {
@@ -172,22 +172,23 @@ class MSSQLDataMigrator {
             const migration = result.migration;
             
             const config = {
-                databases: {},
+                settings: {},
                 variables: {},
                 dynamicVariables: [],
                 queries: []
             };
             
-            // 데이터베이스 설정 파싱
-            if (migration.databases) {
-                if (migration.databases.source) {
+            // 설정 파싱 (데이터베이스 연결 및 기본 설정)
+            if (migration.settings) {
+                // 데이터베이스 연결 설정
+                if (migration.settings.source) {
                     // 단순 문자열인 경우 DB ID로 처리
-                    if (typeof migration.databases.source === 'string') {
-                        config.databases.source = migration.databases.source;
+                    if (typeof migration.settings.source === 'string') {
+                        config.settings.source = migration.settings.source;
                     } else {
                         // 기존 방식 (상세 설정 객체)
-                        const source = migration.databases.source;
-                        config.databases.source = {
+                        const source = migration.settings.source;
+                        config.settings.source = {
                             id: source.id,
                             server: source.server,
                             port: parseInt(source.port) || 1433,
@@ -199,7 +200,7 @@ class MSSQLDataMigrator {
                         
                         // options 파싱
                         if (source.options) {
-                            config.databases.source.options = {
+                            config.settings.source.options = {
                                 encrypt: source.options.encrypt === 'true' || source.options.encrypt === true,
                                 trustServerCertificate: source.options.trustServerCertificate === 'true' || source.options.trustServerCertificate === true,
                                 enableArithAbort: source.options.enableArithAbort === 'true' || source.options.enableArithAbort === true,
@@ -210,14 +211,14 @@ class MSSQLDataMigrator {
                     }
                 }
                 
-                if (migration.databases.target) {
+                if (migration.settings.target) {
                     // 단순 문자열인 경우 DB ID로 처리
-                    if (typeof migration.databases.target === 'string') {
-                        config.databases.target = migration.databases.target;
+                    if (typeof migration.settings.target === 'string') {
+                        config.settings.target = migration.settings.target;
                     } else {
                         // 기존 방식 (상세 설정 객체)
-                        const target = migration.databases.target;
-                        config.databases.target = {
+                        const target = migration.settings.target;
+                        config.settings.target = {
                             id: target.id,
                             server: target.server,
                             port: parseInt(target.port) || 1433,
@@ -229,7 +230,7 @@ class MSSQLDataMigrator {
                         
                         // options 파싱
                         if (target.options) {
-                            config.databases.target.options = {
+                            config.settings.target.options = {
                                 encrypt: target.options.encrypt === 'true' || target.options.encrypt === true,
                                 trustServerCertificate: target.options.trustServerCertificate === 'true' || target.options.trustServerCertificate === true,
                                 enableArithAbort: target.options.enableArithAbort === 'true' || target.options.enableArithAbort === true,
@@ -238,6 +239,14 @@ class MSSQLDataMigrator {
                             };
                         }
                     }
+                }
+                
+                // 기본 이관 설정 파싱
+                if (migration.settings.batchSize) {
+                    config.settings.batchSize = migration.settings.batchSize;
+                }
+                if (migration.settings.deleteBeforeInsert) {
+                    config.settings.deleteBeforeInsert = migration.settings.deleteBeforeInsert === 'true';
                 }
             }
             
@@ -309,9 +318,9 @@ class MSSQLDataMigrator {
                         description: q.description,
                         targetTable: q.targetTable,
                         targetColumns: q.targetColumns ? q.targetColumns.split(',').map(c => c.trim()) : [],
-                        batchSize: q.batchSize,
+                        batchSize: q.batchSize || config.settings.batchSize,  // 개별 설정이 없으면 글로벌 설정 사용
                         primaryKey: q.primaryKey,
-                        deleteBeforeInsert: q.deleteBeforeInsert === 'true',
+                        deleteBeforeInsert: q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert,  // 개별 설정이 없으면 글로벌 설정 사용
                         enabled: q.enabled === 'true'
                     };
                     
@@ -923,7 +932,7 @@ class MSSQLDataMigrator {
             await this.loadConfig();
             
             // 쿼리문정의 파일에 DB 정보가 없는 경우에만 환경 변수 확인
-            if (!this.config.databases) {
+            if (!this.config.settings) {
                 // 필수 환경 변수 확인
                 const requiredEnvVars = [
                     'SOURCE_DB_SERVER', 'SOURCE_DB_DATABASE', 'SOURCE_DB_USER', 'SOURCE_DB_PASSWORD',
