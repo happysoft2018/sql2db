@@ -337,6 +337,20 @@ class MSSQLDataMigrator {
                         query.deleteWhere = q.deleteWhere._.trim();
                     }
                     
+                    // columnOverrides 처리
+                    if (q.columnOverrides && q.columnOverrides.override) {
+                        const overrides = Array.isArray(q.columnOverrides.override) 
+                            ? q.columnOverrides.override 
+                            : [q.columnOverrides.override];
+                        
+                        query.columnOverrides = {};
+                        overrides.forEach(override => {
+                            if (override.column && override._) {
+                                query.columnOverrides[override.column] = override._;
+                            }
+                        });
+                    }
+                    
                     config.queries.push(query);
                 });
             }
@@ -619,6 +633,43 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 컬럼 오버라이드 적용
+    applyColumnOverrides(sourceData, columnOverrides) {
+        try {
+            if (!columnOverrides || Object.keys(columnOverrides).length === 0) {
+                this.log('컬럼 오버라이드가 없습니다. 원본 데이터를 그대로 사용합니다.');
+                return sourceData;
+            }
+            
+            this.log(`컬럼 오버라이드 적용 중: ${Object.keys(columnOverrides).join(', ')}`);
+            
+            const processedData = sourceData.map(row => {
+                const newRow = { ...row }; // 원본 데이터 복사
+                
+                // 각 오버라이드 적용
+                Object.entries(columnOverrides).forEach(([column, value]) => {
+                    // 변수 치환 적용
+                    const processedValue = this.replaceVariables(value);
+                    newRow[column] = processedValue;
+                    
+                    // 로그에서 자주 출력되는 것을 방지하기 위해 첫 번째 행에서만 로그 출력
+                    if (sourceData.indexOf(row) === 0) {
+                        this.log(`  ${column}: "${processedValue}" 적용`);
+                    }
+                });
+                
+                return newRow;
+            });
+            
+            this.log(`${sourceData.length}행에 컬럼 오버라이드 적용 완료`);
+            return processedData;
+            
+        } catch (error) {
+            this.log(`컬럼 오버라이드 적용 실패: ${error.message}`);
+            throw error;
+        }
+    }
+
     // 배치 단위로 데이터 삽입
     async insertDataInBatches(tableName, columns, data, batchSize) {
         try {
@@ -767,11 +818,14 @@ class MSSQLDataMigrator {
                 return { success: true, rowsProcessed: 0 };
             }
             
+            // columnOverrides 적용
+            const processedData = this.applyColumnOverrides(sourceData, queryConfig.columnOverrides);
+            
             // 데이터 삽입
             const insertedRows = await this.insertDataInBatches(
                 queryConfig.targetTable,
                 queryConfig.targetColumns,
-                sourceData,
+                processedData,
                 batchSize
             );
             

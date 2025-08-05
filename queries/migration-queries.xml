@@ -20,6 +20,8 @@
     <var name="categoryIds">[1, 2, 3, 5, 8]</var>
     <var name="departmentCodes">["IT", "HR", "SALES", "MARKETING"]</var>
     <var name="enableForeignKeyOrder">true</var>
+    <var name="migrationTimestamp">2024-12-01 15:30:00</var>
+    <var name="migrationUser">SYSTEM_MIGRATOR</var>
   </variables>
 
   <!-- 동적 변수 정의 -->
@@ -73,7 +75,7 @@
     <query id="migrate_users"
            description="사용자 테이블 데이터 이관"
            targetTable="users"
-           targetColumns="user_id,username,email,created_date"
+           targetColumns="user_id,username,email,created_date,status,migration_flag,updated_by,migration_date"
            primaryKey="user_id"
            enabled="true">
       <sourceQuery>
@@ -85,6 +87,13 @@
           ORDER BY user_id
         ]]>
       </sourceQuery>
+      <!-- 특정 컬럼에 고정값 설정 -->
+      <columnOverrides>
+        <override column="status">MIGRATED</override>
+        <override column="migration_flag">1</override>
+        <override column="updated_by">${migrationUser}</override>
+        <override column="migration_date">${migrationTimestamp}</override>
+      </columnOverrides>
       <deleteWhere>
         <![CDATA[
           WHERE created_date >= '${startDate}' 
@@ -106,6 +115,12 @@
           SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY product_id
         ]]>
       </sourceQuery>
+      <!-- SELECT * 와 함께 columnOverrides 사용 예시 -->
+      <columnOverrides>
+        <override column="migration_status">MIGRATED_BULK</override>
+        <override column="last_migration_date">${migrationTimestamp}</override>
+        <override column="status">MIGRATED</override>
+      </columnOverrides>
       <deleteWhere>
         <![CDATA[
           WHERE status = 'ACTIVE'

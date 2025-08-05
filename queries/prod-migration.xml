@@ -56,7 +56,7 @@
     <query id="migrate_prod_users"
            description="운영용 사용자 테이블 데이터 이관"
            targetTable="users"
-           targetColumns="user_id,username,email,created_date,company_code"
+           targetColumns="user_id,username,email,created_date,company_code,environment,migration_batch_id,last_updated"
            primaryKey="user_id"
            enabled="true">
       <sourceQuery>
@@ -70,6 +70,12 @@
           ORDER BY user_id
         ]]>
       </sourceQuery>
+      <!-- 운영 환경용 컬럼 고정값 설정 -->
+      <columnOverrides>
+        <override column="environment">PROD_TARGET</override>
+        <override column="migration_batch_id">${companyCode}_${startDate}</override>
+        <override column="last_updated">GETDATE()</override>
+      </columnOverrides>
       <deleteWhere>
         <![CDATA[
           WHERE environment = 'PROD' 
