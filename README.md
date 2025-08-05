@@ -135,7 +135,7 @@ test-log-levels.bat        # 로그 레벨 테스트
 
 ## 지원
 
-- 💬 **이슈 리포트**: [GitHub Issues](https://github.com/your-repo/issues)
+- 💬 **이슈 리포트**: [GitHub Issues](https://github.com/mrjung72/sql2db-nodejs/issues)
 - 📚 **문서**: 프로젝트 루트의 문서들 참조
 - 🔧 **버그 수정**: Pull Request로 기여
 
@@ -166,3 +166,4 @@ SOFTWARE.
 ---
 
 **버전**: v1.0.0 | **최종 업데이트**: 2025-08-08
+Contact to sql2db.nodejs@gmail.com
