@@ -101,13 +101,13 @@ class MSSQLDataMigrator {
                 let targetConfig = null;
                 
                 // DB ID 문자열인 경우 dbinfo.json에서 조회
-                if (typeof this.config.settings.source === 'string') {
-                    const sourceId = this.config.settings.source;
+                if (typeof this.config.settings.sourceDatabase === 'string') {
+                    const sourceId = this.config.settings.sourceDatabase;
                     sourceConfig = this.getDbConfigById(sourceId);
                     logger.info('소스 DB 설정(DB ID)', sourceConfig);
-                } else if (this.config.settings.source) {
+                } else if (this.config.settings.sourceDatabase) {
                     // 기존 방식 (직접 설정)
-                    sourceConfig = this.config.settings.source;
+                    sourceConfig = this.config.settings.sourceDatabase;
                     sourceConfig.description = sourceConfig.description || '직접 설정된 소스 데이터베이스';
                     logger.info('소스 DB 설정 (직접)', {
                         database: sourceConfig.database,
@@ -115,8 +115,8 @@ class MSSQLDataMigrator {
                     });
                 }
                 
-                if (typeof this.config.settings.target === 'string') {
-                    const targetId = this.config.settings.target;
+                if (typeof this.config.settings.targetDatabase === 'string') {
+                    const targetId = this.config.settings.targetDatabase;
                     targetConfig = this.getDbConfigById(targetId);
                     
                     // 타겟 DB의 isWritable 속성 검증
@@ -127,9 +127,9 @@ class MSSQLDataMigrator {
                     }
                     
                     logger.info('타겟 DB 설정 (DB ID)', targetConfig);
-                } else if (this.config.settings.target) {
+                } else if (this.config.settings.targetDatabase) {
                     // 기존 방식 (직접 설정) - 기본적으로 쓰기 가능으로 간주
-                    targetConfig = this.config.settings.target;
+                    targetConfig = this.config.settings.targetDatabase;
                     targetConfig.isWritable = targetConfig.isWritable ?? true; // 명시되지 않은 경우 쓰기 가능으로 간주
                     targetConfig.description = targetConfig.description || '직접 설정된 타겟 데이터베이스';
                     logger.info('타겟 DB 설정 (직접)', {
@@ -181,14 +181,14 @@ class MSSQLDataMigrator {
             // 설정 파싱 (데이터베이스 연결 및 기본 설정)
             if (migration.settings) {
                 // 데이터베이스 연결 설정
-                if (migration.settings.source) {
+                if (migration.settings.sourceDatabase) {
                     // 단순 문자열인 경우 DB ID로 처리
-                    if (typeof migration.settings.source === 'string') {
-                        config.settings.source = migration.settings.source;
+                    if (typeof migration.settings.sourceDatabase === 'string') {
+                        config.settings.sourceDatabase = migration.settings.sourceDatabase;
                     } else {
                         // 기존 방식 (상세 설정 객체)
-                        const source = migration.settings.source;
-                        config.settings.source = {
+                        const source = migration.settings.sourceDatabase;
+                        config.settings.sourceDatabase = {
                             id: source.id,
                             server: source.server,
                             port: parseInt(source.port) || 1433,
@@ -200,7 +200,7 @@ class MSSQLDataMigrator {
                         
                         // options 파싱
                         if (source.options) {
-                            config.settings.source.options = {
+                            config.settings.sourceDatabase.options = {
                                 encrypt: source.options.encrypt === 'true' || source.options.encrypt === true,
                                 trustServerCertificate: source.options.trustServerCertificate === 'true' || source.options.trustServerCertificate === true,
                                 enableArithAbort: source.options.enableArithAbort === 'true' || source.options.enableArithAbort === true,
@@ -211,14 +211,14 @@ class MSSQLDataMigrator {
                     }
                 }
                 
-                if (migration.settings.target) {
+                if (migration.settings.targetDatabase) {
                     // 단순 문자열인 경우 DB ID로 처리
-                    if (typeof migration.settings.target === 'string') {
-                        config.settings.target = migration.settings.target;
+                    if (typeof migration.settings.targetDatabase === 'string') {
+                        config.settings.targetDatabase = migration.settings.targetDatabase;
                     } else {
                         // 기존 방식 (상세 설정 객체)
-                        const target = migration.settings.target;
-                        config.settings.target = {
+                        const target = migration.settings.targetDatabase;
+                        config.settings.targetDatabase = {
                             id: target.id,
                             server: target.server,
                             port: parseInt(target.port) || 1433,
@@ -230,7 +230,7 @@ class MSSQLDataMigrator {
                         
                         // options 파싱
                         if (target.options) {
-                            config.settings.target.options = {
+                            config.settings.targetDatabase.options = {
                                 encrypt: target.options.encrypt === 'true' || target.options.encrypt === true,
                                 trustServerCertificate: target.options.trustServerCertificate === 'true' || target.options.trustServerCertificate === true,
                                 enableArithAbort: target.options.enableArithAbort === 'true' || target.options.enableArithAbort === true,

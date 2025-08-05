@@ -3,8 +3,8 @@
   <!-- 전역 기본 설정 -->
   <settings>
     <!-- 데이터베이스 연결 설정 (dbinfo.json 참조) -->
-    <source>sampleDB</source>
-    <target>targetDB</target>
+    <sourceDatabase>sampleDB</sourceDatabase>
+    <targetDatabase>targetDB</targetDatabase>
     <!-- 이관 기본 설정 -->
     <batchSize>${batchSize}</batchSize>
     <deleteBeforeInsert>true</deleteBeforeInsert>
