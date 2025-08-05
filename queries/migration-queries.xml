@@ -24,6 +24,47 @@
     <var name="migrationUser">SYSTEM_MIGRATOR</var>
   </variables>
 
+  <!-- 전역 전처리/후처리 -->
+  <globalProcesses>
+    <!-- 전체 이관 시작 전 실행 -->
+    <preProcess description="이관 준비 작업">
+      <![CDATA[
+        -- 성능 향상을 위한 인덱스 비활성화
+        ALTER INDEX ALL ON users DISABLE;
+        ALTER INDEX ALL ON products DISABLE;
+        
+        -- 제약조건 비활성화
+        ALTER TABLE users NOCHECK CONSTRAINT ALL;
+        ALTER TABLE products NOCHECK CONSTRAINT ALL;
+        
+        -- 통계 정보 업데이트
+        UPDATE STATISTICS users;
+        UPDATE STATISTICS products;
+      ]]>
+    </preProcess>
+    
+    <!-- 전체 이관 완료 후 실행 -->
+    <postProcess description="이관 마무리 작업">
+      <![CDATA[
+        -- 인덱스 재활성화 및 재구성
+        ALTER INDEX ALL ON users REBUILD;
+        ALTER INDEX ALL ON products REBUILD;
+        
+        -- 제약조건 재활성화
+        ALTER TABLE users CHECK CONSTRAINT ALL;
+        ALTER TABLE products CHECK CONSTRAINT ALL;
+        
+        -- 통계 정보 업데이트
+        UPDATE STATISTICS users WITH FULLSCAN;
+        UPDATE STATISTICS products WITH FULLSCAN;
+        
+        -- 이관 완료 로그 기록
+        INSERT INTO migration_log (migration_date, status, description) 
+        VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully');
+      ]]>
+    </postProcess>
+  </globalProcesses>
+
   <!-- 동적 변수 정의 -->
   <dynamicVariables>
     <dynamicVar id="extract_active_user_ids" 
@@ -78,6 +119,24 @@
            targetColumns="user_id,username,email,created_date,status,migration_flag,updated_by,migration_date"
            primaryKey="user_id"
            enabled="true">
+      <!-- 이 쿼리 실행 전 전처리 -->
+      <preProcess description="사용자 테이블 이관 준비">
+        <![CDATA[
+          -- 임시 테이블 생성
+          IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
+          CREATE TABLE #temp_users (user_id INT, old_status VARCHAR(50), new_status VARCHAR(50));
+          
+          -- 기존 데이터 백업
+          INSERT INTO user_migration_backup 
+          SELECT *, GETDATE() as backup_date FROM users 
+          WHERE created_date >= '${startDate}' AND created_date <= '${endDate}';
+          
+          -- 로그 기록
+          INSERT INTO migration_log (query_id, phase, message, created_date)
+          VALUES ('migrate_users', 'PRE_PROCESS', 'User migration preparation completed', GETDATE());
+        ]]>
+      </preProcess>
+      
       <sourceQuery>
         <![CDATA[
           SELECT user_id, username, email, created_date 
@@ -87,6 +146,7 @@
           ORDER BY user_id
         ]]>
       </sourceQuery>
+      
       <!-- 특정 컬럼에 고정값 설정 -->
       <columnOverrides>
         <override column="status">MIGRATED</override>
@@ -94,6 +154,7 @@
         <override column="updated_by">${migrationUser}</override>
         <override column="migration_date">${migrationTimestamp}</override>
       </columnOverrides>
+      
       <deleteWhere>
         <![CDATA[
           WHERE created_date >= '${startDate}' 
@@ -101,6 +162,32 @@
           ORDER BY user_id
         ]]>
       </deleteWhere>
+      
+      <!-- 이 쿼리 실행 후 후처리 -->
+      <postProcess description="사용자 테이블 이관 마무리">
+        <![CDATA[
+          -- 데이터 검증
+          DECLARE @source_count INT, @target_count INT;
+          SELECT @source_count = COUNT(*) FROM users_source WHERE created_date >= '${startDate}' AND created_date <= '${endDate}';
+          SELECT @target_count = COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}';
+          
+          IF @source_count != @target_count
+          BEGIN
+            INSERT INTO migration_errors (query_id, error_message, created_date)
+            VALUES ('migrate_users', 'Row count mismatch: source=' + CAST(@source_count AS VARCHAR) + ', target=' + CAST(@target_count AS VARCHAR), GETDATE());
+          END
+          
+          -- 통계 업데이트
+          UPDATE STATISTICS users;
+          
+          -- 완료 로그 기록
+          INSERT INTO migration_log (query_id, phase, message, rows_processed, created_date)
+          VALUES ('migrate_users', 'POST_PROCESS', 'User migration completed successfully', @target_count, GETDATE());
+          
+          -- 임시 테이블 정리
+          IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
+        ]]>
+      </postProcess>
     </query>
 
     <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->

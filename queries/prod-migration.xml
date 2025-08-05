@@ -21,6 +21,60 @@
     <var name="enableForeignKeyOrder">true</var>
   </variables>
 
+  <!-- 운영 환경 전역 전처리/후처리 -->
+  <globalProcesses>
+    <!-- 운영 이관 시작 전 실행 -->
+    <preProcess description="운영 환경 이관 준비">
+      <![CDATA[
+        -- 운영 환경 성능 최적화
+        SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+        
+        -- 대용량 처리를 위한 설정
+        ALTER DATABASE CURRENT SET RECOVERY SIMPLE;
+        
+        -- 이관 시작 로그
+        INSERT INTO prod_migration_log (batch_id, phase, message, created_date)
+        VALUES ('${companyCode}_${startDate}', 'GLOBAL_PRE', 'Production migration started', GETDATE());
+        
+        -- 백업 테이블 생성
+        IF OBJECT_ID('users_backup_${startDate}') IS NULL
+        BEGIN
+          SELECT * INTO users_backup_${startDate} FROM users WHERE 1=0;
+          SELECT * INTO orders_backup_${startDate} FROM orders WHERE 1=0;
+        END
+      ]]>
+    </preProcess>
+    
+    <!-- 운영 이관 완료 후 실행 -->
+    <postProcess description="운영 환경 이관 마무리">
+      <![CDATA[
+        -- 복구 모델 원복
+        ALTER DATABASE CURRENT SET RECOVERY FULL;
+        
+        -- 성능 통계 업데이트
+        EXEC sp_updatestats;
+        
+        -- 인덱스 조각 모음
+        DECLARE @sql NVARCHAR(MAX) = '';
+        SELECT @sql = @sql + 'ALTER INDEX ALL ON ' + QUOTENAME(name) + ' REORGANIZE; '
+        FROM sys.tables WHERE name IN ('users', 'orders');
+        EXEC sp_executesql @sql;
+        
+        -- 이관 완료 로그 및 통계
+        DECLARE @total_users INT, @total_orders INT;
+        SELECT @total_users = COUNT(*) FROM users WHERE migration_batch_id = '${companyCode}_${startDate}';
+        SELECT @total_orders = COUNT(*) FROM orders WHERE created_date >= '${startDate}';
+        
+        INSERT INTO prod_migration_log (batch_id, phase, message, rows_processed, created_date)
+        VALUES ('${companyCode}_${startDate}', 'GLOBAL_POST', 'Production migration completed successfully', @total_users + @total_orders, GETDATE());
+        
+        -- 알림 메일 발송을 위한 플래그 설정
+        INSERT INTO notification_queue (type, message, created_date)
+        VALUES ('MIGRATION_COMPLETE', 'Production data migration completed for ${companyCode}', GETDATE());
+      ]]>
+    </postProcess>
+  </globalProcesses>
+
   <!-- 운영 환경 동적 변수 정의 -->
   <dynamicVariables>
     <dynamicVar id="extract_prod_active_users" 

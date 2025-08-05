@@ -432,6 +432,40 @@ class MSSQLConnectionManager {
             throw new Error(`FK 제약 조건 ${enable ? '활성화' : '비활성화'} 실패: ${error.message}`);
         }
     }
+
+    // 타겟 데이터베이스에서 SQL 실행 (전처리/후처리용)
+    async executeQueryOnTarget(query) {
+        try {
+            if (!this.targetPool) {
+                await this.connectTarget();
+            }
+
+            const request = this.targetPool.request();
+            const result = await request.query(query);
+            
+            return result;
+        } catch (error) {
+            console.error('타겟 DB 쿼리 실행 실패:', error.message);
+            throw new Error(`타겟 DB 쿼리 실행 실패: ${error.message}`);
+        }
+    }
+
+    // 소스 데이터베이스에서 SQL 실행 (전처리/후처리용)
+    async executeQueryOnSource(query) {
+        try {
+            if (!this.sourcePool) {
+                await this.connectSource();
+            }
+
+            const request = this.sourcePool.request();
+            const result = await request.query(query);
+            
+            return result;
+        } catch (error) {
+            console.error('소스 DB 쿼리 실행 실패:', error.message);
+            throw new Error(`소스 DB 쿼리 실행 실패: ${error.message}`);
+        }
+    }
 }
 
 module.exports = MSSQLConnectionManager; 

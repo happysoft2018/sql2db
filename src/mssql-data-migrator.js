@@ -175,6 +175,7 @@ class MSSQLDataMigrator {
                 settings: {},
                 variables: {},
                 dynamicVariables: [],
+                globalProcesses: {},
                 queries: []
             };
             
@@ -247,6 +248,22 @@ class MSSQLDataMigrator {
                 }
                 if (migration.settings.deleteBeforeInsert) {
                     config.settings.deleteBeforeInsert = migration.settings.deleteBeforeInsert === 'true';
+                }
+            }
+            
+            // 전역 전처리/후처리 파싱
+            if (migration.globalProcesses) {
+                if (migration.globalProcesses.preProcess) {
+                    config.globalProcesses.preProcess = {
+                        description: migration.globalProcesses.preProcess.description || '전역 전처리',
+                        script: migration.globalProcesses.preProcess._.trim()
+                    };
+                }
+                if (migration.globalProcesses.postProcess) {
+                    config.globalProcesses.postProcess = {
+                        description: migration.globalProcesses.postProcess.description || '전역 후처리',
+                        script: migration.globalProcesses.postProcess._.trim()
+                    };
                 }
             }
             
@@ -349,6 +366,20 @@ class MSSQLDataMigrator {
                                 query.columnOverrides[override.column] = override._;
                             }
                         });
+                    }
+                    
+                    // 개별 쿼리 전처리/후처리 파싱
+                    if (q.preProcess) {
+                        query.preProcess = {
+                            description: q.preProcess.description || `${query.id} 전처리`,
+                            script: q.preProcess._.trim()
+                        };
+                    }
+                    if (q.postProcess) {
+                        query.postProcess = {
+                            description: q.postProcess.description || `${query.id} 후처리`,
+                            script: q.postProcess._.trim()
+                        };
                     }
                     
                     config.queries.push(query);
@@ -670,6 +701,57 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 전처리/후처리 SQL 실행
+    async executeProcessScript(scriptConfig, database = 'target') {
+        try {
+            if (!scriptConfig || !scriptConfig.script) {
+                this.log('실행할 스크립트가 없습니다.');
+                return { success: true };
+            }
+            
+            this.log(`${scriptConfig.description} 실행 중...`);
+            
+            // 변수 치환
+            const processedScript = this.replaceVariables(scriptConfig.script);
+            
+            // 스크립트를 세미콜론으로 분할하여 개별 SQL 문으로 실행
+            const sqlStatements = processedScript
+                .split(';')
+                .map(sql => sql.trim())
+                .filter(sql => sql.length > 0 && !sql.match(/^\s*--/)); // 빈 문장과 주석 제거
+            
+            if (sqlStatements.length === 0) {
+                this.log('실행할 SQL 문이 없습니다.');
+                return { success: true };
+            }
+            
+            this.log(`총 ${sqlStatements.length}개의 SQL 문 실행 중...`);
+            
+            let executedCount = 0;
+            for (const sql of sqlStatements) {
+                try {
+                    if (database === 'source') {
+                        await this.connectionManager.executeQueryOnSource(sql);
+                    } else {
+                        await this.connectionManager.executeQueryOnTarget(sql);
+                    }
+                    executedCount++;
+                } catch (sqlError) {
+                    this.log(`SQL 실행 경고 (계속 진행): ${sqlError.message}`);
+                    this.log(`실패한 SQL: ${sql.substring(0, 100)}...`);
+                    // 개별 SQL 실패는 경고로 처리하고 계속 진행
+                }
+            }
+            
+            this.log(`${scriptConfig.description} 완료: ${executedCount}/${sqlStatements.length}개 SQL 문 실행`);
+            return { success: true, executedCount };
+            
+        } catch (error) {
+            this.log(`${scriptConfig.description} 실행 실패: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
     // 배치 단위로 데이터 삽입
     async insertDataInBatches(tableName, columns, data, batchSize) {
         try {
@@ -795,6 +877,16 @@ class MSSQLDataMigrator {
             this.log(`\n=== 쿼리 이관 시작: ${queryConfig.id} ===`);
             this.log(`설명: ${queryConfig.description}`);
             
+            // 개별 쿼리 전처리 실행
+            if (queryConfig.preProcess) {
+                this.log(`--- ${queryConfig.id} 전처리 실행 ---`);
+                const preResult = await this.executeProcessScript(queryConfig.preProcess, 'target');
+                if (!preResult.success) {
+                    throw new Error(`${queryConfig.id} 전처리 실행 실패: ${preResult.error}`);
+                }
+                this.log(`--- ${queryConfig.id} 전처리 완료 ---`);
+            }
+            
             // 배치 크기 결정
             let batchSize = parseInt(process.env.BATCH_SIZE) || 1000;
             if (queryConfig.batchSize) {
@@ -829,6 +921,17 @@ class MSSQLDataMigrator {
                 batchSize
             );
             
+            // 개별 쿼리 후처리 실행
+            if (queryConfig.postProcess) {
+                this.log(`--- ${queryConfig.id} 후처리 실행 ---`);
+                const postResult = await this.executeProcessScript(queryConfig.postProcess, 'target');
+                if (!postResult.success) {
+                    this.log(`${queryConfig.id} 후처리 실행 실패: ${postResult.error}`);
+                    // 후처리 실패는 경고로 처리하고 계속 진행
+                }
+                this.log(`--- ${queryConfig.id} 후처리 완료 ---`);
+            }
+            
             this.log(`=== 쿼리 이관 완료: ${queryConfig.id} (${insertedRows}행 처리) ===\n`);
             
             return { success: true, rowsProcessed: insertedRows };
@@ -858,6 +961,16 @@ class MSSQLDataMigrator {
             // 데이터베이스 연결
             this.log('데이터베이스 연결 중...');
             await this.connectionManager.connectBoth();
+            
+            // 전역 전처리 실행
+            if (this.config.globalProcesses && this.config.globalProcesses.preProcess) {
+                this.log('\n=== 전역 전처리 실행 ===');
+                const preResult = await this.executeProcessScript(this.config.globalProcesses.preProcess, 'target');
+                if (!preResult.success) {
+                    throw new Error(`전역 전처리 실행 실패: ${preResult.error}`);
+                }
+                this.log('=== 전역 전처리 완료 ===\n');
+            }
             
             // 동적 변수 추출 실행
             if (this.config.dynamicVariables && this.config.dynamicVariables.length > 0) {
@@ -923,6 +1036,17 @@ class MSSQLDataMigrator {
                 if (this.enableTransaction && transaction) {
                     this.log('트랜잭션 커밋');
                     await transaction.commit();
+                }
+                
+                // 전역 후처리 실행
+                if (this.config.globalProcesses && this.config.globalProcesses.postProcess) {
+                    this.log('\n=== 전역 후처리 실행 ===');
+                    const postResult = await this.executeProcessScript(this.config.globalProcesses.postProcess, 'target');
+                    if (!postResult.success) {
+                        this.log(`전역 후처리 실행 실패: ${postResult.error}`);
+                        // 후처리 실패는 경고로 처리하고 계속 진행
+                    }
+                    this.log('=== 전역 후처리 완료 ===\n');
                 }
                 
             } catch (error) {
