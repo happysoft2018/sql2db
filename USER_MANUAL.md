@@ -157,10 +157,7 @@ ENABLE_TRANSACTION=true
         <override column="updated_by">${migrationUser}</override>
       </columnOverrides>
 
-      <!-- 삭제 조건 -->
-      <deleteWhere>
-        <![CDATA[ WHERE created_date >= '${startDate}' ]]>
-      </deleteWhere>
+      <!-- deleteWhere 기능은 제거됨 - deleteBeforeInsert=true시 PK 기준으로 자동 삭제 -->
 
       <!-- 개별 후처리 -->
       <postProcess description="사용자 테이블 완료">
@@ -180,6 +177,8 @@ ENABLE_TRANSACTION=true
 #### 선택적 설정
 - `batchSize`: 배치 크기 (기본값: 1000)
 - `deleteBeforeInsert`: 이관 전 삭제 여부 (기본값: true)
+  - `true`: 소스 데이터의 PK 값에 해당하는 타겟 데이터를 삭제 후 이관
+  - `false`: 삭제 없이 바로 이관 (UPSERT 형태)
 
 ### 3. 쿼리 속성
 
@@ -194,6 +193,36 @@ ENABLE_TRANSACTION=true
 - `targetColumns`: 타겟 컬럼 목록 (공백시 소스와 동일)
 - `batchSize`: 개별 배치 크기 (글로벌 설정 오버라이드)
 - `deleteBeforeInsert`: 개별 삭제 설정 (글로벌 설정 오버라이드)
+  - `true`: 소스 데이터의 PK 값으로 타겟 데이터 삭제 후 이관
+  - `false`: 삭제 없이 바로 이관
+
+### 4. 데이터 삭제 방식
+
+v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`일 때 자동으로 Primary Key 기준으로 삭제됩니다.
+
+#### 삭제 동작 방식
+1. **FK 순서 고려 활성화된 경우** (`enableForeignKeyOrder: true`)
+   - 모든 테이블을 FK 참조 순서에 따라 전체 삭제
+   - 순환 참조 시 FK 제약조건을 일시 비활성화
+
+2. **FK 순서 고려 비활성화된 경우** (`enableForeignKeyOrder: false`)
+   - 각 쿼리별로 소스 데이터의 PK 값에 해당하는 타겟 데이터만 삭제
+   - 더 정확하고 안전한 삭제 방식
+
+#### 예시
+```xml
+<!-- 단일 PK인 경우 -->
+<query primaryKey="user_id" deleteBeforeInsert="true">
+  <!-- 소스에서 user_id가 1,2,3인 데이터가 조회되면 -->
+  <!-- 타겟에서 user_id IN (1,2,3)인 행들을 먼저 삭제 -->
+</query>
+
+<!-- 복합 PK인 경우 -->
+<query primaryKey="order_id,line_no" deleteBeforeInsert="true">
+  <!-- 소스에서 (order_id=100, line_no=1), (order_id=100, line_no=2) 조회되면 -->
+  <!-- 타겟에서 해당 복합키 조합의 행들을 먼저 삭제 -->
+</query>
+```
 
 ## 🚀 고급 기능
 
@@ -398,11 +427,7 @@ ENABLE_TRANSACTION=true
     <override column="status">MIGRATED</override>
   </columnOverrides>
   
-  <deleteWhere>
-    <![CDATA[
-      WHERE created_date >= '2024-01-01'
-    ]]>
-  </deleteWhere>
+  <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 PK 기준으로 자동 삭제됨 -->
 </query>
 ```
 

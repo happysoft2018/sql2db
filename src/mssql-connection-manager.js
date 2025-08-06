@@ -193,24 +193,122 @@ class MSSQLConnectionManager {
         }
     }
 
-    // 대상 데이터베이스에서 테이블 데이터 삭제
-    async deleteFromTarget(tableName, deleteWhere) {
+    // 대상 데이터베이스에서 테이블 데이터 삭제 (PK 기준)
+    async deleteFromTargetByPK(tableName, primaryKeys, sourceData) {
+        try {
+            if (!this.isTargetConnected) {
+                await this.connectTarget();
+            }
+
+            if (!sourceData || sourceData.length === 0) {
+                console.log(`소스 데이터가 없어 ${tableName} 테이블 삭제를 건너뜁니다.`);
+                return { rowsAffected: [0] };
+            }
+
+            // PK 값들 추출
+            const pkValues = [];
+            sourceData.forEach(row => {
+                if (Array.isArray(primaryKeys)) {
+                    // 복합 키인 경우
+                    const pkSet = {};
+                    primaryKeys.forEach(pk => {
+                        pkSet[pk] = row[pk];
+                    });
+                    pkValues.push(pkSet);
+                } else {
+                    // 단일 키인 경우
+                    if (row[primaryKeys] !== undefined && row[primaryKeys] !== null) {
+                        pkValues.push(row[primaryKeys]);
+                    }
+                }
+            });
+
+            if (pkValues.length === 0) {
+                console.log(`유효한 PK 값이 없어 ${tableName} 테이블 삭제를 건너뜁니다.`);
+                return { rowsAffected: [0] };
+            }
+
+            let deleteQuery;
+            const request = this.targetPool.request();
+
+            if (Array.isArray(primaryKeys)) {
+                // 복합 키인 경우
+                const conditions = pkValues.map((pkSet, index) => {
+                    const conditions = primaryKeys.map(pk => {
+                        const paramName = `pk_${pk}_${index}`;
+                        const value = pkSet[pk];
+                        if (typeof value === 'string') {
+                            request.input(paramName, sql.NVarChar, value);
+                        } else if (typeof value === 'number') {
+                            request.input(paramName, sql.Int, value);
+                        } else {
+                            request.input(paramName, sql.Variant, value);
+                        }
+                        return `${pk} = @${paramName}`;
+                    }).join(' AND ');
+                    return `(${conditions})`;
+                }).join(' OR ');
+                
+                deleteQuery = `DELETE FROM ${tableName} WHERE ${conditions}`;
+            } else {
+                // 단일 키인 경우
+                if (pkValues.length === 1) {
+                    const value = pkValues[0];
+                    if (typeof value === 'string') {
+                        request.input('pk_value', sql.NVarChar, value);
+                    } else if (typeof value === 'number') {
+                        request.input('pk_value', sql.Int, value);
+                    } else {
+                        request.input('pk_value', sql.Variant, value);
+                    }
+                    deleteQuery = `DELETE FROM ${tableName} WHERE ${primaryKeys} = @pk_value`;
+                } else {
+                    // 여러 PK 값들을 IN절로 처리
+                    const inClause = pkValues.map((value, index) => {
+                        const paramName = `pk_${index}`;
+                        if (typeof value === 'string') {
+                            request.input(paramName, sql.NVarChar, value);
+                        } else if (typeof value === 'number') {
+                            request.input(paramName, sql.Int, value);
+                        } else {
+                            request.input(paramName, sql.Variant, value);
+                        }
+                        return `@${paramName}`;
+                    }).join(', ');
+                    
+                    deleteQuery = `DELETE FROM ${tableName} WHERE ${primaryKeys} IN (${inClause})`;
+                }
+            }
+            
+            console.log(`대상 테이블 PK 기준 데이터 삭제 중: ${tableName} (${pkValues.length}개 행 대상)`);
+            const result = await request.query(deleteQuery);
+            
+            console.log(`삭제된 행 수: ${result.rowsAffected[0]}`);
+            return result;
+        } catch (error) {
+            console.error('대상 데이터베이스 PK 기준 삭제 실패:', error.message);
+            throw new Error(`대상 데이터베이스 PK 기준 삭제 실패: ${error.message}`);
+        }
+    }
+
+    // 대상 데이터베이스에서 테이블 전체 삭제 (FK 순서 고려시 사용)
+    async deleteAllFromTarget(tableName) {
         try {
             if (!this.isTargetConnected) {
                 await this.connectTarget();
             }
 
             const request = this.targetPool.request();
-            const deleteQuery = `DELETE FROM ${tableName} ${deleteWhere} `;
+            const deleteQuery = `DELETE FROM ${tableName}`;
             
-            console.log(`대상 테이블 데이터 삭제 중: ${deleteQuery}`);
+            console.log(`대상 테이블 전체 데이터 삭제 중: ${deleteQuery}`);
             const result = await request.query(deleteQuery);
             
             console.log(`삭제된 행 수: ${result.rowsAffected[0]}`);
             return result;
         } catch (error) {
-            console.error('대상 데이터베이스 삭제 실패:', error.message);
-            throw new Error(`대상 데이터베이스 삭제 실패: ${error.message}`);
+            console.error('대상 데이터베이스 전체 삭제 실패:', error.message);
+            throw new Error(`대상 데이터베이스 전체 삭제 실패: ${error.message}`);
         }
     }
 

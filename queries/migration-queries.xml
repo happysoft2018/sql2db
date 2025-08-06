@@ -161,13 +161,7 @@
         <override column="processed_at">${NOW}</override>
       </columnOverrides>
       
-      <deleteWhere>
-        <![CDATA[
-          WHERE created_date >= '${startDate}' 
-            AND created_date <= '${endDate}' 
-          ORDER BY user_id
-        ]]>
-      </deleteWhere>
+
       
       <!-- 이 쿼리 실행 후 후처리 -->
       <postProcess description="사용자 테이블 이관 마무리">
@@ -217,11 +211,7 @@
         <override column="bulk_processed_time">${CURRENT_TIME}</override>
         <override column="unix_timestamp">${UNIX_TIMESTAMP}</override>
       </columnOverrides>
-      <deleteWhere>
-        <![CDATA[
-          WHERE status = 'ACTIVE'
-        ]]>
-      </deleteWhere>
+
     </query>
 
     <!-- 주문 테이블 데이터 이관 (SQL 파일 사용) -->
@@ -239,11 +229,7 @@
           WHERE order_date >= '${startDate}' AND order_date <= '${endDate}'
         ]]>
       </sourceQuery>
-      <deleteWhere>
-        <![CDATA[
-          WHERE order_date >= '${startDate}' AND order_date <= '${endDate}'
-        ]]>
-      </deleteWhere>
+
     </query>
 
     <!-- 특정 상태의 상품 데이터 이관 (IN절 사용) -->
@@ -262,11 +248,7 @@
           ORDER BY product_id
         ]]>
       </sourceQuery>
-      <deleteWhere>
-        <![CDATA[
-          WHERE status IN (${statusList}) AND category_id IN (${categoryIds})
-        ]]>
-      </deleteWhere>
+
     </query>
 
     <!-- 특정 부서 직원 데이터 이관 (IN절 사용) -->
@@ -285,11 +267,7 @@
           ORDER BY emp_id
         ]]>
       </sourceQuery>
-      <deleteWhere>
-        <![CDATA[
-          WHERE department_code IN (${departmentCodes}) AND hire_date >= '${startDate}'
-        ]]>
-      </deleteWhere>
+
     </query>
 
     <!-- 상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용) -->
@@ -300,14 +278,7 @@
            targetColumns="product_id,product_name,category_id,price,status,created_date,updated_date,category_name"
            primaryKey="product_id"
            enabled="false">
-      <deleteWhere>
-        <![CDATA[
-          WHERE status IN (${statusList}) 
-            AND category_id IN (${categoryIds}) 
-            AND created_date >= '${startDate}' 
-            AND created_date <= '${endDate}'
-        ]]>
-      </deleteWhere>
+
     </query>
 
     <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
@@ -326,11 +297,7 @@
           ORDER BY order_date DESC
         ]]>
       </sourceQuery>
-      <deleteWhere>
-        <![CDATA[
-          WHERE user_id IN (${activeUserIds}) AND order_date >= '${startDate}'
-        ]]>
-      </deleteWhere>
+
     </query>
 
     <!-- 추출된 상품 관련 데이터 이관 (동적 변수 사용) -->
@@ -347,11 +314,7 @@
             AND rating >= 4
         ]]>
       </sourceQuery>
-      <deleteWhere>
-        <![CDATA[
-          WHERE product_id IN (${categoryProductIds}) AND rating >= 4
-        ]]>
-      </deleteWhere>
+
     </query>
   </queries>
 </migration> 
