@@ -130,6 +130,12 @@ node src/progress-cli.js show migration-2024-12-01-15-30-00
 # 실시간 모니터링
 node src/progress-cli.js monitor migration-2024-12-01-15-30-00
 
+# 재시작 정보 조회
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+
+# 중단된 마이그레이션 재시작
+node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
+
 # 전체 요약
 node src/progress-cli.js summary
 
@@ -141,6 +147,7 @@ node src/progress-cli.js cleanup 7
 - ⚡ **실시간 추적**: 마이그레이션 진행 상황 실시간 모니터링
 - 📊 **성능 메트릭**: 처리 속도, 예상 완료 시간 제공
 - 🔍 **상세 분석**: 페이즈별, 쿼리별, 배치별 상세 정보
+- 🔄 **중단 재시작**: 네트워크 오류 등으로 중단된 마이그레이션을 완료된 지점에서 재시작
 - 💾 **영구 저장**: 진행 상황 파일로 이력 관리
 - 🛠️ **CLI 도구**: 다양한 조회 및 관리 명령어
 
@@ -195,5 +202,4 @@ SOFTWARE.
 
 ---
 
-**버전**: v1.0.0 | **최종 업데이트**: 2025-08-08
 Contact to sql2db.nodejs@gmail.com

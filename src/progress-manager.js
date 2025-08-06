@@ -325,12 +325,106 @@ class ProgressManager {
                 const data = JSON.parse(fs.readFileSync(progressFile, 'utf8'));
                 const manager = new ProgressManager(migrationId);
                 manager.progressData = data;
+                manager.migrationId = data.migrationId;
+                manager.startTime = data.startTime;
                 return manager;
             }
         } catch (error) {
             console.error('Failed to load progress:', error.message);
         }
         return null;
+    }
+
+    // 재시작 가능한지 확인
+    canResume() {
+        return this.progressData.status === 'FAILED' || 
+               this.progressData.status === 'PAUSED' || 
+               (this.progressData.status === 'RUNNING' && this.isStale());
+    }
+
+    // 진행 상황이 오래되었는지 확인 (5분 이상 업데이트 없음)
+    isStale() {
+        const lastUpdate = Math.max(
+            this.progressData.startTime || 0,
+            ...Object.values(this.progressData.queries || {}).map(q => q.endTime || q.startTime || 0),
+            ...Object.values(this.progressData.phases || {}).map(p => p.endTime || p.startTime || 0)
+        );
+        return Date.now() - lastUpdate > 5 * 60 * 1000; // 5분
+    }
+
+    // 완료된 쿼리 목록 반환
+    getCompletedQueries() {
+        return Object.values(this.progressData.queries || {})
+            .filter(query => query.status === 'COMPLETED')
+            .map(query => query.id);
+    }
+
+    // 실패한 쿼리 목록 반환
+    getFailedQueries() {
+        return Object.values(this.progressData.queries || {})
+            .filter(query => query.status === 'FAILED')
+            .map(query => query.id);
+    }
+
+    // 미완료 쿼리 목록 반환 (실행되지 않았거나 실패한 쿼리)
+    getPendingQueries(allQueryIds) {
+        const completedQueries = this.getCompletedQueries();
+        return allQueryIds.filter(queryId => !completedQueries.includes(queryId));
+    }
+
+    // 재시작을 위한 상태 준비
+    prepareForResume() {
+        this.progressData.status = 'RUNNING';
+        this.progressData.currentPhase = 'MIGRATING';
+        this.progressData.currentQuery = null;
+        
+        // 실패한 쿼리 상태를 PENDING으로 리셋
+        Object.values(this.progressData.queries).forEach(query => {
+            if (query.status === 'FAILED' || query.status === 'RUNNING') {
+                query.status = 'PENDING';
+                query.endTime = null;
+                query.currentBatch = null;
+                query.processedInCurrentBatch = null;
+                // 에러 정보는 유지하되 새로운 시도 표시
+                if (!query.retryAttempts) query.retryAttempts = 0;
+                query.retryAttempts++;
+            }
+        });
+
+        // 전역 에러 카운트는 유지하지만 재시작 표시
+        this.progressData.resumedAt = Date.now();
+        this.progressData.resumeCount = (this.progressData.resumeCount || 0) + 1;
+        
+        this.saveProgress();
+        this.notifyListeners();
+    }
+
+    // 재시작 정보 반환
+    getResumeInfo() {
+        const completedQueries = this.getCompletedQueries();
+        const failedQueries = this.getFailedQueries();
+        
+        return {
+            canResume: this.canResume(),
+            status: this.progressData.status,
+            isStale: this.isStale(),
+            completedQueries: completedQueries,
+            failedQueries: failedQueries,
+            totalQueries: this.progressData.totalQueries,
+            remainingQueries: this.progressData.totalQueries - completedQueries.length,
+            resumeCount: this.progressData.resumeCount || 0,
+            lastActivity: this.getLastActivityTime()
+        };
+    }
+
+    // 마지막 활동 시간 반환
+    getLastActivityTime() {
+        const times = [
+            this.progressData.startTime || 0,
+            ...Object.values(this.progressData.queries || {}).map(q => Math.max(q.startTime || 0, q.endTime || 0)),
+            ...Object.values(this.progressData.phases || {}).map(p => Math.max(p.startTime || 0, p.endTime || 0))
+        ];
+        return Math.max(...times);
     }
 
     // 진행 상황 표시 (콘솔)

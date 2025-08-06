@@ -22,6 +22,7 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - 🚦 **트랜잭션 지원**: 데이터 일관성 보장
 - 📋 **상세 로깅**: 이관 과정 추적 및 디버깅
 - 📈 **실시간 진행 관리**: 작업 진행 상태 추적 및 모니터링
+- 🔄 **중단 재시작**: 네트워크 오류 등으로 중단된 마이그레이션을 완료된 지점에서 재시작
 - 🔍 **현재 시각 함수**: 다양한 형식의 타임스탬프 지원
 
 ## 🛠️ 설치 및 설정
@@ -89,6 +90,15 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 #### 시뮬레이션 실행 (DRY RUN)
 ```bash
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
+```
+
+#### 중단된 마이그레이션 재시작
+```bash
+# 재시작 정보 확인
+node src/progress-cli.js resume <migration-id>
+
+# 실제 재시작 실행
+node src/migrate-cli.js resume <migration-id> --query ./queries/migration-queries.xml
 ```
 
 ### 2. 환경 변수 (선택사항)
@@ -537,6 +547,11 @@ node src/progress-cli.js show migration-2024-12-01-15-30-00
 node src/progress-cli.js monitor migration-2024-12-01-15-30-00
 ```
 
+#### 재시작 정보 조회
+```bash
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+```
+
 #### 전체 요약
 ```bash
 node src/progress-cli.js summary
@@ -743,6 +758,98 @@ node src/migrate-cli.js migrate --query ./queries/test.xml --dry-run
 #### 진행률 추적
 - 콘솔 출력으로 실시간 진행률 확인
 - 배치별 처리 시간 모니터링
+
+## 🔄 마이그레이션 재시작
+
+v2.1부터 네트워크 오류나 시스템 장애로 인해 중단된 마이그레이션을 중단된 지점에서 재시작할 수 있습니다.
+
+### 1. 재시작 가능 조건
+
+다음 상태의 마이그레이션은 재시작이 가능합니다:
+
+- **FAILED**: 오류로 인해 실패한 마이그레이션
+- **PAUSED**: 일시정지된 마이그레이션  
+- **RUNNING**: 5분 이상 업데이트가 없는 실행 중 상태 (네트워크 끊김 등)
+
+### 2. 재시작 동작 방식
+
+#### 지능적 재시작
+- ✅ **완료된 쿼리는 건너뛰기**: 이미 처리된 데이터는 재처리하지 않음
+- 🔄 **실패한 쿼리부터 재실행**: 오류가 발생한 지점부터 정확히 재시작
+- 📊 **통계 정보 보존**: 이전 실행의 성과는 그대로 유지
+- 🔢 **재시작 횟수 추적**: 몇 번째 재시작인지 기록
+
+#### 데이터 안전성
+- 중복 처리 방지: 완료된 작업은 절대 재실행되지 않음
+- 무결성 보장: 여러 번 재시작해도 데이터 일관성 유지
+- 트랜잭션 안전: 각 쿼리는 독립적으로 커밋됨
+
+### 3. 사용 방법
+
+#### 단계 1: 재시작 정보 확인
+```bash
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+```
+
+**출력 예시:**
+```
+📋 재시작 상태
+   재시작 가능: ✅ 예
+   현재 상태: ❌ FAILED
+   
+📊 진행 상황
+   완료된 쿼리: 2개 (migrate_users, migrate_products)
+   실패한 쿼리: 1개 (migrate_orders - Connection timeout)
+   남은 쿼리: 3개
+   완료율: 40.0%
+
+🚀 재시작 명령어
+   node src/migrate-cli.js resume migration-2024-12-01-15-30-00
+```
+
+#### 단계 2: 실제 재시작 실행
+```bash
+node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
+```
+
+### 4. 실제 사용 시나리오
+
+#### 네트워크 장애 복구 시나리오
+```bash
+# 1. 대용량 마이그레이션 실행 중 네트워크 오류로 중단
+node src/migrate-cli.js migrate --query ./queries/large-migration.xml
+# ❌ 네트워크 오류로 실패
+
+# 2. 재시작 정보 확인
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+# ✅ 재시작 가능, 완료된 쿼리: 15/30
+
+# 3. 중단된 지점에서 재시작
+node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/large-migration.xml
+# 🔄 16번째 쿼리부터 재실행
+```
+
+#### 시스템 장애 복구 시나리오
+```bash
+# 시스템 재부팅 후 마이그레이션 목록 확인
+node src/progress-cli.js list
+
+# 중단된 마이그레이션 찾기
+node src/progress-cli.js summary
+
+# 재시작 가능 여부 확인
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+
+# 재시작 실행
+node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
+```
+
+### 5. 주의사항
+
+- **쿼리 파일 일치**: 재시작 시 원래 사용했던 쿼리 파일과 동일한 파일을 사용해야 함
+- **데이터베이스 연결**: 소스 및 타겟 데이터베이스 연결 정보가 동일해야 함
+- **권한 확인**: 재시작 시에도 적절한 데이터베이스 권한이 필요함
+- **진행 상황 파일**: `logs/progress-*.json` 파일이 삭제되면 재시작 불가
 
 ## 📞 지원
 

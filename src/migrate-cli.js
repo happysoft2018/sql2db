@@ -13,13 +13,14 @@ const command = args[0];
 // 도움말 표시
 function showHelp() {
     console.log(`
-MSSQL 데이터 이관 도구
+MSSQL 데이터 이관 도구 v2.1
 사용법: node src/migrate-cli.js <명령> [옵션]
 
 명령:
   validate                   쿼리문정의 파일 검증
   list-dbs                   데이터베이스 목록 표시 (연결 가능 여부 포함)
   migrate                    데이터 이관 실행
+  resume <migration-id>      중단된 마이그레이션 재시작
   help                       도움말 표시
 
 옵션:
@@ -30,7 +31,13 @@ MSSQL 데이터 이관 도구
   node src/migrate-cli.js validate --query ./queries/migration-queries.xml
   node src/migrate-cli.js list-dbs
   node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
-  node src/migrate-cli.js migrate -q ./queries/migration-queries.xml
+  node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
+
+진행 상황 관리:
+  node src/progress-cli.js list                     - 진행 상황 목록
+  node src/progress-cli.js show <migration-id>      - 상세 정보
+  node src/progress-cli.js monitor <migration-id>   - 실시간 모니터링
+  node src/progress-cli.js resume <migration-id>    - 재시작 정보
 
 환경 변수 설정:
   .env 파일 또는 시스템 환경 변수로 데이터베이스 연결 정보를 설정하세요.
@@ -124,9 +131,59 @@ async function main() {
                 
                 if (result.success) {
                     console.log('\n✅ 데이터 이관이 성공적으로 완료되었습니다!');
+                    console.log(`📊 Migration ID: ${result.migrationId}`);
+                    console.log(`📁 진행 상황 파일: ${result.progressFile}`);
                     process.exit(0);
                 } else {
                     console.log('\n❌ 데이터 이관 중 오류가 발생했습니다.');
+                    if (result.migrationId) {
+                        console.log(`📊 Migration ID: ${result.migrationId}`);
+                        console.log(`📁 진행 상황 파일: ${result.progressFile}`);
+                        console.log(`🔄 재시작 명령어: node src/migrate-cli.js resume ${result.migrationId}`);
+                    }
+                    process.exit(1);
+                }
+                break;
+                
+            case 'resume':
+                const migrationId = options.queryFilePath; // resume 명령어에서는 migration ID를 받음
+                if (!migrationId) {
+                    console.log('Migration ID를 지정해주세요.');
+                    console.log('사용법: node src/migrate-cli.js resume <migration-id> --query <쿼리파일>');
+                    process.exit(1);
+                }
+                
+                console.log(`마이그레이션 재시작: ${migrationId}\n`);
+                
+                // 진행 상황 정보 먼저 표시
+                const ProgressManager = require('./progress-manager');
+                const progressManager = ProgressManager.loadProgress(migrationId);
+                
+                if (!progressManager) {
+                    console.log(`❌ 진행 상황을 찾을 수 없습니다: ${migrationId}`);
+                    process.exit(1);
+                }
+                
+                if (!progressManager.canResume()) {
+                    console.log(`❌ 마이그레이션을 재시작할 수 없습니다. 상태: ${progressManager.progressData.status}`);
+                    console.log('재시작 가능 여부를 확인하려면: node src/progress-cli.js resume ' + migrationId);
+                    process.exit(1);
+                }
+                
+                const resumeInfo = progressManager.getResumeInfo();
+                console.log(`📊 완료된 쿼리: ${resumeInfo.completedQueries.length}/${resumeInfo.totalQueries}`);
+                console.log(`🔄 남은 쿼리: ${resumeInfo.remainingQueries}개\n`);
+                
+                const resumeResult = await migrator.executeMigration(migrationId);
+                
+                if (resumeResult.success) {
+                    console.log('\n✅ 마이그레이션 재시작이 성공적으로 완료되었습니다!');
+                    console.log(`📊 Migration ID: ${resumeResult.migrationId}`);
+                    process.exit(0);
+                } else {
+                    console.log('\n❌ 마이그레이션 재시작 중 오류가 발생했습니다.');
+                    console.log(`📊 Migration ID: ${resumeResult.migrationId}`);
+                    console.log(`🔄 다시 재시작: node src/migrate-cli.js resume ${resumeResult.migrationId}`);
                     process.exit(1);
                 }
                 break;

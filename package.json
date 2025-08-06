@@ -1,12 +1,14 @@
 {
   "name": "mssql-data-migrator",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
   "main": "src/migrate-cli.js",
   "scripts": {
     "migrate": "echo '사용법: npm run migrate -- --query <파일경로>' && node src/migrate-cli.js migrate",
     "dry-run": "echo '사용법: npm run dry-run -- --query <파일경로>' && node src/migrate-cli.js migrate --dry-run",
     "validate": "echo '사용법: npm run validate -- --query <파일경로>' && node src/migrate-cli.js validate",
+    "resume": "echo '사용법: npm run resume -- <migration-id> --query <파일경로>' && node src/migrate-cli.js resume",
+    "progress": "echo '사용법: npm run progress -- <command> [migration-id]' && node src/progress-cli.js",
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
     "help": "node src/migrate-cli.js help"

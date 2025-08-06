@@ -972,7 +972,7 @@ class MSSQLDataMigrator {
     }
 
     // 전체 이관 프로세스 실행
-    async executeMigration() {
+    async executeMigration(resumeMigrationId = null) {
 
         const startTime = Date.now();
         let duration = 0;
@@ -980,14 +980,35 @@ class MSSQLDataMigrator {
         let successCount = 0;
         let failureCount = 0;
         const results = [];
+        let isResuming = false;
         
         try {
             this.initializeLogging();
             this.log('MSSQL 데이터 이관 프로세스 시작');
             
-            // 진행 상황 관리자 초기화
-            this.progressManager = new ProgressManager();
-            this.log(`Migration ID: ${this.progressManager.migrationId}`);
+            // 진행 상황 관리자 초기화 또는 재시작
+            if (resumeMigrationId) {
+                this.progressManager = ProgressManager.loadProgress(resumeMigrationId);
+                if (!this.progressManager) {
+                    throw new Error(`재시작할 마이그레이션을 찾을 수 없습니다: ${resumeMigrationId}`);
+                }
+                
+                if (!this.progressManager.canResume()) {
+                    throw new Error(`마이그레이션을 재시작할 수 없습니다. 상태: ${this.progressManager.progressData.status}`);
+                }
+                
+                isResuming = true;
+                this.progressManager.prepareForResume();
+                this.log(`마이그레이션 재시작: ${this.progressManager.migrationId}`);
+                
+                const resumeInfo = this.progressManager.getResumeInfo();
+                this.log(`완료된 쿼리: ${resumeInfo.completedQueries.length}/${resumeInfo.totalQueries}`);
+                this.log(`남은 쿼리: ${resumeInfo.remainingQueries}개`);
+                this.log(`재시작 횟수: ${resumeInfo.resumeCount}`);
+            } else {
+                this.progressManager = new ProgressManager();
+                this.log(`Migration ID: ${this.progressManager.migrationId}`);
+            }
             
             // 쿼리문정의 파일 로드
             await this.loadConfig();
@@ -1026,22 +1047,52 @@ class MSSQLDataMigrator {
             }
             
             // 활성화된 쿼리만 필터링
-            const enabledQueries = this.config.queries.filter(query => query.enabled);
-            this.log(`실행할 쿼리 수: ${enabledQueries.length}`);
+            let enabledQueries = this.config.queries.filter(query => query.enabled);
             
-            // 전체 행 수 추정 (각 쿼리별로 소스 데이터 행 수 조회)
-            let totalEstimatedRows = 0;
-            for (const query of enabledQueries) {
-                try {
-                    const sourceData = await this.executeSourceQuery(query.sourceQuery);
-                    totalEstimatedRows += sourceData.length;
-                } catch (error) {
-                    this.log(`쿼리 ${query.id} 행 수 추정 실패: ${error.message}`);
-                }
+            // 재시작인 경우 완료된 쿼리 필터링
+            if (isResuming) {
+                const completedQueries = this.progressManager.getCompletedQueries();
+                const originalCount = enabledQueries.length;
+                enabledQueries = enabledQueries.filter(query => !completedQueries.includes(query.id));
+                this.log(`전체 쿼리: ${originalCount}개, 완료된 쿼리: ${completedQueries.length}개, 실행할 쿼리: ${enabledQueries.length}개`);
+                
+                // 완료된 쿼리들의 결과를 기존 데이터에서 복원
+                completedQueries.forEach(queryId => {
+                    const queryData = this.progressManager.progressData.queries[queryId];
+                    if (queryData && queryData.status === 'COMPLETED') {
+                        results.push({
+                            queryId: queryId,
+                            description: queryData.description || '',
+                            success: true,
+                            rowsProcessed: queryData.processedRows || 0
+                        });
+                        totalProcessed += queryData.processedRows || 0;
+                        successCount++;
+                    }
+                });
+            } else {
+                this.log(`실행할 쿼리 수: ${enabledQueries.length}`);
             }
             
-            // 진행 상황 관리자 시작
-            this.progressManager.startMigration(enabledQueries.length, totalEstimatedRows);
+            // 전체 행 수 추정 (남은 쿼리들만)
+            let totalEstimatedRows = 0;
+            if (!isResuming) {
+                for (const query of enabledQueries) {
+                    try {
+                        const sourceData = await this.executeSourceQuery(query.sourceQuery);
+                        totalEstimatedRows += sourceData.length;
+                    } catch (error) {
+                        this.log(`쿼리 ${query.id} 행 수 추정 실패: ${error.message}`);
+                    }
+                }
+                
+                // 진행 상황 관리자 시작
+                this.progressManager.startMigration(this.config.queries.filter(query => query.enabled).length, totalEstimatedRows);
+            } else {
+                // 재시작인 경우 기존 totalRows 값 사용
+                totalEstimatedRows = this.progressManager.progressData.totalRows || 0;
+                this.log(`기존 예상 행 수: ${totalEstimatedRows.toLocaleString()}행`);
+            }
             
             // FK 참조 순서를 고려한 삭제 처리 (옵션)
             if (this.config.variables && this.config.variables.enableForeignKeyOrder) {

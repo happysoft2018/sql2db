@@ -9,6 +9,7 @@ class ProgressCLI {
         console.log('  list                    - 진행 상황 파일 목록 조회');
         console.log('  show <migration-id>     - 특정 마이그레이션 진행 상황 상세 조회');
         console.log('  monitor <migration-id>  - 실시간 진행 상황 모니터링');
+        console.log('  resume <migration-id>   - 중단된 마이그레이션 재시작 정보 조회');
         console.log('  cleanup [days]          - 완료된 진행 상황 파일 정리 (기본: 7일)');
         console.log('  summary                 - 최근 마이그레이션 요약');
         console.log('');
@@ -16,6 +17,7 @@ class ProgressCLI {
         console.log('  node src/progress-cli.js list');
         console.log('  node src/progress-cli.js show migration-2024-12-01-15-30-00');
         console.log('  node src/progress-cli.js monitor migration-2024-12-01-15-30-00');
+        console.log('  node src/progress-cli.js resume migration-2024-12-01-15-30-00');
         console.log('  node src/progress-cli.js cleanup 3');
     }
 
@@ -289,6 +291,111 @@ class ProgressCLI {
         }
     }
 
+    static async showResumeInfo(migrationId) {
+        try {
+            const progressManager = ProgressManager.loadProgress(migrationId);
+            
+            if (!progressManager) {
+                console.log(`진행 상황을 찾을 수 없습니다: ${migrationId}`);
+                return;
+            }
+
+            const resumeInfo = progressManager.getResumeInfo();
+            const detailed = progressManager.getDetailedProgress();
+
+            console.log('='.repeat(80));
+            console.log(`🔄 마이그레이션 재시작 정보: ${migrationId}`);
+            console.log('='.repeat(80));
+            console.log();
+
+            // 재시작 가능 여부
+            console.log('📋 재시작 상태');
+            console.log(`   재시작 가능: ${resumeInfo.canResume ? '✅ 예' : '❌ 아니오'}`);
+            console.log(`   현재 상태: ${this.getStatusIcon(resumeInfo.status)} ${resumeInfo.status}`);
+            console.log(`   오래된 상태: ${resumeInfo.isStale ? '⚠️ 예 (5분 이상 업데이트 없음)' : '✅ 아니오'}`);
+            console.log(`   재시작 횟수: ${resumeInfo.resumeCount}회`);
+            console.log();
+
+            // 진행 상황
+            console.log('📊 진행 상황');
+            console.log(`   완료된 쿼리: ${resumeInfo.completedQueries.length}개`);
+            console.log(`   실패한 쿼리: ${resumeInfo.failedQueries.length}개`);
+            console.log(`   남은 쿼리: ${resumeInfo.remainingQueries}개`);
+            console.log(`   전체 쿼리: ${resumeInfo.totalQueries}개`);
+            
+            const completionRate = resumeInfo.totalQueries > 0 
+                ? (resumeInfo.completedQueries.length / resumeInfo.totalQueries * 100).toFixed(1)
+                : 0;
+            console.log(`   완료율: ${completionRate}%`);
+            console.log();
+
+            // 마지막 활동
+            const lastActivity = new Date(resumeInfo.lastActivity);
+            console.log('🕒 마지막 활동');
+            console.log(`   시간: ${lastActivity.toLocaleString('ko-KR')}`);
+            console.log(`   경과: ${this.formatTimeSince(resumeInfo.lastActivity)}`);
+            console.log();
+
+            // 완료된 쿼리 목록
+            if (resumeInfo.completedQueries.length > 0) {
+                console.log('✅ 완료된 쿼리');
+                resumeInfo.completedQueries.forEach((queryId, index) => {
+                    const queryData = detailed.queries[queryId];
+                    const duration = queryData && queryData.duration ? (queryData.duration / 1000).toFixed(1) + 's' : 'N/A';
+                    const rows = queryData && queryData.processedRows ? queryData.processedRows.toLocaleString() : '0';
+                    console.log(`   ${index + 1}. ${queryId} - ${rows}행 (${duration})`);
+                });
+                console.log();
+            }
+
+            // 실패한 쿼리 목록
+            if (resumeInfo.failedQueries.length > 0) {
+                console.log('❌ 실패한 쿼리');
+                resumeInfo.failedQueries.forEach((queryId, index) => {
+                    const queryData = detailed.queries[queryId];
+                    const lastError = queryData && queryData.errors && queryData.errors.length > 0 
+                        ? queryData.errors[queryData.errors.length - 1].message 
+                        : 'Unknown error';
+                    console.log(`   ${index + 1}. ${queryId} - ${lastError}`);
+                });
+                console.log();
+            }
+
+            // 재시작 명령어
+            if (resumeInfo.canResume) {
+                console.log('🚀 재시작 명령어');
+                console.log(`   node src/migrate-cli.js resume ${migrationId}`);
+                console.log();
+                console.log('💡 참고: 재시작 시 완료된 쿼리는 건너뛰고 실패한 쿼리부터 재실행됩니다.');
+            } else {
+                console.log('⚠️  재시작 불가');
+                console.log('   이 마이그레이션은 재시작할 수 없습니다.');
+                if (resumeInfo.status === 'COMPLETED') {
+                    console.log('   이유: 이미 완료된 마이그레이션입니다.');
+                } else if (resumeInfo.status === 'RUNNING' && !resumeInfo.isStale) {
+                    console.log('   이유: 현재 실행 중인 마이그레이션입니다.');
+                }
+            }
+
+        } catch (error) {
+            console.error('재시작 정보 조회 실패:', error.message);
+        }
+    }
+
+    static formatTimeSince(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (days > 0) return `${days}일 전`;
+        if (hours > 0) return `${hours}시간 전`;
+        if (minutes > 0) return `${minutes}분 전`;
+        return `${seconds}초 전`;
+    }
+
     static getStatusIcon(status) {
         const icons = {
             'COMPLETED': '✅',
@@ -340,6 +447,15 @@ async function main() {
                 process.exit(1);
             }
             await ProgressCLI.monitorProgress(args[1]);
+            break;
+            
+        case 'resume':
+            if (!args[1]) {
+                console.log('Migration ID를 지정해주세요.');
+                console.log('사용법: node src/progress-cli.js resume <migration-id>');
+                process.exit(1);
+            }
+            await ProgressCLI.showResumeInfo(args[1]);
             break;
             
         case 'cleanup':
