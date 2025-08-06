@@ -116,6 +116,34 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 - 🔄 **[변경 이력](CHANGELOG.md)**: 버전별 변경사항
 - 🏗️ **[구현 요약](IMPLEMENTATION_SUMMARY.md)**: 기술적 구현 내용
 
+## 📈 진행 상황 관리
+
+v2.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다:
+
+```bash
+# 진행 상황 목록 조회
+node src/progress-cli.js list
+
+# 특정 마이그레이션 상세 조회
+node src/progress-cli.js show migration-2024-12-01-15-30-00
+
+# 실시간 모니터링
+node src/progress-cli.js monitor migration-2024-12-01-15-30-00
+
+# 전체 요약
+node src/progress-cli.js summary
+
+# 오래된 파일 정리
+node src/progress-cli.js cleanup 7
+```
+
+### 주요 기능
+- ⚡ **실시간 추적**: 마이그레이션 진행 상황 실시간 모니터링
+- 📊 **성능 메트릭**: 처리 속도, 예상 완료 시간 제공
+- 🔍 **상세 분석**: 페이즈별, 쿼리별, 배치별 상세 정보
+- 💾 **영구 저장**: 진행 상황 파일로 이력 관리
+- 🛠️ **CLI 도구**: 다양한 조회 및 관리 명령어
+
 ## 테스트
 
 프로젝트에는 다양한 기능을 테스트할 수 있는 배치 파일들이 포함되어 있습니다:

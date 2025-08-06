@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const xml2js = require('xml2js');
 const MSSQLConnectionManager = require('./mssql-connection-manager');
+const ProgressManager = require('./progress-manager');
 const logger = require('./logger');
 require('dotenv').config();
 
@@ -19,6 +20,7 @@ class MSSQLDataMigrator {
         this.enableLogging = process.env.ENABLE_LOGGING === 'true';
         this.enableTransaction = process.env.ENABLE_TRANSACTION === 'true';
         this.dryRun = dryRun; // DRY RUN 모드
+        this.progressManager = null; // 진행 상황 관리자
     }
 
     // DB 정보 파일 로드
@@ -761,7 +763,7 @@ class MSSQLDataMigrator {
     }
 
     // 배치 단위로 데이터 삽입
-    async insertDataInBatches(tableName, columns, data, batchSize) {
+    async insertDataInBatches(tableName, columns, data, batchSize, queryId = null) {
         try {
             if (!data || data.length === 0) {
                 this.log('삽입할 데이터가 없습니다.');
@@ -781,11 +783,23 @@ class MSSQLDataMigrator {
                 this.log(`배치 ${batchNumber}/${totalBatches} 처리 중 (${batch.length}행)`);
                 
                 const result = await this.connectionManager.insertToTarget(tableName, columns, batch);
-                insertedRows += result.rowsAffected[0];
+                const batchInsertedRows = result.rowsAffected[0];
+                insertedRows += batchInsertedRows;
                 
                 // 진행률 표시
                 const progress = ((i + batch.length) / totalRows * 100).toFixed(1);
                 this.log(`진행률: ${progress}% (${i + batch.length}/${totalRows})`);
+                
+                // 배치 진행 상황 업데이트
+                if (this.progressManager && queryId) {
+                    this.progressManager.updateBatchProgress(
+                        queryId, 
+                        batchNumber, 
+                        totalBatches, 
+                        batchSize, 
+                        i + batch.length
+                    );
+                }
             }
             
             this.log(`총 ${insertedRows}행 삽입 완료`);
@@ -933,7 +947,8 @@ class MSSQLDataMigrator {
                 queryConfig.targetTable,
                 queryConfig.targetColumns,
                 processedData,
-                batchSize
+                batchSize,
+                queryConfig.id
             );
             
             // 개별 쿼리 후처리 실행
@@ -970,26 +985,34 @@ class MSSQLDataMigrator {
             this.initializeLogging();
             this.log('MSSQL 데이터 이관 프로세스 시작');
             
+            // 진행 상황 관리자 초기화
+            this.progressManager = new ProgressManager();
+            this.log(`Migration ID: ${this.progressManager.migrationId}`);
+            
             // 쿼리문정의 파일 로드
             await this.loadConfig();
             
             // 데이터베이스 연결
             this.log('데이터베이스 연결 중...');
+            this.progressManager.updatePhase('CONNECTING', 'RUNNING', 'Connecting to databases');
             await this.connectionManager.connectBoth();
             
             // 전역 전처리 실행
             if (this.config.globalProcesses && this.config.globalProcesses.preProcess) {
                 this.log('\n=== 전역 전처리 실행 ===');
+                this.progressManager.updatePhase('PRE_PROCESSING', 'RUNNING', 'Executing global pre-processing scripts');
                 const preResult = await this.executeProcessScript(this.config.globalProcesses.preProcess, 'target');
                 if (!preResult.success) {
                     throw new Error(`전역 전처리 실행 실패: ${preResult.error}`);
                 }
+                this.progressManager.updatePhase('PRE_PROCESSING', 'COMPLETED', 'Global pre-processing completed');
                 this.log('=== 전역 전처리 완료 ===\n');
             }
             
             // 동적 변수 추출 실행
             if (this.config.dynamicVariables && this.config.dynamicVariables.length > 0) {
                 this.log(`동적 변수 추출 시작: ${this.config.dynamicVariables.length}개`);
+                this.progressManager.updatePhase('EXTRACTING_VARIABLES', 'RUNNING', `Extracting ${this.config.dynamicVariables.length} dynamic variables`);
                 
                 for (const extractConfig of this.config.dynamicVariables) {
                     if (extractConfig.enabled !== false) {
@@ -997,6 +1020,7 @@ class MSSQLDataMigrator {
                     }
                 }
                 
+                this.progressManager.updatePhase('EXTRACTING_VARIABLES', 'COMPLETED', 'Dynamic variable extraction completed');
                 this.log('모든 동적 변수 추출 완료');
                 this.log(`현재 동적 변수 목록: ${Object.keys(this.dynamicVariables).join(', ')}`);
             }
@@ -1005,9 +1029,25 @@ class MSSQLDataMigrator {
             const enabledQueries = this.config.queries.filter(query => query.enabled);
             this.log(`실행할 쿼리 수: ${enabledQueries.length}`);
             
+            // 전체 행 수 추정 (각 쿼리별로 소스 데이터 행 수 조회)
+            let totalEstimatedRows = 0;
+            for (const query of enabledQueries) {
+                try {
+                    const sourceData = await this.executeSourceQuery(query.sourceQuery);
+                    totalEstimatedRows += sourceData.length;
+                } catch (error) {
+                    this.log(`쿼리 ${query.id} 행 수 추정 실패: ${error.message}`);
+                }
+            }
+            
+            // 진행 상황 관리자 시작
+            this.progressManager.startMigration(enabledQueries.length, totalEstimatedRows);
+            
             // FK 참조 순서를 고려한 삭제 처리 (옵션)
             if (this.config.variables && this.config.variables.enableForeignKeyOrder) {
+                this.progressManager.updatePhase('DELETING', 'RUNNING', 'Processing FK-ordered deletions');
                 await this.handleForeignKeyDeletions(enabledQueries);
+                this.progressManager.updatePhase('DELETING', 'COMPLETED', 'FK-ordered deletions completed');
             } else {
                 this.log('FK 순서 고려 기능이 비활성화되어 있습니다. 개별 쿼리에서 삭제를 처리합니다.');
             }
@@ -1020,10 +1060,21 @@ class MSSQLDataMigrator {
             }
             
             try {
+                // 마이그레이션 페이즈 시작
+                this.progressManager.updatePhase('MIGRATING', 'RUNNING', 'Migrating data');
+                
                 // 각 쿼리 실행
                 for (const queryConfig of enabledQueries) {
                     // SELECT * 감지 및 자동 컬럼 설정
                     const processedQueryConfig = await this.processQueryConfig(queryConfig);
+                    
+                    // 쿼리 시작 추적
+                    this.progressManager.startQuery(
+                        queryConfig.id, 
+                        queryConfig.description, 
+                        0 // 행 수는 실행 중에 업데이트됨
+                    );
+                    
                     const result = await this.executeQueryMigration(processedQueryConfig);
                     results.push({
                         queryId: queryConfig.id,
@@ -1035,8 +1086,16 @@ class MSSQLDataMigrator {
                     
                     if (result.success) {
                         successCount++;
+                        // 쿼리 완료 추적
+                        this.progressManager.completeQuery(queryConfig.id, {
+                            processedRows: result.rowsProcessed,
+                            insertedRows: result.rowsProcessed
+                        });
                     } else {
                         failureCount++;
+                        
+                        // 쿼리 실패 추적
+                        this.progressManager.failQuery(queryConfig.id, new Error(result.error || 'Unknown error'));
                         
                         // 트랜잭션 사용 시 실패하면 롤백
                         if (this.enableTransaction && transaction) {
@@ -1056,10 +1115,14 @@ class MSSQLDataMigrator {
                 // 전역 후처리 실행
                 if (this.config.globalProcesses && this.config.globalProcesses.postProcess) {
                     this.log('\n=== 전역 후처리 실행 ===');
+                    this.progressManager.updatePhase('POST_PROCESSING', 'RUNNING', 'Executing global post-processing scripts');
                     const postResult = await this.executeProcessScript(this.config.globalProcesses.postProcess, 'target');
                     if (!postResult.success) {
                         this.log(`전역 후처리 실행 실패: ${postResult.error}`);
+                        this.progressManager.updatePhase('POST_PROCESSING', 'FAILED', `Post-processing failed: ${postResult.error}`);
                         // 후처리 실패는 경고로 처리하고 계속 진행
+                    } else {
+                        this.progressManager.updatePhase('POST_PROCESSING', 'COMPLETED', 'Global post-processing completed');
                     }
                     this.log('=== 전역 후처리 완료 ===\n');
                 }
@@ -1078,6 +1141,12 @@ class MSSQLDataMigrator {
             
         } catch (error) {
             this.log(`이관 프로세스 오류: ${error.message}`);
+            
+            // 진행 상황 관리자에 실패 추적
+            if (this.progressManager) {
+                this.progressManager.failMigration(error);
+            }
+            
             throw error;
             
         } finally {
@@ -1088,11 +1157,30 @@ class MSSQLDataMigrator {
             const endTime = Date.now();
             duration = (endTime - startTime) / 1000;
             
+            // 성공한 경우 진행 상황 관리자에 완료 추적
+            if (this.progressManager && failureCount === 0) {
+                this.progressManager.completeMigration();
+            }
+            
             this.log('\n=== 이관 프로세스 완료 ===');
             this.log(`총 실행 시간: ${duration.toFixed(2)}초`);
             this.log(`성공한 쿼리: ${successCount}`);
             this.log(`실패한 쿼리: ${failureCount}`);
             this.log(`총 처리된 행: ${totalProcessed}`);
+            
+            // 진행 상황 요약 출력
+            if (this.progressManager) {
+                const summary = this.progressManager.getProgressSummary();
+                this.log(`\n=== 진행 상황 요약 ===`);
+                this.log(`Migration ID: ${summary.migrationId}`);
+                this.log(`최종 상태: ${summary.status}`);
+                this.log(`전체 진행률: ${summary.totalProgress.toFixed(1)}%`);
+                this.log(`행 처리율: ${summary.rowProgress.toFixed(1)}%`);
+                this.log(`평균 처리 속도: ${summary.performance.avgRowsPerSecond.toFixed(0)} rows/sec`);
+                if (summary.errors > 0) {
+                    this.log(`오류 수: ${summary.errors}`);
+                }
+            }
             
             // 각 쿼리별 결과
             this.log('\n=== 쿼리별 결과 ===');
@@ -1107,9 +1195,13 @@ class MSSQLDataMigrator {
             if (this.enableLogging) {
                 this.log(`\n상세 로그는 다음 파일에서 확인하세요: ${this.logFile}`);
             }
+            
+            if (this.progressManager) {
+                this.log(`\n진행 상황 파일: ${this.progressManager.progressFile}`);
+            }
         }
         
-        return {
+        const migrationResult = {
             success: failureCount === 0,
             duration,
             totalProcessed,
@@ -1117,6 +1209,15 @@ class MSSQLDataMigrator {
             failureCount,
             results
         };
+        
+        // 진행 상황 관리자 정보 추가
+        if (this.progressManager) {
+            migrationResult.migrationId = this.progressManager.migrationId;
+            migrationResult.progressFile = this.progressManager.progressFile;
+            migrationResult.progressSummary = this.progressManager.getProgressSummary();
+        }
+        
+        return migrationResult;
     }
 
     // 설정 검증
