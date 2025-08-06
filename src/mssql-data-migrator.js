@@ -349,8 +349,6 @@ class MSSQLDataMigrator {
                         query.sourceQuery = q.sourceQuery.trim();
                     }
                     
-                    // deleteWhere 기능 제거됨 - deleteBeforeInsert가 true이면 PK 기준으로 삭제
-                    
                     // columnOverrides 처리
                     if (q.columnOverrides && q.columnOverrides.override) {
                         const overrides = Array.isArray(q.columnOverrides.override) 
