@@ -22,6 +22,10 @@
     <var name="enableForeignKeyOrder">true</var>
     <var name="migrationTimestamp">2024-12-01 15:30:00</var>
     <var name="migrationUser">SYSTEM_MIGRATOR</var>
+    <!-- 현재 시각 함수 사용 예시 -->
+    <var name="currentTimestamp">${CURRENT_TIMESTAMP}</var>
+    <var name="currentDate">${CURRENT_DATE}</var>
+    <var name="currentTime">${CURRENT_TIME}</var>
   </variables>
 
   <!-- 전역 전처리/후처리 -->
@@ -153,6 +157,8 @@
         <override column="migration_flag">1</override>
         <override column="updated_by">${migrationUser}</override>
         <override column="migration_date">${migrationTimestamp}</override>
+        <override column="current_timestamp">${CURRENT_TIMESTAMP}</override>
+        <override column="processed_at">${NOW}</override>
       </columnOverrides>
       
       <deleteWhere>
@@ -207,6 +213,9 @@
         <override column="migration_status">MIGRATED_BULK</override>
         <override column="last_migration_date">${migrationTimestamp}</override>
         <override column="status">MIGRATED</override>
+        <override column="bulk_processed_date">${CURRENT_DATE}</override>
+        <override column="bulk_processed_time">${CURRENT_TIME}</override>
+        <override column="unix_timestamp">${UNIX_TIMESTAMP}</override>
       </columnOverrides>
       <deleteWhere>
         <![CDATA[

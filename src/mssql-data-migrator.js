@@ -463,6 +463,25 @@ class MSSQLDataMigrator {
             }
         });
         
+        // 현재 시각 함수 치환 (CURRENT_TIMESTAMP, NOW 등)
+        const timestampFunctions = {
+            'CURRENT_TIMESTAMP': () => new Date().toISOString().slice(0, 19).replace('T', ' '), // YYYY-MM-DD HH:mm:ss
+            'CURRENT_DATETIME': () => new Date().toISOString().slice(0, 19).replace('T', ' '), // YYYY-MM-DD HH:mm:ss
+            'NOW': () => new Date().toISOString().slice(0, 19).replace('T', ' '), // YYYY-MM-DD HH:mm:ss
+            'CURRENT_DATE': () => new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+            'CURRENT_TIME': () => new Date().toTimeString().slice(0, 8), // HH:mm:ss
+            'UNIX_TIMESTAMP': () => Math.floor(Date.now() / 1000), // Unix timestamp
+            'TIMESTAMP_MS': () => Date.now(), // Milliseconds timestamp
+            'ISO_TIMESTAMP': () => new Date().toISOString(), // ISO 8601 format
+            'GETDATE': () => new Date().toISOString().slice(0, 19).replace('T', ' ') // SQL Server GETDATE() equivalent
+        };
+        
+        // 현재 시각 함수 패턴 매칭 및 치환
+        Object.entries(timestampFunctions).forEach(([funcName, funcImpl]) => {
+            const pattern = new RegExp(`\\$\\{${funcName}\\}`, 'g');
+            result = result.replace(pattern, funcImpl());
+        });
+        
         // 환경 변수 치환 (BATCH_SIZE 등)
         const envPattern = /\$\{(\w+)\}/g;
         result = result.replace(envPattern, (match, varName) => {

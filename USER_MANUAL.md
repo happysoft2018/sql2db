@@ -213,6 +213,12 @@ ENABLE_TRANSACTION=true
   
   <!-- SQL 함수 사용 -->
   <override column="created_date">GETDATE()</override>
+  
+  <!-- 현재 시각 함수 사용 -->
+  <override column="processed_at">${CURRENT_TIMESTAMP}</override>
+  <override column="migration_date">${CURRENT_DATE}</override>
+  <override column="migration_time">${CURRENT_TIME}</override>
+  <override column="timestamp_unix">${UNIX_TIMESTAMP}</override>
 </columnOverrides>
 ```
 
@@ -221,6 +227,20 @@ ENABLE_TRANSACTION=true
 - 환경별 값 변경 (DEV → PROD)
 - 감사 정보 추가
 - 상태 값 업데이트
+- 현재 시각 정보 추가
+
+#### 지원되는 현재 시각 함수
+| 함수명 | 설명 | 예시 출력 |
+|--------|------|-----------|
+| `${CURRENT_TIMESTAMP}` | 현재 날짜와 시간 | 2024-12-01 15:30:45 |
+| `${CURRENT_DATETIME}` | CURRENT_TIMESTAMP와 동일 | 2024-12-01 15:30:45 |
+| `${NOW}` | 현재 날짜와 시간 | 2024-12-01 15:30:45 |
+| `${CURRENT_DATE}` | 현재 날짜만 | 2024-12-01 |
+| `${CURRENT_TIME}` | 현재 시간만 | 15:30:45 |
+| `${UNIX_TIMESTAMP}` | Unix 타임스탬프 (초) | 1701434445 |
+| `${TIMESTAMP_MS}` | 밀리초 타임스탬프 | 1701434445712 |
+| `${ISO_TIMESTAMP}` | ISO 8601 형식 | 2024-12-01T15:30:45.712Z |
+| `${GETDATE}` | SQL Server 형식 | 2024-12-01 15:30:45 |
 
 ### 2. 전처리/후처리 (Pre/Post Processing)
 
@@ -405,6 +425,36 @@ ENABLE_TRANSACTION=true
     <override column="migration_source">LEGACY_SYSTEM</override>
     <override column="status">MIGRATED</override>
     <override column="last_updated">GETDATE()</override>
+    <override column="processed_at">${CURRENT_TIMESTAMP}</override>
+    <override column="process_date">${CURRENT_DATE}</override>
+  </columnOverrides>
+</query>
+```
+
+### 3. 현재 시각 함수 활용 예시
+
+```xml
+<query id="migrate_audit_log"
+       description="감사 로그 데이터 이관 (현재 시각 추가)"
+       targetTable="audit_log"
+       primaryKey="log_id"
+       enabled="true">
+  <sourceQuery>
+    <![CDATA[
+      SELECT log_id, user_id, action, description
+      FROM audit_log
+      WHERE created_date >= '2024-01-01'
+    ]]>
+  </sourceQuery>
+  
+  <columnOverrides>
+    <!-- 다양한 시각 형식으로 컬럼 추가 -->
+    <override column="migrated_at">${CURRENT_TIMESTAMP}</override>
+    <override column="migration_date">${CURRENT_DATE}</override>
+    <override column="migration_time">${CURRENT_TIME}</override>
+    <override column="unix_timestamp">${UNIX_TIMESTAMP}</override>
+    <override column="iso_timestamp">${ISO_TIMESTAMP}</override>
+    <override column="process_id">${UNIX_TIMESTAMP}_${CURRENT_DATE}</override>
   </columnOverrides>
 </query>
 ```

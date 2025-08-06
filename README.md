@@ -83,6 +83,8 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
       <columnOverrides>
         <override column="migration_flag">1</override>
         <override column="updated_by">MIGRATION_TOOL</override>
+        <override column="processed_at">${CURRENT_TIMESTAMP}</override>
+        <override column="migration_date">${CURRENT_DATE}</override>
       </columnOverrides>
     </query>
   </queries>
