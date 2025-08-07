@@ -466,7 +466,36 @@ class MSSQLDataMigrator {
                     return v;
                 }).join(', ');
                 result = result.replace(pattern, inClause);
-            } else {
+            } 
+            // column_identified 객체 타입인 경우 (컬럼별 접근 패턴 지원)
+            else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                // ${변수명.컬럼명} 패턴 처리
+                Object.keys(value).forEach(columnName => {
+                    const columnPattern = new RegExp(`\\$\\{${key}\\.${columnName}\\}`, 'g');
+                    const columnValues = value[columnName];
+                    
+                    if (Array.isArray(columnValues)) {
+                        const inClause = columnValues.map(v => {
+                            if (typeof v === 'string') {
+                                return `'${v.replace(/'/g, "''")}'`;
+                            }
+                            return v;
+                        }).join(', ');
+                        result = result.replace(columnPattern, inClause);
+                    }
+                });
+                
+                // ${변수명} 패턴은 모든 값을 통합하여 처리
+                const allValues = Object.values(value).flat();
+                const inClause = allValues.map(v => {
+                    if (typeof v === 'string') {
+                        return `'${v.replace(/'/g, "''")}'`;
+                    }
+                    return v;
+                }).join(', ');
+                result = result.replace(pattern, inClause);
+            } 
+            else {
                 result = result.replace(pattern, value);
             }
         });
@@ -595,6 +624,31 @@ class MSSQLDataMigrator {
                         });
                     });
                     this.log(`다중 컬럼 추출 (${columns.join(', ')}): ${extractedValue.length}개 값`);
+                    break;
+                    
+                case 'column_identified':
+                    // 컬럼별로 식별 가능한 구조로 추출
+                    const identifiedColumns = extractConfig.columns || Object.keys(data[0]);
+                    extractedValue = {};
+                    identifiedColumns.forEach(col => {
+                        extractedValue[col] = [];
+                    });
+                    
+                    data.forEach(row => {
+                        identifiedColumns.forEach(col => {
+                            if (row[col] !== null && row[col] !== undefined) {
+                                extractedValue[col].push(row[col]);
+                            }
+                        });
+                    });
+                    
+                    // 중복 제거
+                    Object.keys(extractedValue).forEach(col => {
+                        extractedValue[col] = [...new Set(extractedValue[col])];
+                    });
+                    
+                    const totalValues = Object.values(extractedValue).reduce((sum, arr) => sum + arr.length, 0);
+                    this.log(`컬럼별 식별 추출 (${identifiedColumns.join(', ')}): ${totalValues}개 값 (${Object.keys(extractedValue).length}개 컬럼)`);
                     break;
                     
                 case 'key_value_pairs':

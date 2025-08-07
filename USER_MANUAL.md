@@ -445,6 +445,26 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
     ]]>
   </dynamicVar>
   
+  <!-- 다중 컬럼 값 추출 (multiple_columns) -->
+  <dynamicVar id="extract_all_entity_ids"
+              variableName="allEntityIds"
+              extractType="multiple_columns"
+              columns="user_id,department_id,manager_id"
+              enabled="true">
+    <![CDATA[
+      SELECT DISTINCT
+        u.user_id,
+        u.department_id,
+        d.manager_id
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.department_id
+      WHERE u.status = 'ACTIVE'
+        AND u.user_id IS NOT NULL
+        AND u.department_id IS NOT NULL
+        AND d.manager_id IS NOT NULL
+    ]]>
+  </dynamicVar>
+  
   <!-- 단일 값 추출 -->
   <dynamicVar id="extract_max_id"
               variableName="maxOrderId"
@@ -456,6 +476,151 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
   </dynamicVar>
 </dynamicVariables>
 ```
+
+#### 동적 변수 extractType 종류
+
+| extractType | 설명 | 결과 형태 | 사용 예시 |
+|-------------|------|-----------|-----------|
+| `single_column` | 지정된 단일 컬럼의 모든 값을 배열로 추출 | `[값1, 값2, 값3]` | IN절에서 사용 |
+| `multiple_columns` | 지정된 여러 컬럼의 모든 값을 하나의 배열로 통합 | `[컬럼1값들..., 컬럼2값들..., 컬럼3값들...]` | 여러 테이블 ID 통합 |
+| `column_identified` | 컬럼별로 식별 가능한 객체 구조로 추출 | `{컬럼1: [값들], 컬럼2: [값들]}` | **컬럼별 개별 접근** |
+| `key_value_pairs` | 두 컬럼을 키-값 쌍 객체로 추출 | `{키1: 값1, 키2: 값2}` | 코드-이름 매핑 |
+| `single_value` | 단일 값만 추출 (첫 번째 행의 첫 번째 컬럼) | `값` | MAX, COUNT 결과 |
+
+#### multiple_columns 상세 설명
+
+`extractType="multiple_columns"`는 여러 컬럼의 값들을 하나의 배열로 통합하는 기능입니다.
+
+**동작 방식:**
+```sql
+-- 쿼리 결과
+user_id | department_id | manager_id
+--------|---------------|----------
+   100  |      10       |    5
+   101  |      20       |    6
+   102  |      10       |    5
+
+-- multiple_columns로 추출 시 (columns="user_id,department_id,manager_id")
+결과: [100, 101, 102, 10, 20, 10, 5, 6, 5]
+```
+
+**활용 사례:**
+- 여러 테이블의 관련 ID들을 하나의 IN절로 통합 검색
+- 승인 관련 모든 코드들(승인자, 요청자, 제품코드)을 통합 추출
+- 오류 로그의 다양한 식별자들을 통합 필터링
+
+**실제 사용 예시:**
+```xml
+<!-- 1. 여러 ID를 통합 추출 -->
+<dynamicVar id="extract_all_ids"
+            variableName="allEntityIds"
+            extractType="multiple_columns"
+            columns="user_id,department_id,manager_id"
+            enabled="true">
+  <![CDATA[
+    SELECT DISTINCT u.user_id, u.department_id, d.manager_id
+    FROM users u
+    LEFT JOIN departments d ON u.department_id = d.department_id
+    WHERE u.status = 'ACTIVE'
+  ]]>
+</dynamicVar>
+
+<!-- 2. 통합된 ID들을 쿼리에서 사용 -->
+<query id="migrate_related_data">
+  <sourceQuery>
+    <![CDATA[
+      SELECT * FROM entity_relationships
+      WHERE entity_id IN (${allEntityIds})
+         OR related_entity_id IN (${allEntityIds})
+    ]]>
+  </sourceQuery>
+</query>
+```
+
+**multiple_columns vs single_column 비교:**
+```xml
+<!-- single_column: 하나의 컬럼만 추출 -->
+<dynamicVar extractType="single_column" columns="user_id">
+  <!-- 결과: [100, 101, 102] -->
+</dynamicVar>
+
+<!-- multiple_columns: 여러 컬럼 통합 추출 -->
+<dynamicVar extractType="multiple_columns" columns="user_id,department_id">
+  <!-- 결과: [100, 101, 102, 10, 20, 10] -->
+</dynamicVar>
+```
+
+#### column_identified 상세 설명 ⭐ NEW!
+
+`extractType="column_identified"`는 컬럼별로 식별 가능한 객체 구조로 데이터를 추출하는 새로운 기능입니다.
+
+**동작 방식:**
+```sql
+-- 쿼리 결과
+approver_code | requester_code | product_code
+--------------|----------------|-------------
+     MGR01    |     USR01      |    PRD01
+     MGR02    |     USR02      |    PRD02
+     MGR01    |     USR03      |    PRD01
+
+-- column_identified로 추출 시
+결과: {
+  "approver_code": ["MGR01", "MGR02"],
+  "requester_code": ["USR01", "USR02", "USR03"], 
+  "product_code": ["PRD01", "PRD02"]
+}
+```
+
+**사용 패턴:**
+```xml
+<!-- 1. 컬럼별 식별 추출 정의 -->
+<dynamicVar id="extract_approval_codes"
+            variableName="approvalCodesById"
+            extractType="column_identified"
+            columns="approver_code,requester_code,product_code">
+  <![CDATA[
+    SELECT DISTINCT approver_code, requester_code, product_code
+    FROM approval_requests
+    WHERE status = 'ACTIVE'
+  ]]>
+</dynamicVar>
+
+<!-- 2. 쿼리에서 컬럼별 개별 접근 -->
+<sourceQuery>
+  <![CDATA[
+    SELECT * FROM audit_logs 
+    WHERE (
+      -- 승인자 코드만 사용
+      user_code IN (${approvalCodesById.approver_code})
+      OR 
+      -- 요청자 코드만 사용
+      user_code IN (${approvalCodesById.requester_code})
+      OR
+      -- 제품 코드만 사용
+      entity_code IN (${approvalCodesById.product_code})
+    )
+  ]]>
+</sourceQuery>
+
+<!-- 3. 전체 값 통합 사용 -->
+<sourceQuery>
+  <![CDATA[
+    SELECT * FROM related_data
+    WHERE entity_id IN (${approvalCodesById})  -- 모든 컬럼의 모든 값
+  ]]>
+</sourceQuery>
+```
+
+**주요 장점:**
+- ✅ **컬럼별 개별 접근**: `${변수명.컬럼명}` 패턴으로 특정 컬럼 값만 사용
+- ✅ **통합 접근**: `${변수명}` 패턴으로 모든 컬럼의 모든 값 사용
+- ✅ **의미있는 필터링**: 각 컬럼의 의미에 맞는 조건문 작성 가능
+- ✅ **중복 제거**: 각 컬럼별로 자동 중복 제거
+
+**활용 사례:**
+- 승인 시스템에서 승인자/요청자/제품별 개별 필터링
+- 권한 시스템에서 사용자/역할/리소스별 구분 접근
+- 로그 분석에서 사용자/액션/엔티티별 분류
 
 ### 4. 변수 치환
 

@@ -122,6 +122,116 @@
         SELECT product_id, category_id FROM products WHERE category_id IN (${categoryIds})
       ]]>
     </dynamicVar>
+
+    <!-- 추가 multiple_columns 사용 예시들 -->
+    <dynamicVar id="extract_all_entity_ids"
+                description="여러 테이블의 ID 값들을 하나의 배열로 통합 추출"
+                variableName="allEntityIds"
+                extractType="multiple_columns"
+                columns="user_id,department_id,manager_id"
+                enabled="true">
+      <![CDATA[
+        SELECT DISTINCT
+          u.user_id,
+          u.department_id,
+          d.manager_id
+        FROM users u
+        LEFT JOIN departments d ON u.department_id = d.department_id
+        WHERE u.status IN (${statusList})
+          AND u.created_date >= '${startDate}'
+          AND u.user_id IS NOT NULL
+          AND u.department_id IS NOT NULL
+          AND d.manager_id IS NOT NULL
+      ]]>
+    </dynamicVar>
+
+    <!-- 방법 1: 개별 컬럼별 동적 변수 (각 컬럼을 개별적으로 식별 가능) -->
+    <dynamicVar id="extract_approver_codes"
+                description="승인자 코드만 추출"
+                variableName="approverCodes"
+                extractType="single_column"
+                columnName="approver_code"
+                enabled="true">
+      <![CDATA[
+        SELECT DISTINCT ar.approver_code
+        FROM approval_requests ar
+        WHERE ar.status IN (${statusList})
+          AND ar.created_date >= '${startDate}'
+          AND ar.approver_code IS NOT NULL
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_requester_codes"
+                description="요청자 코드만 추출"
+                variableName="requesterCodes"
+                extractType="single_column"
+                columnName="requester_code"
+                enabled="true">
+      <![CDATA[
+        SELECT DISTINCT ar.requester_code
+        FROM approval_requests ar
+        WHERE ar.status IN (${statusList})
+          AND ar.created_date >= '${startDate}'
+          AND ar.requester_code IS NOT NULL
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_product_codes"
+                description="제품 코드만 추출"
+                variableName="productCodes"
+                extractType="single_column"
+                columnName="product_code"
+                enabled="true">
+      <![CDATA[
+        SELECT DISTINCT ar.product_code
+        FROM approval_requests ar
+        WHERE ar.status IN (${statusList})
+          AND ar.created_date >= '${startDate}'
+          AND ar.product_code IS NOT NULL
+      ]]>
+    </dynamicVar>
+
+    <!-- 방법 2: 통합 추출 (기존 방식 유지) -->
+    <dynamicVar id="extract_approval_codes"
+                description="승인 관련 모든 코드들을 통합 추출 (컬럼 구분 불가)"
+                variableName="allApprovalCodes"
+                extractType="multiple_columns"
+                columns="approver_code,requester_code,product_code"
+                enabled="false">
+      <![CDATA[
+        SELECT DISTINCT 
+          ar.approver_code,
+          ar.requester_code,
+          ar.product_code
+        FROM approval_requests ar
+        WHERE ar.status IN (${statusList})
+          AND ar.created_date >= '${startDate}'
+          AND ar.approver_code IS NOT NULL
+          AND ar.requester_code IS NOT NULL
+          AND ar.product_code IS NOT NULL
+      ]]>
+    </dynamicVar>
+
+    <!-- 방법 3: 컬럼별 식별 가능한 구조로 추출 (NEW!) -->
+    <dynamicVar id="extract_approval_codes_identified"
+                description="승인 관련 코드들을 컬럼별로 식별 가능하게 추출"
+                variableName="approvalCodesById"
+                extractType="column_identified"
+                columns="approver_code,requester_code,product_code"
+                enabled="true">
+      <![CDATA[
+        SELECT DISTINCT 
+          ar.approver_code,
+          ar.requester_code,
+          ar.product_code
+        FROM approval_requests ar
+        WHERE ar.status IN (${statusList})
+          AND ar.created_date >= '${startDate}'
+          AND ar.approver_code IS NOT NULL
+          AND ar.requester_code IS NOT NULL
+          AND ar.product_code IS NOT NULL
+      ]]>
+    </dynamicVar>
   </dynamicVariables>
 
   <!-- 쿼리 정의 -->
@@ -326,5 +436,193 @@
       </sourceQuery>
 
     </query>
+
+    <!-- multiple_columns 동적 변수 사용 예시 쿼리들 -->
+    <query id="migrate_related_entities"
+           description="multiple_columns로 추출된 모든 엔티티 ID를 사용한 관련 데이터 이관"
+           targetTable="entity_relationships"
+           targetColumns="relation_id,entity_id,related_entity_id,relation_type,created_date"
+           primaryKey="relation_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            relation_id,
+            entity_id,
+            related_entity_id,
+            relation_type,
+            created_date
+          FROM entity_relationships 
+          WHERE entity_id IN (${allEntityIds})
+             OR related_entity_id IN (${allEntityIds})
+          ORDER BY relation_id
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_flag">RELATED_ENTITY</override>
+      </columnOverrides>
+    </query>
+
+    <!-- 방법 1: 개별 변수를 사용한 쿼리 -->
+    <query id="migrate_approver_audit_logs"
+           description="승인자 코드만을 사용한 감사 로그 이관"
+           targetTable="audit_logs"
+           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
+           primaryKey="log_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            log_id,
+            action_type,
+            entity_code,
+            user_code,
+            log_message,
+            created_date
+          FROM audit_logs 
+          WHERE user_code IN (${approverCodes})
+            AND created_date >= '${startDate}'
+            AND action_type IN ('APPROVE', 'REJECT')
+          ORDER BY created_date DESC
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">APPROVER_AUDIT</override>
+      </columnOverrides>
+    </query>
+
+    <query id="migrate_requester_audit_logs"
+           description="요청자 코드만을 사용한 감사 로그 이관"
+           targetTable="audit_logs"
+           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
+           primaryKey="log_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            log_id,
+            action_type,
+            entity_code,
+            user_code,
+            log_message,
+            created_date
+          FROM audit_logs 
+          WHERE user_code IN (${requesterCodes})
+            AND created_date >= '${startDate}'
+            AND action_type = 'REQUEST'
+          ORDER BY created_date DESC
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">REQUESTER_AUDIT</override>
+      </columnOverrides>
+    </query>
+
+    <!-- 방법 2: multiple_columns 사용 (기존) -->
+    <query id="migrate_audit_logs_by_codes"
+           description="multiple_columns로 추출된 승인 코드들로 감사 로그 이관"
+           targetTable="audit_logs"
+           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
+           primaryKey="log_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            log_id,
+            action_type,
+            entity_code,
+            user_code,
+            log_message,
+            created_date
+          FROM audit_logs 
+          WHERE (entity_code IN (${allApprovalCodes}) 
+             OR user_code IN (${allApprovalCodes}))
+            AND created_date >= '${startDate}'
+            AND action_type IN ('APPROVE', 'REJECT', 'REQUEST')
+          ORDER BY created_date DESC
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">APPROVAL_AUDIT</override>
+      </columnOverrides>
+    </query>
+
+    <!-- 방법 3: column_identified 사용 (NEW!) -->
+    <query id="migrate_audit_logs_by_identified_codes"
+           description="컬럼별로 식별된 승인 코드들을 사용한 감사 로그 이관"
+           targetTable="audit_logs"
+           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
+           primaryKey="log_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            log_id,
+            action_type,
+            entity_code,
+            user_code,
+            log_message,
+            created_date
+          FROM audit_logs 
+          WHERE (
+            -- 승인자 코드로 필터링
+            (user_code IN (${approvalCodesById.approver_code}) AND action_type IN ('APPROVE', 'REJECT'))
+            OR 
+            -- 요청자 코드로 필터링  
+            (user_code IN (${approvalCodesById.requester_code}) AND action_type = 'REQUEST')
+            OR
+            -- 제품 코드로 필터링
+            (entity_code IN (${approvalCodesById.product_code}) AND action_type LIKE '%PRODUCT%')
+          )
+            AND created_date >= '${startDate}'
+          ORDER BY created_date DESC
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">IDENTIFIED_APPROVAL_AUDIT</override>
+      </columnOverrides>
+    </query>
+
+    <!-- 컬럼별 식별을 활용한 복합 쿼리 예시 -->
+    <query id="migrate_complex_approval_relations"
+           description="컬럼별 식별된 코드들을 사용한 복합 관계 데이터 이관"
+           targetTable="approval_relations"
+           targetColumns="relation_id,approver_id,requester_id,product_id,relation_type,created_date"
+           primaryKey="relation_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            ar.relation_id,
+            ar.approver_id,
+            ar.requester_id,
+            ar.product_id,
+            ar.relation_type,
+            ar.created_date
+          FROM approval_relations ar
+          WHERE ar.approver_id IN (${approvalCodesById.approver_code})
+            AND ar.requester_id IN (${approvalCodesById.requester_code})
+            AND ar.product_id IN (${approvalCodesById.product_code})
+            AND ar.created_date >= '${startDate}'
+          UNION
+          SELECT 
+            ar2.relation_id,
+            ar2.approver_id,
+            ar2.requester_id,
+            ar2.product_id,
+            ar2.relation_type,
+            ar2.created_date
+          FROM approval_relations ar2
+          WHERE (ar2.approver_id IN (${approvalCodesById}) 
+             OR ar2.requester_id IN (${approvalCodesById}))
+            AND ar2.created_date >= '${startDate}'
+          ORDER BY created_date DESC
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">COMPLEX_APPROVAL_RELATION</override>
+      </columnOverrides>
+    </query>
+
   </queries>
 </migration> 
