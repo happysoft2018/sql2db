@@ -603,62 +603,6 @@ class MSSQLDataMigrator {
         }
     }
 
-    // FK 참조 순서를 고려한 삭제 처리
-    async handleForeignKeyDeletions(enabledQueries) {
-        try {
-            // deleteBeforeInsert가 true인 쿼리들만 필터링
-            const deletionQueries = enabledQueries.filter(q => q.deleteBeforeInsert);
-            
-            if (deletionQueries.length === 0) {
-                this.log('삭제할 테이블이 없습니다.');
-                return;
-            }
-
-            this.log(`\n=== FK 참조 순서를 고려한 삭제 처리 시작 ===`);
-            
-            // 삭제할 테이블 목록 추출
-            const tablesToDelete = deletionQueries.map(q => q.targetTable);
-            this.log(`삭제 대상 테이블: ${tablesToDelete.join(', ')}`);
-            
-            // 테이블 삭제 순서 계산
-            const deletionOrder = await this.connectionManager.calculateTableDeletionOrder(tablesToDelete, false);
-            
-            if (deletionOrder.hasCircularReference) {
-                this.log(`⚠️ 순환 참조 감지: ${deletionOrder.circularTables.join(', ')}`);
-                this.log('FK 제약 조건을 일시적으로 비활성화합니다.');
-                await this.connectionManager.toggleForeignKeyConstraints(false, false);
-            }
-            
-            // 계산된 순서대로 테이블 전체 삭제 (FK 순서 고려)
-            for (const tableName of deletionOrder.order) {
-                const queryConfig = deletionQueries.find(q => q.targetTable === tableName);
-
-                if (queryConfig) {
-                    this.log(`테이블 전체 삭제 중: ${tableName} ...`);
-                    
-                    try {
-                        await this.connectionManager.deleteAllFromTarget(tableName);
-                    } catch (error) {
-                        this.log(`⚠️ 테이블 ${tableName} 삭제 중 오류: ${error.message}`);
-                        // 오류가 발생해도 계속 진행 (데이터가 없을 수 있음)
-                    }
-                }
-            }
-            
-            // FK 제약 조건이 비활성화되었다면 다시 활성화
-            if (deletionOrder.hasCircularReference) {
-                this.log('FK 제약 조건을 다시 활성화합니다.');
-                await this.connectionManager.toggleForeignKeyConstraints(true, false);
-            }
-            
-            this.log(`=== FK 참조 순서를 고려한 삭제 처리 완료 ===\n`);
-            
-        } catch (error) {
-            this.log(`FK 삭제 처리 중 오류: ${error.message}`);
-            // 오류가 발생해도 이관 프로세스는 계속 진행
-        }
-    }
-
     // 쿼리 실행 및 데이터 조회
     async executeSourceQuery(query) {
         try {
@@ -919,9 +863,8 @@ class MSSQLDataMigrator {
             // 소스 데이터 조회
             const sourceData = await this.executeSourceQuery(queryConfig.sourceQuery);
             
-            // FK 순서 기능이 비활성화된 경우 개별적으로 PK 기준 삭제 처리
-            if (queryConfig.deleteBeforeInsert && 
-                (!this.config.variables || !this.config.variables.enableForeignKeyOrder)) {
+            // PK 기준 삭제 처리
+            if (queryConfig.deleteBeforeInsert) {
                 this.log(`이관 전 대상 테이블 PK 기준 데이터 삭제: ${queryConfig.targetTable}`);
                 if (sourceData && sourceData.length > 0) {
                     // Primary Key가 콤마로 구분된 문자열인 경우 배열로 변환
@@ -1092,15 +1035,6 @@ class MSSQLDataMigrator {
                 // 재시작인 경우 기존 totalRows 값 사용
                 totalEstimatedRows = this.progressManager.progressData.totalRows || 0;
                 this.log(`기존 예상 행 수: ${totalEstimatedRows.toLocaleString()}행`);
-            }
-            
-            // FK 참조 순서를 고려한 삭제 처리 (옵션)
-            if (this.config.variables && this.config.variables.enableForeignKeyOrder) {
-                this.progressManager.updatePhase('DELETING', 'RUNNING', 'Processing FK-ordered deletions');
-                await this.handleForeignKeyDeletions(enabledQueries);
-                this.progressManager.updatePhase('DELETING', 'COMPLETED', 'FK-ordered deletions completed');
-            } else {
-                this.log('FK 순서 고려 기능이 비활성화되어 있습니다. 개별 쿼리에서 삭제를 처리합니다.');
             }
             
             // 트랜잭션 시작 (옵션)
@@ -1436,9 +1370,9 @@ class MSSQLDataMigrator {
                     
                     console.log(`   📊 이관 예정 데이터: ${rowCount}행`);
                     
-                                if (queryConfig.deleteBeforeInsert) {
-                console.log(`   🗑️ 삭제 방식: PK(${queryConfig.primaryKey}) 기준 삭제`);
-            }
+                    if (queryConfig.deleteBeforeInsert) {
+                        console.log(`   🗑️ 삭제 방식: PK(${queryConfig.primaryKey}) 기준 삭제`);
+                    }
                     
                     // 대상 컬럼 정보
                     if (queryConfig.targetColumns) {
