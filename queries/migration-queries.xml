@@ -28,6 +28,16 @@
     <var name="currentTime">${CURRENT_TIME}</var>
   </variables>
 
+  <!-- 전역 컬럼 오버라이드 설정 -->
+  <globalColumnOverrides>
+    <!-- 모든 쿼리에 공통으로 적용될 컬럼 값들 -->
+    <override column="created_by">${migrationUser}</override>
+    <override column="updated_by">${migrationUser}</override>
+    <override column="migration_date">${migrationTimestamp}</override>
+    <override column="processed_at">GETDATE()</override>
+    <override column="data_version">2.1</override>
+  </globalColumnOverrides>
+
   <!-- 전역 전처리/후처리 -->
   <globalProcesses>
     <!-- 전체 이관 시작 전 실행 -->

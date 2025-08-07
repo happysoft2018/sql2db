@@ -1,4 +1,49 @@
-# 진행 상황 관리 및 재시작 기능 추가 - v2.1
+# SQL2DB Migration Tool 업데이트 로그
+
+## 🆕 v2.2 - 전역 컬럼 오버라이드 기능 추가 (2025-08-07)
+
+### ✨ 새로운 기능
+
+#### 전역 columnOverrides 지원
+- **상위 레벨 설정**: 모든 쿼리에 공통으로 적용되는 전역 컬럼 오버라이드 정의 가능
+- **설정 병합**: 전역 설정과 개별 쿼리 설정의 지능적 병합
+- **우선순위 처리**: 개별 쿼리 설정이 전역 설정을 덮어쓰는 방식
+
+#### 주요 장점
+- **코드 중복 제거**: 공통 컬럼 설정을 한 곳에서 관리
+- **일관성 보장**: 마이그레이션 메타데이터 일관성 유지
+- **유지보수성 향상**: 전역 변경 시 한 번의 수정으로 모든 쿼리에 적용
+
+#### 사용 예시
+```xml
+<migration>
+  <!-- 전역 컬럼 오버라이드 -->
+  <globalColumnOverrides>
+    <override column="created_by">SYSTEM_MIGRATOR</override>
+    <override column="migration_date">${migrationTimestamp}</override>
+    <override column="data_version">2.2</override>
+  </globalColumnOverrides>
+  
+  <queries>
+    <query id="migrate_users">
+      <!-- 개별 설정은 전역 설정과 병합됨 -->
+      <columnOverrides>
+        <override column="status">MIGRATED</override>
+      </columnOverrides>
+    </query>
+  </queries>
+</migration>
+```
+
+### 🔧 개선사항
+- XML 파싱 로직에 전역 columnOverrides 처리 추가
+- 컬럼 오버라이드 병합 알고리즘 구현
+- 디버그 로깅으로 적용된 오버라이드 추적 지원
+- 사용자 매뉴얼에 상세한 병합 규칙 설명 추가
+
+---
+
+## 📋 v2.1 - 진행 상황 관리 및 재시작 기능 추가
 
 ## 🎯 개요
 

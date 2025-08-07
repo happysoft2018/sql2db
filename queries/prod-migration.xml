@@ -21,6 +21,16 @@
     <var name="enableForeignKeyOrder">true</var>
   </variables>
 
+  <!-- 전역 컬럼 오버라이드 설정 -->
+  <globalColumnOverrides>
+    <!-- 모든 쿼리에 공통으로 적용될 컬럼 값들 -->
+    <override column="created_by">SYSTEM_MIGRATOR</override>
+    <override column="updated_by">SYSTEM_MIGRATOR</override>
+    <override column="migration_timestamp">${migrationTimestamp}</override>
+    <override column="migration_batch_id">${companyCode}_${startDate}</override>
+    <override column="data_source">PROD_MIGRATION</override>
+  </globalColumnOverrides>
+
   <!-- 운영 환경 전역 전처리/후처리 -->
   <globalProcesses>
     <!-- 운영 이관 시작 전 실행 -->
@@ -124,11 +134,11 @@
           ORDER BY user_id
         ]]>
       </sourceQuery>
-      <!-- 운영 환경용 컬럼 고정값 설정 -->
+      <!-- 개별 쿼리용 컬럼 오버라이드 (전역 설정에 추가/덮어쓰기) -->
       <columnOverrides>
         <override column="environment">PROD_TARGET</override>
-        <override column="migration_batch_id">${companyCode}_${startDate}</override>
         <override column="last_updated">GETDATE()</override>
+        <!-- migration_batch_id는 전역 설정에서 이미 정의됨 -->
       </columnOverrides>
       <deleteWhere>
         <![CDATA[

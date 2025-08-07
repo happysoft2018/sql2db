@@ -178,6 +178,7 @@ class MSSQLDataMigrator {
                 variables: {},
                 dynamicVariables: [],
                 globalProcesses: {},
+                globalColumnOverrides: {}, // 전역 columnOverrides 추가
                 queries: []
             };
             
@@ -299,6 +300,24 @@ class MSSQLDataMigrator {
                 });
             }
             
+            // 전역 columnOverrides 파싱 추가
+            if (migration.globalColumnOverrides && migration.globalColumnOverrides.override) {
+                const globalOverrides = Array.isArray(migration.globalColumnOverrides.override) 
+                    ? migration.globalColumnOverrides.override 
+                    : [migration.globalColumnOverrides.override];
+                
+                globalOverrides.forEach(override => {
+                    if (override.column && override._) {
+                        config.globalColumnOverrides[override.column] = override._;
+                    }
+                });
+                
+                logger.info('전역 columnOverrides 로드됨', {
+                    count: Object.keys(config.globalColumnOverrides).length,
+                    columns: Object.keys(config.globalColumnOverrides)
+                });
+            }
+            
             // 동적 변수 파싱
             if (migration.dynamicVariables && migration.dynamicVariables.dynamicVar) {
                 const dynamicVars = Array.isArray(migration.dynamicVariables.dynamicVar)
@@ -351,17 +370,29 @@ class MSSQLDataMigrator {
                         query.sourceQuery = q.sourceQuery.trim();
                     }
                     
-                    // columnOverrides 처리
+                    // columnOverrides 처리 (전역 + 개별 병합)
+                    query.columnOverrides = { ...config.globalColumnOverrides }; // 전역 설정으로 시작
+                    
                     if (q.columnOverrides && q.columnOverrides.override) {
                         const overrides = Array.isArray(q.columnOverrides.override) 
                             ? q.columnOverrides.override 
                             : [q.columnOverrides.override];
                         
-                        query.columnOverrides = {};
                         overrides.forEach(override => {
                             if (override.column && override._) {
-                                query.columnOverrides[override.column] = override._;
+                                query.columnOverrides[override.column] = override._; // 개별 설정이 전역 설정을 덮어씀
                             }
+                        });
+                    }
+                    
+                    // columnOverrides 로깅 (개발/디버그용)
+                    if (Object.keys(query.columnOverrides).length > 0) {
+                        logger.debug(`[${query.id}] columnOverrides 적용됨`, {
+                            columns: Object.keys(query.columnOverrides),
+                            globalOverrides: Object.keys(config.globalColumnOverrides),
+                            localOverrides: q.columnOverrides ? Object.keys(q.columnOverrides.override ? 
+                                (Array.isArray(q.columnOverrides.override) ? q.columnOverrides.override : [q.columnOverrides.override])
+                                .reduce((acc, o) => { if (o.column) acc.push(o.column); return acc; }, []) : []) : []
                         });
                     }
                     
