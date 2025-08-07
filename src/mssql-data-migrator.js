@@ -467,33 +467,51 @@ class MSSQLDataMigrator {
                 }).join(', ');
                 result = result.replace(pattern, inClause);
             } 
-            // column_identified 객체 타입인 경우 (컬럼별 접근 패턴 지원)
+            // 객체 타입인 경우 (column_identified 또는 key_value_pairs)
             else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                // ${변수명.컬럼명} 패턴 처리
-                Object.keys(value).forEach(columnName => {
-                    const columnPattern = new RegExp(`\\$\\{${key}\\.${columnName}\\}`, 'g');
-                    const columnValues = value[columnName];
+                // ${변수명.키} 패턴 처리 (column_identified와 key_value_pairs 모두 지원)
+                Object.keys(value).forEach(keyName => {
+                    const keyPattern = new RegExp(`\\$\\{${key}\\.${keyName}\\}`, 'g');
+                    const keyValue = value[keyName];
                     
-                    if (Array.isArray(columnValues)) {
-                        const inClause = columnValues.map(v => {
+                    if (Array.isArray(keyValue)) {
+                        // column_identified: 배열 값을 IN절로 변환
+                        const inClause = keyValue.map(v => {
                             if (typeof v === 'string') {
                                 return `'${v.replace(/'/g, "''")}'`;
                             }
                             return v;
                         }).join(', ');
-                        result = result.replace(columnPattern, inClause);
+                        result = result.replace(keyPattern, inClause);
+                    } else {
+                        // key_value_pairs: 단일 값을 그대로 치환
+                        const replacementValue = typeof keyValue === 'string' ? `'${keyValue.replace(/'/g, "''")}'` : keyValue;
+                        result = result.replace(keyPattern, replacementValue);
                     }
                 });
                 
-                // ${변수명} 패턴은 모든 값을 통합하여 처리
-                const allValues = Object.values(value).flat();
-                const inClause = allValues.map(v => {
-                    if (typeof v === 'string') {
-                        return `'${v.replace(/'/g, "''")}'`;
-                    }
-                    return v;
-                }).join(', ');
-                result = result.replace(pattern, inClause);
+                // ${변수명} 패턴 처리
+                const allValues = Object.values(value);
+                if (allValues.every(v => Array.isArray(v))) {
+                    // column_identified: 모든 배열 값을 통합하여 IN절로
+                    const flatValues = allValues.flat();
+                    const inClause = flatValues.map(v => {
+                        if (typeof v === 'string') {
+                            return `'${v.replace(/'/g, "''")}'`;
+                        }
+                        return v;
+                    }).join(', ');
+                    result = result.replace(pattern, inClause);
+                } else {
+                    // key_value_pairs: 모든 값들을 IN절로
+                    const inClause = allValues.map(v => {
+                        if (typeof v === 'string') {
+                            return `'${v.replace(/'/g, "''")}'`;
+                        }
+                        return v;
+                    }).join(', ');
+                    result = result.replace(pattern, inClause);
+                }
             } 
             else {
                 result = result.replace(pattern, value);

@@ -441,7 +441,7 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
               extractType="key_value_pairs"
               enabled="true">
     <![CDATA[
-      SELECT company_code, company_name FROM companies
+      SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
     ]]>
   </dynamicVar>
   
@@ -621,6 +621,94 @@ approver_code | requester_code | product_code
 - 승인 시스템에서 승인자/요청자/제품별 개별 필터링
 - 권한 시스템에서 사용자/역할/리소스별 구분 접근
 - 로그 분석에서 사용자/액션/엔티티별 분류
+
+#### key_value_pairs 상세 설명 📋
+
+`extractType="key_value_pairs"`는 두 컬럼을 키-값 쌍으로 매핑하는 기능입니다.
+
+**동작 방식:**
+```sql
+-- 쿼리 결과
+company_code | company_name
+-------------|-------------
+   COMP01    | Samsung Electronics
+   COMP02    | LG Electronics  
+   COMP03    | SK Hynix
+
+-- key_value_pairs로 추출 시
+결과: {
+  "COMP01": "Samsung Electronics",
+  "COMP02": "LG Electronics",
+  "COMP03": "SK Hynix"
+}
+```
+
+**사용 패턴:**
+```xml
+<!-- 1. 코드-이름 매핑 정의 -->
+<dynamicVar id="extract_company_mapping"
+            variableName="companyMapping"
+            extractType="key_value_pairs"
+            enabled="true">
+  <![CDATA[
+    SELECT company_code, company_name 
+    FROM companies 
+    WHERE status = 'ACTIVE'
+  ]]>
+</dynamicVar>
+
+<!-- 2. 개별 키 접근 -->
+<sourceQuery>
+  <![CDATA[
+    SELECT 
+      u.user_id,
+      u.username,
+      u.company_code,
+      -- 특정 키의 값 조회
+      CASE u.company_code
+        WHEN 'COMP01' THEN ${companyMapping.COMP01}
+        WHEN 'COMP02' THEN ${companyMapping.COMP02}
+        ELSE 'Unknown'
+      END as company_name
+    FROM users u
+  ]]>
+</sourceQuery>
+
+<!-- 3. 전체 키들을 IN절에서 사용 -->
+<sourceQuery>
+  <![CDATA[
+    SELECT * FROM transactions
+    WHERE company_code IN (${companyMapping})  -- 모든 키 값들
+  ]]>
+</sourceQuery>
+```
+
+**주요 장점:**
+- ✅ **코드-이름 매핑**: 코드 테이블을 동적으로 조회하여 매핑
+- ✅ **개별 키 접근**: `${변수명.키}` 패턴으로 특정 값만 조회
+- ✅ **IN절 필터링**: `${변수명}` 패턴으로 모든 키를 조건절에 사용
+- ✅ **동적 참조**: 런타임에 매핑 테이블 값 변경 반영
+
+**실제 활용 사례:**
+- 회사/부서/카테고리 코드-이름 매핑
+- 상태 코드-설명 매핑
+- 사용자 역할-권한 매핑
+- 지역 코드-지역명 매핑
+
+**다른 extractType과의 비교:**
+```xml
+<!-- key_value_pairs: 키-값 매핑 -->
+<dynamicVar extractType="key_value_pairs">
+  <!-- 결과: {"COMP01": "Samsung", "COMP02": "LG"} -->
+  <!-- 사용: ${mapping.COMP01} → "Samsung" -->
+</dynamicVar>
+
+<!-- single_column: 단일 컬럼 배열 -->
+<dynamicVar extractType="single_column" columnName="company_code">
+  <!-- 결과: ["COMP01", "COMP02"] -->
+  <!-- 사용: ${codes} → "'COMP01', 'COMP02'" -->
+</dynamicVar>
+```
 
 ### 4. 변수 치환
 

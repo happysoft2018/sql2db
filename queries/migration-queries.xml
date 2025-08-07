@@ -92,13 +92,53 @@
       ]]>
     </dynamicVar>
 
+    <!-- key_value_pairs 사용 예시들 -->
     <dynamicVar id="extract_company_mapping"
                 description="회사 코드-이름 매핑 추출" 
                 variableName="companyMapping"
                 extractType="key_value_pairs"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_department_mapping"
+                description="부서 코드-이름 매핑 추출"
+                variableName="departmentMapping"
+                extractType="key_value_pairs"
+                enabled="true">
+      <![CDATA[
+        SELECT DISTINCT dept_code, dept_name 
+        FROM departments 
+        WHERE is_active = 1
+        ORDER BY dept_code
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_status_mapping"
+                description="상태 코드-설명 매핑 추출"
+                variableName="statusMapping"
+                extractType="key_value_pairs"
+                enabled="true">
+      <![CDATA[
+        SELECT status_code, status_description 
+        FROM status_codes 
+        WHERE category = 'USER_STATUS'
+        ORDER BY sort_order
+      ]]>
+    </dynamicVar>
+
+    <dynamicVar id="extract_category_mapping"
+                description="카테고리 ID-이름 매핑 추출"
+                variableName="categoryMapping"
+                extractType="key_value_pairs"
+                enabled="false">
+      <![CDATA[
+        SELECT category_id, category_name 
+        FROM categories 
+        WHERE is_active = 1 
+          AND category_id IN (${categoryIds})
       ]]>
     </dynamicVar>
 
@@ -621,6 +661,97 @@
       </sourceQuery>
       <columnOverrides>
         <override column="migration_source">COMPLEX_APPROVAL_RELATION</override>
+      </columnOverrides>
+    </query>
+
+    <!-- key_value_pairs 사용 예시 쿼리들 -->
+    <query id="migrate_users_with_company_names"
+           description="회사 코드-이름 매핑을 사용한 사용자 데이터 이관"
+           targetTable="users_with_company"
+           targetColumns="user_id,username,email,company_code,company_name,created_date"
+           primaryKey="user_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            u.user_id,
+            u.username,
+            u.email,
+            u.company_code,
+            -- key_value_pairs 매핑을 이용한 회사명 조회
+            CASE u.company_code
+              WHEN 'COMP01' THEN ${companyMapping.COMP01}
+              WHEN 'COMP02' THEN ${companyMapping.COMP02}
+              WHEN 'COMP03' THEN ${companyMapping.COMP03}
+              ELSE 'Unknown Company'
+            END as company_name,
+            u.created_date
+          FROM users u
+          WHERE u.company_code IN (${companyMapping})
+            AND u.created_date >= '${startDate}'
+          ORDER BY u.user_id
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">COMPANY_MAPPING</override>
+      </columnOverrides>
+    </query>
+
+    <query id="migrate_employees_with_dept_info"
+           description="부서 매핑을 사용한 직원 정보 이관"
+           targetTable="employees_with_dept"
+           targetColumns="emp_id,emp_name,dept_code,dept_name,status,status_desc,hire_date"
+           primaryKey="emp_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            e.emp_id,
+            e.emp_name,
+            e.dept_code,
+            -- 부서명 매핑
+            COALESCE(${departmentMapping.${e.dept_code}}, 'Unknown Department') as dept_name,
+            e.status,
+            -- 상태 설명 매핑  
+            COALESCE(${statusMapping.${e.status}}, 'Unknown Status') as status_desc,
+            e.hire_date
+          FROM employees e
+          WHERE e.dept_code IN (${departmentMapping})
+            AND e.status IN (${statusMapping})
+            AND e.hire_date >= '${startDate}'
+          ORDER BY e.emp_id
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">DEPT_STATUS_MAPPING</override>
+      </columnOverrides>
+    </query>
+
+    <!-- key_value_pairs를 조건절에서 활용하는 예시 -->
+    <query id="migrate_filtered_by_mapping"
+           description="매핑 테이블 기반 필터링을 사용한 데이터 이관"
+           targetTable="filtered_data"
+           targetColumns="record_id,entity_code,entity_name,category_id,category_name,processed_date"
+           primaryKey="record_id"
+           enabled="false">
+      <sourceQuery>
+        <![CDATA[
+          SELECT 
+            rd.record_id,
+            rd.entity_code,
+            rd.entity_name,
+            rd.category_id,
+            rd.category_name,
+            rd.processed_date
+          FROM raw_data rd
+          WHERE rd.entity_code IN (${companyMapping})  -- 매핑된 회사 코드만
+            AND rd.category_id IN (${categoryMapping}) -- 매핑된 카테고리만
+            AND rd.processed_date >= '${startDate}'
+          ORDER BY rd.processed_date DESC
+        ]]>
+      </sourceQuery>
+      <columnOverrides>
+        <override column="migration_source">MAPPING_FILTERED</override>
       </columnOverrides>
     </query>
 
