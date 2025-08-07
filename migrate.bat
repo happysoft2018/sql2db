@@ -55,6 +55,16 @@ echo =========================================
 echo   쿼리문정의 파일 검증
 echo =========================================
 echo.
+echo.
+echo 사용 가능한 쿼리문정의 파일들:
+echo.
+if exist "queries\*.xml" (
+    for %%f in (queries\*.xml) do echo   - %%f
+)
+if exist "queries\*.json" (
+    for %%f in (queries\*.xml) do echo   - %%f
+)
+echo.
 echo 쿼리문정의 파일 경로를 입력하세요 (예: queries/my-config.xml):
 set /p config_file=
 if "%config_file%"=="" (
@@ -111,7 +121,15 @@ echo =========================================
 echo   데이터 이관 실행
 echo =========================================
 echo.
-echo 주의: 데이터 이관을 실행하기 전에 대상 데이터베이스를 백업해주세요.
+echo 사용 가능한 쿼리문정의 파일들:
+echo.
+if exist "queries\*.xml" (
+    for %%f in (queries\*.xml) do echo   - %%f
+)
+if exist "queries\*.json" (
+    for %%f in (queries\*.xml) do echo   - %%f
+)
+echo.
 echo.
 echo 쿼리문정의 파일 경로를 입력하세요 (예: queries/my-config.xml):
 set /p config_file=
