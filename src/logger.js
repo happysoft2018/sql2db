@@ -35,7 +35,12 @@ class Logger {
             fs.mkdirSync(this.logDir, { recursive: true });
         }
         
-        this.logFile = path.join(this.logDir, `migration-${new Date().toISOString().split('T')[0]}.log`);
+        // 현지 시각으로 로그 파일명 생성
+        const now = new Date();
+        const localDate = now.getFullYear() + '-' + 
+                         String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(now.getDate()).padStart(2, '0');
+        this.logFile = path.join(this.logDir, `migration-${localDate}.log`);
     }
     
     getLogLevel() {
@@ -56,7 +61,15 @@ class Logger {
     }
     
     formatMessage(level, message, data = null) {
-        const timestamp = new Date().toISOString();
+        // 현지 시각으로 타임스탬프 생성
+        const now = new Date();
+        const timestamp = now.getFullYear() + '-' + 
+                         String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(now.getDate()).padStart(2, '0') + 'T' +
+                         String(now.getHours()).padStart(2, '0') + ':' +
+                         String(now.getMinutes()).padStart(2, '0') + ':' +
+                         String(now.getSeconds()).padStart(2, '0') + '.' +
+                         String(now.getMilliseconds()).padStart(3, '0');
         const levelName = this.logLevelNames[level];
         const color = this.colors[levelName] || '';
         const reset = this.colors.RESET;
