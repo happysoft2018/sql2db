@@ -759,6 +759,76 @@ class MSSQLDataMigrator {
         return result;
     }
 
+    // 전/후처리 스크립트에서 SELECT * 처리
+    async processSelectStarInScript(script, database = 'target') {
+        // 환경 변수로 비활성화 가능
+        const processSelectStar = process.env.PROCESS_SELECT_STAR !== 'false';
+        if (!processSelectStar) {
+            return script;
+        }
+        
+        try {
+            // SELECT * 패턴을 찾아서 명시적 컬럼명으로 변경
+            // JOIN, WHERE, GROUP BY, HAVING, ORDER BY 등을 고려한 복잡한 패턴
+            const selectStarPattern = /SELECT\s+\*\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?(?:\s+(?:LEFT|RIGHT|INNER|OUTER)?\s*JOIN\s+.*?)?(?:\s+WHERE\s+.*?)?(?:\s+GROUP\s+BY\s+.*?)?(?:\s+HAVING\s+.*?)?(?:\s+ORDER\s+BY\s+.*?)?(?=\s*[;\)]|$)/gi;
+            let processedScript = script;
+            const matches = [...script.matchAll(selectStarPattern)];
+            
+            if (matches.length === 0) {
+                return script; // SELECT *가 없으면 원본 반환
+            }
+            
+            this.log(`전/후처리 스크립트에서 ${matches.length}개의 SELECT * 패턴 발견`);
+            
+            // 각 SELECT * 패턴을 처리
+            for (const match of matches) {
+                const fullMatch = match[0];
+                const tableName = match[1];
+                const tableAlias = match[2]; // 테이블 별칭 (있는 경우)
+                
+                try {
+                    this.log(`테이블 ${tableName}${tableAlias ? ` (별칭: ${tableAlias})` : ''}의 컬럼 정보 조회 중...`);
+                    
+                    // 테이블의 컬럼 정보 조회 (database 파라미터에 따라 소스 또는 타겟)
+                    const columns = await this.connectionManager.getTableColumns(tableName, database === 'source');
+                    
+                    if (columns.length === 0) {
+                        this.log(`⚠️ 테이블 ${tableName}의 컬럼 정보를 찾을 수 없습니다. 원본 쿼리를 유지합니다.`);
+                        continue;
+                    }
+                    
+                    // 컬럼명 목록 생성 (별칭이 있으면 별칭.컬럼명 형식으로)
+                    let columnNames;
+                    if (tableAlias) {
+                        columnNames = columns.map(col => `${tableAlias}.${col.name}`);
+                    } else {
+                        columnNames = columns.map(col => col.name);
+                    }
+                    const explicitColumns = columnNames.join(', ');
+                    
+                    // SELECT * 를 명시적 컬럼명으로 교체
+                    const replacedQuery = fullMatch.replace(/SELECT\s+\*/i, `SELECT ${explicitColumns}`);
+                    processedScript = processedScript.replace(fullMatch, replacedQuery);
+                    
+                    this.log(`✅ ${tableName} 테이블: SELECT * → ${columnNames.length}개 컬럼 명시`);
+                    this.log(`변경된 쿼리: ${replacedQuery.substring(0, 150)}${replacedQuery.length > 150 ? '...' : ''}`);
+                    
+                } catch (columnError) {
+                    this.log(`⚠️ 테이블 ${tableName} 컬럼 조회 실패: ${columnError.message}`);
+                    this.log(`원본 쿼리를 유지합니다: ${fullMatch}`);
+                    // 오류 발생 시 해당 쿼리는 원본 유지하고 계속 진행
+                }
+            }
+            
+            return processedScript;
+            
+        } catch (error) {
+            this.log(`SELECT * 처리 중 오류: ${error.message}`);
+            this.log('원본 스크립트를 그대로 사용합니다.');
+            return script;
+        }
+    }
+
     // 동적 변수 설정
     setDynamicVariable(key, value) {
         this.dynamicVariables[key] = value;
@@ -1056,12 +1126,19 @@ class MSSQLDataMigrator {
                 }
             }
             
-            // 스크립트 전처리: 주석 제거
-            const cleanedScript = this.removeComments(processedScript);
+            // SELECT * 처리 (변수 치환 후, 주석 제거 전)
+            const selectStarProcessedScript = await this.processSelectStarInScript(processedScript, database);
             
-            if (debugScripts && cleanedScript !== processedScript) {
+            if (debugScripts && selectStarProcessedScript !== processedScript) {
+                this.log(`SELECT * 처리 후 스크립트: ${selectStarProcessedScript.substring(0, 300)}${selectStarProcessedScript.length > 300 ? '...' : ''}`);
+            }
+            
+            // 스크립트 전처리: 주석 제거
+            const cleanedScript = this.removeComments(selectStarProcessedScript);
+            
+            if (debugScripts && cleanedScript !== selectStarProcessedScript) {
                 this.log(`주석 제거 후 스크립트: ${cleanedScript.substring(0, 300)}${cleanedScript.length > 300 ? '...' : ''}`);
-                this.log(`스크립트 길이 변화: ${processedScript.length} → ${cleanedScript.length} 문자`);
+                this.log(`스크립트 길이 변화: ${selectStarProcessedScript.length} → ${cleanedScript.length} 문자`);
             }
             
             // 스크립트를 세미콜론으로 분할하여 개별 SQL 문으로 실행
