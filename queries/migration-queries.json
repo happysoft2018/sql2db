@@ -10,8 +10,7 @@
     "companyCode": "COMPANY01",
     "statusList": ["ACTIVE", "PENDING", "APPROVED"],
     "categoryIds": [1, 2, 3, 5, 8],
-    "departmentCodes": ["IT", "HR", "SALES", "MARKETING"],
-    "enableForeignKeyOrder": true
+    "departmentCodes": ["IT", "HR", "SALES", "MARKETING"]
   },
   "dynamicVariables": [
     {
