@@ -452,89 +452,134 @@ class MSSQLDataMigrator {
     // 변수 치환
     replaceVariables(text) {
         let result = text;
+        const originalText = text;
+        
+        // 디버그 로깅 활성화 여부
+        const debugVariables = process.env.DEBUG_VARIABLES === 'true';
+        
+        if (debugVariables) {
+            this.log(`변수 치환 시작: ${originalText.substring(0, 200)}${originalText.length > 200 ? '...' : ''}`);
+        }
         
         // 동적 변수 치환 (우선순위 높음)
         Object.entries(this.dynamicVariables).forEach(([key, value]) => {
             const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
+            const beforeReplace = result;
             
-            // 배열 타입인 경우 IN절 처리
-            if (Array.isArray(value)) {
-                const inClause = value.map(v => {
-                    if (typeof v === 'string') {
-                        return `'${v.replace(/'/g, "''")}'`;
-                    }
-                    return v;
-                }).join(', ');
-                result = result.replace(pattern, inClause);
-            } 
-            // 객체 타입인 경우 (column_identified 또는 key_value_pairs)
-            else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                // ${변수명.키} 패턴 처리 (column_identified와 key_value_pairs 모두 지원)
-                Object.keys(value).forEach(keyName => {
-                    const keyPattern = new RegExp(`\\$\\{${key}\\.${keyName}\\}`, 'g');
-                    const keyValue = value[keyName];
+            try {
+                // 배열 타입인 경우 IN절 처리
+                if (Array.isArray(value)) {
+                    const inClause = value.map(v => {
+                        if (typeof v === 'string') {
+                            return `'${v.replace(/'/g, "''")}'`;
+                        }
+                        return v;
+                    }).join(', ');
+                    result = result.replace(pattern, inClause);
                     
-                    if (Array.isArray(keyValue)) {
-                        // column_identified: 배열 값을 IN절로 변환
-                        const inClause = keyValue.map(v => {
+                    if (debugVariables && beforeReplace !== result) {
+                        this.log(`동적 변수 [${key}] 치환: 배열 ${value.length}개 → IN절`);
+                    }
+                } 
+                // 객체 타입인 경우 (column_identified 또는 key_value_pairs)
+                else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                    // ${변수명.키} 패턴 처리 (column_identified와 key_value_pairs 모두 지원)
+                    Object.keys(value).forEach(keyName => {
+                        const keyPattern = new RegExp(`\\$\\{${key}\\.${keyName}\\}`, 'g');
+                        const keyValue = value[keyName];
+                        const beforeKeyReplace = result;
+                        
+                        if (Array.isArray(keyValue)) {
+                            // column_identified: 배열 값을 IN절로 변환
+                            const inClause = keyValue.map(v => {
+                                if (typeof v === 'string') {
+                                    return `'${v.replace(/'/g, "''")}'`;
+                                }
+                                return v;
+                            }).join(', ');
+                            result = result.replace(keyPattern, inClause);
+                        } else {
+                            // key_value_pairs: 단일 값을 그대로 치환
+                            const replacementValue = typeof keyValue === 'string' ? `'${keyValue.replace(/'/g, "''")}'` : keyValue;
+                            result = result.replace(keyPattern, replacementValue);
+                        }
+                        
+                        if (debugVariables && beforeKeyReplace !== result) {
+                            this.log(`동적 변수 [${key}.${keyName}] 치환: ${Array.isArray(keyValue) ? `배열 ${keyValue.length}개` : keyValue}`);
+                        }
+                    });
+                    
+                    // ${변수명} 패턴 처리
+                    const allValues = Object.values(value);
+                    if (allValues.every(v => Array.isArray(v))) {
+                        // column_identified: 모든 배열 값을 통합하여 IN절로
+                        const flatValues = allValues.flat();
+                        const inClause = flatValues.map(v => {
                             if (typeof v === 'string') {
                                 return `'${v.replace(/'/g, "''")}'`;
                             }
                             return v;
                         }).join(', ');
-                        result = result.replace(keyPattern, inClause);
+                        result = result.replace(pattern, inClause);
                     } else {
-                        // key_value_pairs: 단일 값을 그대로 치환
-                        const replacementValue = typeof keyValue === 'string' ? `'${keyValue.replace(/'/g, "''")}'` : keyValue;
-                        result = result.replace(keyPattern, replacementValue);
+                        // key_value_pairs: 모든 값들을 IN절로
+                        const inClause = allValues.map(v => {
+                            if (typeof v === 'string') {
+                                return `'${v.replace(/'/g, "''")}'`;
+                            }
+                            return v;
+                        }).join(', ');
+                        result = result.replace(pattern, inClause);
                     }
-                });
-                
-                // ${변수명} 패턴 처리
-                const allValues = Object.values(value);
-                if (allValues.every(v => Array.isArray(v))) {
-                    // column_identified: 모든 배열 값을 통합하여 IN절로
-                    const flatValues = allValues.flat();
-                    const inClause = flatValues.map(v => {
-                        if (typeof v === 'string') {
-                            return `'${v.replace(/'/g, "''")}'`;
-                        }
-                        return v;
-                    }).join(', ');
-                    result = result.replace(pattern, inClause);
-                } else {
-                    // key_value_pairs: 모든 값들을 IN절로
-                    const inClause = allValues.map(v => {
-                        if (typeof v === 'string') {
-                            return `'${v.replace(/'/g, "''")}'`;
-                        }
-                        return v;
-                    }).join(', ');
-                    result = result.replace(pattern, inClause);
+                    
+                    if (debugVariables && beforeReplace !== result) {
+                        this.log(`동적 변수 [${key}] 치환: 객체 타입`);
+                    }
+                } 
+                else {
+                    result = result.replace(pattern, value);
+                    
+                    if (debugVariables && beforeReplace !== result) {
+                        this.log(`동적 변수 [${key}] 치환: ${value}`);
+                    }
                 }
-            } 
-            else {
-                result = result.replace(pattern, value);
+            } catch (error) {
+                this.log(`동적 변수 [${key}] 치환 중 오류: ${error.message}`);
+                // 오류 발생 시 원본 유지
             }
         });
         
-        // 쿼리문정의 파일 의 변수 치환
+        // 쿼리문정의 파일의 변수 치환
         Object.entries(this.variables).forEach(([key, value]) => {
             const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
+            const beforeReplace = result;
             
-            // 배열 타입인 경우 IN절 처리
-            if (Array.isArray(value)) {
-                // 문자열 배열인 경우 따옴표로 감싸기
-                const inClause = value.map(v => {
-                    if (typeof v === 'string') {
-                        return `'${v.replace(/'/g, "''")}'`; // SQL 인젝션 방지를 위한 따옴표 이스케이핑
+            try {
+                // 배열 타입인 경우 IN절 처리
+                if (Array.isArray(value)) {
+                    // 문자열 배열인 경우 따옴표로 감싸기
+                    const inClause = value.map(v => {
+                        if (typeof v === 'string') {
+                            return `'${v.replace(/'/g, "''")}'`; // SQL 인젝션 방지를 위한 따옴표 이스케이핑
+                        }
+                        return v;
+                    }).join(', ');
+                    result = result.replace(pattern, inClause);
+                    
+                    if (debugVariables && beforeReplace !== result) {
+                        this.log(`일반 변수 [${key}] 치환: 배열 ${value.length}개 → IN절`);
                     }
-                    return v;
-                }).join(', ');
-                result = result.replace(pattern, inClause);
-            } else {
-                // 기존 방식: 단일 값 치환
-                result = result.replace(pattern, value);
+                } else {
+                    // 기존 방식: 단일 값 치환
+                    result = result.replace(pattern, value);
+                    
+                    if (debugVariables && beforeReplace !== result) {
+                        this.log(`일반 변수 [${key}] 치환: ${value}`);
+                    }
+                }
+            } catch (error) {
+                this.log(`일반 변수 [${key}] 치환 중 오류: ${error.message}`);
+                // 오류 발생 시 원본 유지
             }
         });
         
@@ -554,33 +599,86 @@ class MSSQLDataMigrator {
         // 현재 시각 함수 패턴 매칭 및 치환
         Object.entries(timestampFunctions).forEach(([funcName, funcImpl]) => {
             const pattern = new RegExp(`\\$\\{${funcName}\\}`, 'g');
-            result = result.replace(pattern, funcImpl());
-        });
-        
-        // 환경 변수 치환 (BATCH_SIZE 등)
-        const envPattern = /\$\{(\w+)\}/g;
-        result = result.replace(envPattern, (match, varName) => {
-            const envValue = process.env[varName];
-            if (!envValue) return match;
+            const beforeReplace = result;
             
-            // 환경 변수가 배열 형태인지 확인 (JSON 형태로 저장된 경우)
             try {
-                const parsed = JSON.parse(envValue);
-                if (Array.isArray(parsed)) {
-                    const inClause = parsed.map(v => {
-                        if (typeof v === 'string') {
-                            return `'${v.replace(/'/g, "''")}'`;
-                        }
-                        return v;
-                    }).join(', ');
-                    return inClause;
+                result = result.replace(pattern, funcImpl());
+                
+                if (debugVariables && beforeReplace !== result) {
+                    this.log(`시각 함수 [${funcName}] 치환: ${funcImpl()}`);
                 }
-                return envValue;
-            } catch (e) {
-                // JSON 파싱 실패 시 원본 값 사용
-                return envValue;
+            } catch (error) {
+                this.log(`시각 함수 [${funcName}] 치환 중 오류: ${error.message}`);
+                // 오류 발생 시 원본 유지
             }
         });
+        
+        // 환경 변수 치환 (BATCH_SIZE 등) - 이미 치환된 변수는 제외하고 처리
+        const envPattern = /\$\{(\w+)\}/g;
+        const remainingMatches = [...result.matchAll(envPattern)];
+        
+        remainingMatches.forEach(match => {
+            const fullMatch = match[0];
+            const varName = match[1];
+            
+            // 이미 처리된 변수들과 중복되지 않는 경우만 환경 변수로 치환
+            const isAlreadyProcessed = 
+                this.dynamicVariables.hasOwnProperty(varName) ||
+                this.variables.hasOwnProperty(varName) ||
+                timestampFunctions.hasOwnProperty(varName);
+                
+            if (!isAlreadyProcessed && process.env[varName]) {
+                const envValue = process.env[varName];
+                
+                try {
+                    // 환경 변수가 배열 형태인지 확인 (JSON 형태로 저장된 경우)
+                    const parsed = JSON.parse(envValue);
+                    if (Array.isArray(parsed)) {
+                        const inClause = parsed.map(v => {
+                            if (typeof v === 'string') {
+                                return `'${v.replace(/'/g, "''")}'`;
+                            }
+                            return v;
+                        }).join(', ');
+                        result = result.replace(fullMatch, inClause);
+                        
+                        if (debugVariables) {
+                            this.log(`환경 변수 [${varName}] 치환: 배열 ${parsed.length}개 → IN절`);
+                        }
+                    } else {
+                        result = result.replace(fullMatch, envValue);
+                        
+                        if (debugVariables) {
+                            this.log(`환경 변수 [${varName}] 치환: ${envValue}`);
+                        }
+                    }
+                } catch (e) {
+                    // JSON 파싱 실패 시 원본 값 사용
+                    result = result.replace(fullMatch, envValue);
+                    
+                    if (debugVariables) {
+                        this.log(`환경 변수 [${varName}] 치환: ${envValue} (단순 문자열)`);
+                    }
+                }
+            } else if (debugVariables && process.env[varName]) {
+                this.log(`환경 변수 [${varName}] 건너뜀: 이미 처리된 변수`);
+            }
+        });
+        
+        // 치환되지 않은 변수 확인
+        const unresolvedVariables = [...result.matchAll(/\$\{(\w+(?:\.\w+)?)\}/g)];
+        if (unresolvedVariables.length > 0 && debugVariables) {
+            this.log(`치환되지 않은 변수들: ${unresolvedVariables.map(m => m[1]).join(', ')}`);
+        }
+        
+        if (debugVariables) {
+            this.log(`변수 치환 완료: ${result.substring(0, 200)}${result.length > 200 ? '...' : ''}`);
+            if (originalText !== result) {
+                this.log(`변수 치환 성공: ${originalText.length} → ${result.length} 문자`);
+            } else {
+                this.log('변수 치환 없음: 원본과 동일');
+            }
+        }
         
         return result;
     }
@@ -589,6 +687,88 @@ class MSSQLDataMigrator {
     setDynamicVariable(key, value) {
         this.dynamicVariables[key] = value;
         this.log(`동적 변수 설정: ${key} = ${Array.isArray(value) ? `[${value.join(', ')}]` : value}`);
+    }
+
+    // 변수 상태 검증 및 디버그 정보 출력
+    validateAndDebugVariables(text, context = '') {
+        console.log('\n=== 변수 상태 디버그 정보 ===');
+        console.log(`컨텍스트: ${context}`);
+        console.log(`텍스트 길이: ${text.length}`);
+        console.log(`텍스트 미리보기: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
+        
+        // 텍스트에서 발견된 모든 변수 패턴 찾기
+        const variablePattern = /\$\{([^}]+)\}/g;
+        const foundVariables = [...text.matchAll(variablePattern)];
+        
+        console.log(`\n발견된 변수 패턴: ${foundVariables.length}개`);
+        foundVariables.forEach((match, index) => {
+            console.log(`  ${index + 1}. ${match[0]} (변수명: ${match[1]})`);
+        });
+        
+        // 현재 사용 가능한 변수들
+        console.log(`\n사용 가능한 동적 변수 (${Object.keys(this.dynamicVariables).length}개):`);
+        Object.entries(this.dynamicVariables).forEach(([key, value]) => {
+            const typeInfo = Array.isArray(value) ? `배열[${value.length}]` : 
+                           typeof value === 'object' ? '객체' : 
+                           typeof value;
+            console.log(`  • ${key}: ${typeInfo}`);
+        });
+        
+        console.log(`\n사용 가능한 일반 변수 (${Object.keys(this.variables).length}개):`);
+        Object.entries(this.variables).forEach(([key, value]) => {
+            const typeInfo = Array.isArray(value) ? `배열[${value.length}]` : 
+                           typeof value === 'object' ? '객체' : 
+                           typeof value;
+            console.log(`  • ${key}: ${typeInfo} = ${Array.isArray(value) ? `[${value.slice(0, 3).join(', ')}${value.length > 3 ? '...' : ''}]` : value}`);
+        });
+        
+        // 현재 시각 함수들
+        const timestampFunctions = [
+            'CURRENT_TIMESTAMP', 'CURRENT_DATETIME', 'NOW', 'CURRENT_DATE', 
+            'CURRENT_TIME', 'UNIX_TIMESTAMP', 'TIMESTAMP_MS', 'ISO_TIMESTAMP', 'GETDATE'
+        ];
+        console.log(`\n사용 가능한 시각 함수 (${timestampFunctions.length}개):`);
+        timestampFunctions.forEach(func => {
+            console.log(`  • ${func}`);
+        });
+        
+        // 환경 변수에서 관련된 것들 찾기
+        const envVars = Object.keys(process.env).filter(key => 
+            foundVariables.some(match => match[1] === key)
+        );
+        if (envVars.length > 0) {
+            console.log(`\n관련 환경 변수 (${envVars.length}개):`);
+            envVars.forEach(key => {
+                console.log(`  • ${key} = ${process.env[key]}`);
+            });
+        }
+        
+        // 해결되지 않을 변수들 예측
+        const unresolvableVars = foundVariables.filter(match => {
+            const varName = match[1];
+            const hasValue = this.dynamicVariables.hasOwnProperty(varName) ||
+                           this.variables.hasOwnProperty(varName) ||
+                           timestampFunctions.includes(varName) ||
+                           process.env.hasOwnProperty(varName);
+            return !hasValue;
+        });
+        
+        if (unresolvableVars.length > 0) {
+            console.log(`\n⚠️  해결되지 않을 변수들 (${unresolvableVars.length}개):`);
+            unresolvableVars.forEach(match => {
+                console.log(`  • ${match[0]} (변수명: ${match[1]})`);
+            });
+        }
+        
+        console.log('=================================\n');
+        
+        return {
+            foundVariables: foundVariables.length,
+            availableDynamicVars: Object.keys(this.dynamicVariables).length,
+            availableStaticVars: Object.keys(this.variables).length,
+            unresolvableCount: unresolvableVars.length,
+            unresolvableVars: unresolvableVars.map(m => m[1])
+        };
     }
 
     // 소스 DB에서 데이터 추출하여 동적 변수로 설정
@@ -768,8 +948,37 @@ class MSSQLDataMigrator {
             
             this.log(`${scriptConfig.description} 실행 중...`);
             
+            // 디버그 모드에서 원본 스크립트 로깅
+            const debugScripts = process.env.DEBUG_SCRIPTS === 'true';
+            const debugVariables = process.env.DEBUG_VARIABLES === 'true';
+            
+            if (debugScripts) {
+                this.log(`원본 스크립트: ${scriptConfig.script.substring(0, 300)}${scriptConfig.script.length > 300 ? '...' : ''}`);
+            }
+            
+            // 변수 상태 디버깅 (요청된 경우)
+            if (debugVariables) {
+                this.validateAndDebugVariables(scriptConfig.script, `${scriptConfig.description} (전/후처리)`);
+            }
+            
             // 변수 치환
             const processedScript = this.replaceVariables(scriptConfig.script);
+            
+            if (debugScripts) {
+                this.log(`처리된 스크립트: ${processedScript.substring(0, 300)}${processedScript.length > 300 ? '...' : ''}`);
+            }
+            
+            // 변수 치환 후에도 남은 변수가 있는지 확인
+            const remainingVars = [...processedScript.matchAll(/\$\{([^}]+)\}/g)];
+            if (remainingVars.length > 0) {
+                this.log(`⚠️  치환되지 않은 변수가 있습니다: ${remainingVars.map(m => m[0]).join(', ')}`);
+                if (debugVariables) {
+                    this.log(`치환되지 않은 변수 상세:`);
+                    remainingVars.forEach(match => {
+                        this.log(`  • ${match[0]} (변수명: ${match[1]})`);
+                    });
+                }
+            }
             
             // 스크립트를 세미콜론으로 분할하여 개별 SQL 문으로 실행
             const sqlStatements = processedScript
@@ -785,23 +994,51 @@ class MSSQLDataMigrator {
             this.log(`총 ${sqlStatements.length}개의 SQL 문 실행 중...`);
             
             let executedCount = 0;
-            for (const sql of sqlStatements) {
+            const errors = [];
+            
+            for (let i = 0; i < sqlStatements.length; i++) {
+                const sql = sqlStatements[i];
                 try {
+                    if (debugScripts) {
+                        this.log(`SQL 문 ${i + 1}/${sqlStatements.length} 실행: ${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`);
+                    }
+                    
                     if (database === 'source') {
                         await this.connectionManager.executeQueryOnSource(sql);
                     } else {
                         await this.connectionManager.executeQueryOnTarget(sql);
                     }
                     executedCount++;
+                    
+                    if (debugScripts) {
+                        this.log(`SQL 문 ${i + 1} 실행 성공`);
+                    }
                 } catch (sqlError) {
-                    this.log(`SQL 실행 경고 (계속 진행): ${sqlError.message}`);
+                    const errorMsg = `SQL 실행 경고 (계속 진행): ${sqlError.message}`;
+                    this.log(errorMsg);
                     this.log(`실패한 SQL: ${sql.substring(0, 100)}...`);
+                    
+                    errors.push({
+                        sqlIndex: i + 1,
+                        sql: sql.substring(0, 200),
+                        error: sqlError.message
+                    });
+                    
                     // 개별 SQL 실패는 경고로 처리하고 계속 진행
                 }
             }
             
+            if (errors.length > 0) {
+                this.log(`총 ${errors.length}개의 SQL 실행 오류가 발생했습니다.`);
+            }
+            
             this.log(`${scriptConfig.description} 완료: ${executedCount}/${sqlStatements.length}개 SQL 문 실행`);
-            return { success: true, executedCount };
+            return { 
+                success: true, 
+                executedCount, 
+                totalStatements: sqlStatements.length,
+                errors: errors.length > 0 ? errors : undefined
+            };
             
         } catch (error) {
             this.log(`${scriptConfig.description} 실행 실패: ${error.message}`);
