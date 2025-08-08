@@ -683,6 +683,82 @@ class MSSQLDataMigrator {
         return result;
     }
 
+    // SQL 스크립트에서 주석 제거 (라인 주석과 블록 주석 모두 처리)
+    removeComments(script) {
+        let result = script;
+        const debugComments = process.env.DEBUG_COMMENTS === 'true';
+        
+        if (debugComments) {
+            this.log(`주석 제거 시작: ${script.length}문자`);
+            const commentPatterns = [...script.matchAll(/--.*$|\/\*[\s\S]*?\*\//gm)];
+            this.log(`발견된 주석 패턴: ${commentPatterns.length}개`);
+        }
+        
+        try {
+            // 1. 블록 주석 제거 (/* ... */)
+            // 문자열 내부의 주석은 보호하면서 실제 주석만 제거
+            result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+            
+            // 2. 라인 주석 제거 (-- ...)
+            // 각 라인에서 -- 이후의 내용 제거 (문자열 내부 제외)
+            const lines = result.split('\n');
+            const cleanedLines = lines.map(line => {
+                // 문자열 내부의 --는 보호해야 함
+                let inSingleQuote = false;
+                let inDoubleQuote = false;
+                let commentStart = -1;
+                
+                for (let i = 0; i < line.length - 1; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+                    const prevChar = i > 0 ? line[i - 1] : '';
+                    
+                    // 문자열 상태 추적 (이스케이프 문자 고려)
+                    if (char === "'" && !inDoubleQuote && prevChar !== '\\') {
+                        inSingleQuote = !inSingleQuote;
+                    } else if (char === '"' && !inSingleQuote && prevChar !== '\\') {
+                        inDoubleQuote = !inDoubleQuote;
+                    }
+                    // 문자열 외부에서 -- 발견
+                    else if (char === '-' && nextChar === '-' && !inSingleQuote && !inDoubleQuote) {
+                        commentStart = i;
+                        break;
+                    }
+                }
+                
+                // 주석 시작점이 발견되면 그 이전까지만 반환
+                if (commentStart >= 0) {
+                    return line.substring(0, commentStart).trimEnd();
+                }
+                return line;
+            });
+            
+            result = cleanedLines.join('\n');
+            
+            // 3. 빈 줄 정리 (연속된 빈 줄을 하나로)
+            result = result.replace(/\n\s*\n\s*\n/g, '\n\n');
+            
+            // 4. 앞뒤 공백 정리
+            result = result.trim();
+            
+            if (debugComments) {
+                this.log(`주석 제거 완료: ${script.length} → ${result.length}문자`);
+                if (script !== result) {
+                    this.log(`제거된 내용: ${script.length - result.length}문자`);
+                } else {
+                    this.log('제거된 주석 없음');
+                }
+            }
+            
+        } catch (error) {
+            this.log(`주석 제거 중 오류 발생: ${error.message}`);
+            this.log('원본 스크립트를 그대로 사용합니다.');
+            return script;
+        }
+        
+        return result;
+    }
+
     // 동적 변수 설정
     setDynamicVariable(key, value) {
         this.dynamicVariables[key] = value;
@@ -980,11 +1056,19 @@ class MSSQLDataMigrator {
                 }
             }
             
+            // 스크립트 전처리: 주석 제거
+            const cleanedScript = this.removeComments(processedScript);
+            
+            if (debugScripts && cleanedScript !== processedScript) {
+                this.log(`주석 제거 후 스크립트: ${cleanedScript.substring(0, 300)}${cleanedScript.length > 300 ? '...' : ''}`);
+                this.log(`스크립트 길이 변화: ${processedScript.length} → ${cleanedScript.length} 문자`);
+            }
+            
             // 스크립트를 세미콜론으로 분할하여 개별 SQL 문으로 실행
-            const sqlStatements = processedScript
+            const sqlStatements = cleanedScript
                 .split(';')
                 .map(sql => sql.trim())
-                .filter(sql => sql.length > 0 && !sql.match(/^\s*--/)); // 빈 문장과 주석 제거
+                .filter(sql => sql.length > 0); // 빈 문장만 제거
             
             if (sqlStatements.length === 0) {
                 this.log('실행할 SQL 문이 없습니다.');
@@ -1106,12 +1190,8 @@ class MSSQLDataMigrator {
             this.log(`SQL 파일에서 쿼리 로드 중: ${fullPath}`);
             const queryContent = await fs.readFile(fullPath, 'utf8');
             
-            // 주석 제거 (-- 또는 /* */ 스타일)
-            const cleanedQuery = queryContent
-                .replace(/--.*$/gm, '')  // 한 줄 주석 제거
-                .replace(/\/\*[\s\S]*?\*\//g, '')  // 블록 주석 제거
-                .replace(/\s+/g, ' ')  // 여러 공백을 하나로
-                .trim();
+            // 정교한 주석 제거 (문자열 내부 주석 보호)
+            const cleanedQuery = this.removeComments(queryContent);
             
             if (!cleanedQuery) {
                 throw new Error(`SQL 파일이 비어있거나 유효한 쿼리가 없습니다: ${filePath}`);
