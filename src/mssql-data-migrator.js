@@ -21,6 +21,7 @@ class MSSQLDataMigrator {
         this.enableTransaction = process.env.ENABLE_TRANSACTION === 'true';
         this.dryRun = dryRun; // DRY RUN 모드
         this.progressManager = null; // 진행 상황 관리자
+        this.currentQuery = null; // 현재 실행 중인 쿼리 추적
     }
 
     // DB 정보 파일 로드
@@ -829,10 +830,201 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 전/후처리 스크립트에서 columnOverrides 처리
+    processColumnOverridesInScript(script, columnOverrides, database = 'target') {
+        // columnOverrides가 없으면 원본 반환
+        if (!columnOverrides || Object.keys(columnOverrides).length === 0) {
+            return script;
+        }
+
+        try {
+            this.log(`전/후처리 스크립트에서 columnOverrides 처리 중: ${Object.keys(columnOverrides).join(', ')}`);
+            
+            let processedScript = script;
+            
+            // INSERT 문에서 columnOverrides 적용
+            processedScript = this.applyColumnOverridesToInsertStatements(processedScript, columnOverrides);
+            
+            // UPDATE 문에서 columnOverrides 적용
+            processedScript = this.applyColumnOverridesToUpdateStatements(processedScript, columnOverrides);
+            
+            return processedScript;
+            
+        } catch (error) {
+            this.log(`columnOverrides 처리 중 오류: ${error.message}`);
+            this.log('원본 스크립트를 그대로 사용합니다.');
+            return script;
+        }
+    }
+
+    // INSERT 문에서 columnOverrides 적용
+    applyColumnOverridesToInsertStatements(script, columnOverrides) {
+        // INSERT INTO table_name (columns) VALUES (...) 패턴
+        const insertPattern = /INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s+(VALUES\s*\([^)]+\)|SELECT\s+[^;]+)/gi;
+        
+        return script.replace(insertPattern, (match, tableName, columnsPart, valuesPart) => {
+            try {
+                // 컬럼 목록 파싱
+                const columns = columnsPart.split(',').map(col => col.trim());
+                const originalColumns = [...columns];
+                
+                // columnOverrides에서 추가할 컬럼들 확인
+                const overrideColumns = Object.keys(columnOverrides);
+                const newColumns = overrideColumns.filter(col => !columns.includes(col));
+                
+                if (newColumns.length === 0) {
+                    return match; // 추가할 컬럼이 없으면 원본 반환
+                }
+                
+                // 새 컬럼들을 컬럼 목록에 추가
+                const updatedColumns = [...columns, ...newColumns];
+                const updatedColumnsPart = updatedColumns.join(', ');
+                
+                // VALUES 부분 처리
+                let updatedValuesPart;
+                if (valuesPart.toUpperCase().startsWith('VALUES')) {
+                    // VALUES (...) 형태 처리
+                    updatedValuesPart = valuesPart.replace(/VALUES\s*\(([^)]+)\)/gi, (valuesMatch, valuesList) => {
+                        const values = valuesList.split(',').map(val => val.trim());
+                        
+                        // 새 컬럼들에 대한 값 추가
+                        const newValues = newColumns.map(col => {
+                            const overrideValue = columnOverrides[col];
+                            // 변수 치환 적용
+                            const processedValue = this.replaceVariables(overrideValue);
+                            // SQL에서 문자열은 따옴표로 감싸야 함
+                            return this.formatSqlValue(processedValue);
+                        });
+                        
+                        const updatedValues = [...values, ...newValues];
+                        return `VALUES (${updatedValues.join(', ')})`;
+                    });
+                } else {
+                    // SELECT 문 형태 처리
+                    const selectPattern = /SELECT\s+(.+?)(\s+FROM\s+.+)/i;
+                    updatedValuesPart = valuesPart.replace(selectPattern, (selectMatch, selectList, fromPart) => {
+                        const selectColumns = selectList.split(',').map(col => col.trim());
+                        
+                        // 새 컬럼들에 대한 값 추가
+                        const newSelectValues = newColumns.map(col => {
+                            const overrideValue = columnOverrides[col];
+                            // 변수 치환 적용
+                            const processedValue = this.replaceVariables(overrideValue);
+                            return this.formatSqlValue(processedValue);
+                        });
+                        
+                        const updatedSelectColumns = [...selectColumns, ...newSelectValues];
+                        return `SELECT ${updatedSelectColumns.join(', ')}${fromPart}`;
+                    });
+                }
+                
+                const result = `INSERT INTO ${tableName} (${updatedColumnsPart}) ${updatedValuesPart}`;
+                
+                this.log(`✅ INSERT 문에 columnOverrides 적용: ${tableName} 테이블에 ${newColumns.length}개 컬럼 추가`);
+                this.log(`추가된 컬럼: ${newColumns.join(', ')}`);
+                
+                return result;
+                
+            } catch (error) {
+                this.log(`⚠️ INSERT 문 columnOverrides 처리 실패: ${error.message}`);
+                return match; // 오류 시 원본 반환
+            }
+        });
+    }
+
+    // UPDATE 문에서 columnOverrides 적용
+    applyColumnOverridesToUpdateStatements(script, columnOverrides) {
+        // UPDATE table_name SET ... WHERE ... 패턴 (WHERE 절 포함)
+        const updatePattern = /UPDATE\s+(\w+)\s+SET\s+(.*?)(\s+WHERE\s+[^;]+)?(?=\s*;|$)/gi;
+        
+        return script.replace(updatePattern, (match, tableName, setPart, wherePart = '') => {
+            try {
+                // 기존 SET 절 파싱
+                const setAssignments = setPart.split(',').map(assignment => assignment.trim());
+                const existingColumns = setAssignments.map(assignment => {
+                    const eqIndex = assignment.indexOf('=');
+                    return eqIndex > 0 ? assignment.substring(0, eqIndex).trim() : null;
+                }).filter(col => col !== null);
+                
+                // columnOverrides에서 추가할 컬럼들 확인
+                const overrideColumns = Object.keys(columnOverrides);
+                const newColumns = overrideColumns.filter(col => !existingColumns.includes(col));
+                
+                if (newColumns.length === 0) {
+                    return match; // 추가할 컬럼이 없으면 원본 반환
+                }
+                
+                // 새 컬럼 할당 생성
+                const newAssignments = newColumns.map(col => {
+                    const overrideValue = columnOverrides[col];
+                    // 변수 치환 적용
+                    const processedValue = this.replaceVariables(overrideValue);
+                    return `${col} = ${this.formatSqlValue(processedValue)}`;
+                });
+                
+                // 기존 SET 절과 새 할당 결합
+                const updatedSetPart = [...setAssignments, ...newAssignments].join(', ');
+                
+                const result = `UPDATE ${tableName} SET ${updatedSetPart}${wherePart}`;
+                
+                this.log(`✅ UPDATE 문에 columnOverrides 적용: ${tableName} 테이블에 ${newColumns.length}개 컬럼 추가`);
+                this.log(`추가된 컬럼: ${newColumns.join(', ')}`);
+                
+                return result;
+                
+            } catch (error) {
+                this.log(`⚠️ UPDATE 문 columnOverrides 처리 실패: ${error.message}`);
+                return match; // 오류 시 원본 반환
+            }
+        });
+    }
+
+    // SQL 값 포맷팅 (따옴표, NULL 처리 등)
+    formatSqlValue(value) {
+        if (value === null || value === undefined || value === 'NULL') {
+            return 'NULL';
+        }
+        
+        // 이미 따옴표가 있거나 숫자인 경우
+        if (typeof value === 'string') {
+            // 이미 따옴표로 감싸져 있는지 확인
+            if ((value.startsWith("'") && value.endsWith("'")) || 
+                (value.startsWith('"') && value.endsWith('"'))) {
+                return value;
+            }
+            
+            // 숫자인지 확인
+            if (/^\d+(\.\d+)?$/.test(value.trim())) {
+                return value;
+            }
+            
+            // SQL 함수인지 확인 (GETDATE(), CURRENT_TIMESTAMP 등)
+            if (/^[A-Z_]+\(\)$/.test(value.trim().toUpperCase()) || 
+                /^CURRENT_/.test(value.trim().toUpperCase())) {
+                return value;
+            }
+            
+            // 기타 문자열은 단일 따옴표로 감싸기
+            return `'${value.replace(/'/g, "''")}'`; // 작은따옴표 이스케이프
+        }
+        
+        return value;
+    }
+
     // 동적 변수 설정
     setDynamicVariable(key, value) {
         this.dynamicVariables[key] = value;
         this.log(`동적 변수 설정: ${key} = ${Array.isArray(value) ? `[${value.join(', ')}]` : value}`);
+    }
+
+    // 현재 쿼리 설정
+    setCurrentQuery(query) {
+        this.currentQuery = query;
+    }
+
+    // 현재 쿼리 조회
+    getCurrentQuery() {
+        return this.currentQuery;
     }
 
     // 변수 상태 검증 및 디버그 정보 출력
@@ -1133,8 +1325,19 @@ class MSSQLDataMigrator {
                 this.log(`SELECT * 처리 후 스크립트: ${selectStarProcessedScript.substring(0, 300)}${selectStarProcessedScript.length > 300 ? '...' : ''}`);
             }
             
+            // columnOverrides 처리 (SELECT * 처리 후, 주석 제거 전)
+            // 현재 실행 중인 쿼리의 columnOverrides 사용
+            const currentQuery = this.getCurrentQuery();
+            const columnOverridesProcessedScript = currentQuery && currentQuery.columnOverrides 
+                ? this.processColumnOverridesInScript(selectStarProcessedScript, currentQuery.columnOverrides, database)
+                : selectStarProcessedScript;
+            
+            if (debugScripts && columnOverridesProcessedScript !== selectStarProcessedScript) {
+                this.log(`columnOverrides 처리 후 스크립트: ${columnOverridesProcessedScript.substring(0, 300)}${columnOverridesProcessedScript.length > 300 ? '...' : ''}`);
+            }
+            
             // 스크립트 전처리: 주석 제거
-            const cleanedScript = this.removeComments(selectStarProcessedScript);
+            const cleanedScript = this.removeComments(columnOverridesProcessedScript);
             
             if (debugScripts && cleanedScript !== selectStarProcessedScript) {
                 this.log(`주석 제거 후 스크립트: ${cleanedScript.substring(0, 300)}${cleanedScript.length > 300 ? '...' : ''}`);
@@ -1547,6 +1750,9 @@ class MSSQLDataMigrator {
                 
                 // 각 쿼리 실행
                 for (const queryConfig of enabledQueries) {
+                    // 현재 쿼리 설정 (전/후처리에서 columnOverrides 사용하기 위해)
+                    this.setCurrentQuery(queryConfig);
+                    
                     // SELECT * 감지 및 자동 컬럼 설정
                     const processedQueryConfig = await this.processQueryConfig(queryConfig);
                     
@@ -1586,6 +1792,9 @@ class MSSQLDataMigrator {
                             throw new Error(`쿼리 실행 실패: ${queryConfig.id}`);
                         }
                     }
+                    
+                    // 쿼리 완료 후 현재 쿼리 초기화
+                    this.setCurrentQuery(null);
                 }
                 
                 // 트랜잭션 커밋
