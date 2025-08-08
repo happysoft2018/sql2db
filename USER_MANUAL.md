@@ -24,6 +24,10 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - 📈 **실시간 진행 관리**: 작업 진행 상태 추적 및 모니터링
 - 🔄 **중단 재시작**: 네트워크 오류 등으로 중단된 마이그레이션을 완료된 지점에서 재시작
 - 🔍 **현재 시각 함수**: 다양한 형식의 타임스탬프 지원
+- 🖥️ **실시간 모니터링**: 키보드 인터랙티브 모니터링 및 차트
+- ⭐ **SELECT * 자동 확장**: 전/후처리 스크립트에서도 컬럼 자동 확장
+- 🎨 **전/후처리 컬럼 오버라이드**: INSERT/UPDATE 문에 자동 컬럼 추가
+- 📝 **고급 SQL 파싱**: 주석 처리 및 복잡한 SQL 구문 지원
 
 ## 🛠️ 설치 및 설정
 
@@ -1171,6 +1175,175 @@ node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/m
 - **권한 확인**: 재시작 시에도 적절한 데이터베이스 권한이 필요함
 - **진행 상황 파일**: `logs/progress-*.json` 파일이 삭제되면 재시작 불가
 
+### 8. 실시간 모니터링 (Interactive Monitoring)
+
+마이그레이션 진행 상황을 실시간으로 모니터링하고 키보드로 제어할 수 있습니다.
+
+#### 실시간 모니터링 시작
+```bash
+# 마이그레이션과 동시에 실시간 모니터링 시작
+node src/progress-cli.js monitor migration-2024-12-01-15-30-00
+
+# 별도 터미널에서 모니터링만 실행
+node src/progress-cli.js monitor migration-2024-12-01-15-30-00 --watch-only
+```
+
+#### 키보드 컨트롤
+| 키 | 기능 |
+|---|------|
+| `q` | 모니터링 종료 |
+| `p` | 일시정지/재개 |
+| `d` | 상세/간단 모드 전환 |
+| `+` | 새로고침 빠르게 |
+| `-` | 새로고침 느리게 |
+| `r` | 즉시 새로고침 |
+| `e` | 오류 로그 보기 |
+| `s` | 통계 보기 |
+| `l` | 로그 스트림 보기 |
+| `c` | 화면 클리어 |
+| `h` | 도움말 |
+| `ESC` | 메뉴 |
+
+#### 디스플레이 모드
+- **간단 모드**: 기본 진행률과 성능 지표
+- **상세 모드**: 활성 쿼리, 완료된 쿼리, 오류 정보
+- **오류 로그**: 최근 오류와 오류 통계
+- **통계 보기**: 전체 마이그레이션 통계
+- **로그 스트림**: 실시간 로그와 시스템 성능
+
+#### 알림 시스템
+```bash
+# 알림 임계값 설정
+ERROR_THRESHOLD=5 SLOW_QUERY_THRESHOLD=30 node src/progress-cli.js monitor migration-id
+
+# Windows Toast 알림 활성화
+ENABLE_TOAST_NOTIFICATIONS=true node src/progress-cli.js monitor migration-id
+```
+
+### 9. SELECT * 자동 확장
+
+전/후처리 스크립트에서도 `SELECT *`를 사용하면 자동으로 명시적 컬럼명으로 확장됩니다.
+
+#### 기본 사용법
+```xml
+<preProcess description="백업 생성">
+  <![CDATA[
+    -- 자동으로 모든 컬럼명으로 확장됨
+    INSERT INTO users_backup 
+    SELECT * FROM users WHERE status = 'ACTIVE';
+    
+    -- 테이블 별칭도 지원
+    INSERT INTO audit_backup
+    SELECT u.* FROM users u 
+    LEFT JOIN departments d ON u.dept_id = d.id
+    WHERE u.created_date >= '2024-01-01';
+  ]]>
+</preProcess>
+```
+
+#### 지원하는 SQL 패턴
+- 기본 SELECT *: `SELECT * FROM table_name`
+- 테이블 별칭: `SELECT t.* FROM table_name t`
+- 복잡한 JOIN: `SELECT u.* FROM users u LEFT JOIN ...`
+- WHERE/ORDER BY: `SELECT * FROM table WHERE ... ORDER BY ...`
+
+#### 환경 변수 제어
+```bash
+# SELECT * 처리 비활성화
+PROCESS_SELECT_STAR=false node src/migrate-cli.js migrate queries.xml
+
+# 디버그 모드로 SELECT * 처리 과정 확인
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
+### 10. 전/후처리 컬럼 오버라이드
+
+전/후처리 스크립트의 INSERT/UPDATE 문에도 columnOverrides가 자동으로 적용됩니다.
+
+#### 자동 적용 예시
+```xml
+<query id="audit_migration" ...>
+  <preProcess description="감사 로그 생성">
+    <![CDATA[
+      -- 이 INSERT문에 migration_user, migration_date가 자동 추가됨
+      INSERT INTO audit_log (operation_type, start_time)
+      VALUES ('DATA_MIGRATION', GETDATE());
+      
+      -- 이 UPDATE문에 updated_by, updated_date가 자동 추가됨
+      UPDATE migration_status 
+      SET status = 'IN_PROGRESS'
+      WHERE migration_id = 'audit_migration';
+    ]]>
+  </preProcess>
+  
+  <columnOverrides>
+    <override column="migration_user">${migrationUser}</override>
+    <override column="migration_date">GETDATE()</override>
+    <override column="updated_by">${migrationUser}</override>
+    <override column="updated_date">GETDATE()</override>
+  </columnOverrides>
+</query>
+```
+
+#### 변환 결과
+**변환 전:**
+```sql
+INSERT INTO audit_log (operation_type, start_time)
+VALUES ('DATA_MIGRATION', GETDATE());
+```
+
+**변환 후:**
+```sql
+INSERT INTO audit_log (operation_type, start_time, migration_user, migration_date)
+VALUES ('DATA_MIGRATION', GETDATE(), 'admin', GETDATE());
+```
+
+#### 지원 구문
+- `INSERT INTO ... VALUES (...)`
+- `INSERT INTO ... SELECT ...`
+- `UPDATE ... SET ... WHERE ...`
+
+#### 디버깅
+```bash
+# 컬럼 오버라이드 처리 과정 확인
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
+### 11. 고급 SQL 파싱 및 주석 처리
+
+복잡한 SQL 구문과 주석을 정확하게 처리합니다.
+
+#### 지원하는 주석 형태
+```sql
+-- 라인 주석
+/* 블록 주석 */
+/* 
+   여러 줄
+   블록 주석
+*/
+
+-- 문자열 내 주석은 보호됨
+INSERT INTO log VALUES ('-- 이것은 주석이 아님');
+INSERT INTO log VALUES ('/* 이것도 주석이 아님 */');
+```
+
+#### 변수 처리 개선
+- **처리 순서**: 동적 변수 → 정적 변수 → 타임스탬프 함수 → 환경 변수
+- **충돌 방지**: 상위 우선순위 변수가 처리된 경우 하위에서 덮어쓰지 않음
+- **디버깅**: 상세한 변수 치환 과정 추적
+
+#### 디버깅 옵션
+```bash
+# 변수 치환 과정 상세 로그
+DEBUG_VARIABLES=true node src/migrate-cli.js migrate queries.xml
+
+# 주석 제거 과정 확인
+DEBUG_COMMENTS=true node src/migrate-cli.js migrate queries.xml
+
+# 스크립트 전체 처리 과정 확인
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
 ## 📞 지원
 - Site Url : sql2db.com 
 - Contact to sql2db.nodejs@gmail.com
@@ -1192,6 +1365,6 @@ node src/migrate-cli.js help
 
 ---
 
-**📝 버전**: v2.2.0  
-**📅 최종 업데이트**: 2025-08-07
+**📝 버전**: v2.3.0  
+**📅 최종 업데이트**: 2025-08-08
 **🔧 주요 기능**: 컬럼 오버라이드, 전처리/후처리, 동적 변수, 배치 처리

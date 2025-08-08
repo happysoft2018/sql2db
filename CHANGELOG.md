@@ -1,5 +1,132 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🌟 v2.3 - 고급 기능 대폭 강화 (2025-01-15)
+
+### ✨ 새로운 기능
+
+#### 🖥️ 실시간 인터랙티브 모니터링
+- **키보드 컨트롤**: 실시간 모니터링 중 키보드로 모드 전환 및 제어
+- **다중 디스플레이 모드**: 간단/상세/오류로그/통계/로그스트림 모드 지원
+- **실시간 차트**: 텍스트 기반 성능 차트 및 진행률 시각화
+- **스마트 알림**: 오류 임계값, 느린 쿼리, 정체 상황 자동 감지 및 알림
+- **Windows Toast 알림**: 시스템 알림으로 중요 이벤트 통지
+
+#### ⭐ 전/후처리 스크립트 SELECT * 자동 확장
+- **스마트 컬럼 확장**: 전/후처리 스크립트의 `SELECT *`를 테이블 스키마 기반으로 자동 확장
+- **테이블 별칭 지원**: `SELECT u.* FROM users u` 형태의 별칭 처리
+- **복잡한 SQL 지원**: JOIN, WHERE, ORDER BY와 함께 사용 가능
+- **오류 처리**: 스키마 조회 실패 시 원본 쿼리 유지
+
+#### 🎨 전/후처리 columnOverrides 자동 적용
+- **INSERT 문 지원**: `VALUES (...)` 및 `SELECT ...` 형태 모두 지원
+- **UPDATE 문 지원**: 기존 SET 절에 새로운 컬럼 할당 자동 추가
+- **스마트 충돌 방지**: 이미 존재하는 컬럼은 중복 추가하지 않음
+- **변수 치환**: columnOverrides 값에도 동적 변수 치환 적용
+
+#### 📝 고급 SQL 파싱 및 주석 처리
+- **정확한 주석 제거**: 라인 주석(`--`)과 블록 주석(`/* */`) 정확한 파싱
+- **문자열 리터럴 보호**: 문자열 내 주석 패턴은 주석으로 처리하지 않음
+- **이스케이프 처리**: 이스케이프된 따옴표 정확한 처리
+- **멀티라인 지원**: 여러 줄에 걸친 복잡한 SQL 구문 지원
+
+#### 🔧 변수 시스템 강화
+- **처리 우선순위 개선**: 동적 변수 → 정적 변수 → 타임스탬프 함수 → 환경 변수
+- **충돌 방지**: 상위 우선순위로 처리된 변수를 하위에서 덮어쓰지 않음
+- **상세 디버깅**: `DEBUG_VARIABLES=true`로 변수 치환 과정 추적
+- **오류 복구**: 개별 변수 치환 실패가 전체에 영향주지 않음
+
+### 🚀 성능 및 안정성 개선
+
+#### 처리 순서 최적화
+```
+변수 치환 → SELECT * 확장 → columnOverrides 적용 → 주석 제거 → SQL 실행
+```
+
+#### 오류 처리 강화
+- **단계별 오류 격리**: 각 처리 단계의 실패가 다른 단계에 영향주지 않음
+- **Graceful Degradation**: 기능 실패 시 원본 데이터로 안전하게 fallback
+- **상세 로깅**: 각 단계별 처리 결과와 오류 정보 제공
+
+### 🛠️ 새로운 환경 변수
+
+#### 디버깅 옵션
+```bash
+DEBUG_VARIABLES=true    # 변수 치환 과정 상세 로그
+DEBUG_COMMENTS=true     # 주석 제거 과정 확인  
+DEBUG_SCRIPTS=true      # 스크립트 전체 처리 과정 확인
+```
+
+#### 기능 제어
+```bash
+PROCESS_SELECT_STAR=false        # SELECT * 처리 비활성화
+ERROR_THRESHOLD=5                # 오류 알림 임계값
+SLOW_QUERY_THRESHOLD=30          # 느린 쿼리 알림 임계값 (초)
+ENABLE_TOAST_NOTIFICATIONS=true  # Windows Toast 알림 활성화
+```
+
+### 📊 실시간 모니터링 키보드 컨트롤
+
+| 키 | 기능 |
+|---|------|
+| `q` | 모니터링 종료 |
+| `p` | 일시정지/재개 |
+| `d` | 상세/간단 모드 전환 |
+| `+/-` | 새로고침 속도 조절 |
+| `r` | 즉시 새로고침 |
+| `e` | 오류 로그 보기 |
+| `s` | 통계 보기 |
+| `l` | 로그 스트림 보기 |
+| `c` | 화면 클리어 |
+| `h` | 도움말 |
+
+### 🎯 사용법 예시
+
+#### 실시간 모니터링
+```bash
+# 마이그레이션과 함께 모니터링 시작
+node src/progress-cli.js monitor migration-2024-12-01-15-30-00
+
+# 별도 터미널에서 모니터링
+node src/progress-cli.js monitor migration-id --watch-only
+```
+
+#### 전/후처리에서 SELECT * 사용
+```xml
+<preProcess description="백업 생성">
+  <![CDATA[
+    -- 자동으로 모든 컬럼명으로 확장됨
+    INSERT INTO users_backup 
+    SELECT * FROM users WHERE status = 'ACTIVE';
+  ]]>
+</preProcess>
+```
+
+#### 전/후처리 columnOverrides
+```xml
+<query id="audit_migration">
+  <preProcess description="감사 로그">
+    <![CDATA[
+      -- migration_user, migration_date 자동 추가
+      INSERT INTO audit_log (operation_type, start_time)
+      VALUES ('MIGRATION', GETDATE());
+    ]]>
+  </preProcess>
+  
+  <columnOverrides>
+    <override column="migration_user">${migrationUser}</override>
+    <override column="migration_date">GETDATE()</override>
+  </columnOverrides>
+</query>
+```
+
+### 🔍 향후 계획
+- 더 많은 SQL 패턴 지원 확장
+- 데이터베이스 종류별 최적화
+- 성능 모니터링 메트릭 추가
+- 웹 기반 모니터링 대시보드
+
+---
+
 ## 🆕 v2.2 - 전역 컬럼 오버라이드 기능 추가 (2025-08-07)
 
 ### ✨ 새로운 기능
