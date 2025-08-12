@@ -127,7 +127,7 @@ if exist "queries\*.xml" (
     for %%f in (queries\*.xml) do echo   - %%f
 )
 if exist "queries\*.json" (
-    for %%f in (queries\*.xml) do echo   - %%f
+    for %%f in (queries\*.json) do echo   - %%f
 )
 echo.
 echo.
