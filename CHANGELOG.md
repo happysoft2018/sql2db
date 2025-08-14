@@ -1,14 +1,22 @@
 # SQL2DB Migration Tool 업데이트 로그
 
-## 🔄 v2.4 - columnOverrides 기능 간소화 (2024-12-28)
+## 🔄 v2.4 - columnOverrides 기능 개선 (2024-12-28)
+
+### ✨ 새로운 기능
+
+#### 선택적 전역 컬럼 오버라이드 적용
+- **applyGlobalColumns 속성 추가**: 각 쿼리에서 필요한 전역 컬럼만 선택적으로 적용 가능
+- **유연한 설정 옵션**: `all`, `none`, 개별 컬럼명, 쉼표로 구분된 여러 컬럼 지원
+- **스마트 검증**: 존재하지 않는 컬럼 지정 시 경고 메시지 출력
+- **성능 최적화**: 필요한 컬럼만 처리하여 성능 향상
 
 ### ⚠️ 주요 변경사항
 
 #### columnOverrides 기능 단순화
 - **개별 쿼리 columnOverrides 제거**: 각 쿼리의 `<columnOverrides>` 설정 완전 제거
-- **globalColumnOverrides만 유지**: 전역 설정으로만 컬럼 오버라이드 지원  
+- **globalColumnOverrides 중심**: 전역 설정을 정의하고 각 쿼리에서 선택적 적용  
 - **코드 간소화**: 복잡한 병합 로직 제거로 성능 향상 및 유지보수성 개선
-- **일관성 향상**: 모든 쿼리에 동일한 컬럼 오버라이드 적용으로 일관성 보장
+- **유연성 향상**: 쿼리별로 필요한 컬럼만 적용하여 더욱 세밀한 제어
 
 ### 📋 마이그레이션 가이드
 
@@ -29,10 +37,20 @@
 <!-- globalColumnOverrides에 통합 -->
 <globalColumnOverrides>
   <override column="status">MIGRATED</override>
+  <override column="created_by">SYSTEM</override>
+  <override column="updated_by">SYSTEM</override>
 </globalColumnOverrides>
 
-<query id="example">
-  <!-- columnOverrides 섹션 제거 -->
+<query id="example" applyGlobalColumns="status">
+  <!-- 필요한 전역 컬럼만 선택적 적용 -->
+</query>
+
+<query id="another" applyGlobalColumns="all">
+  <!-- 모든 전역 컬럼 적용 -->
+</query>
+
+<query id="minimal" applyGlobalColumns="none">
+  <!-- 전역 컬럼 적용 안함 -->
 </query>
 ```
 

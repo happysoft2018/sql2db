@@ -240,7 +240,7 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
 
 ### 1. 전역 컬럼 오버라이드 (globalColumnOverrides)
 
-특정 컬럼에 고정값 또는 동적값을 설정합니다. 모든 쿼리에 공통으로 적용되는 전역 설정만 지원합니다.
+특정 컬럼에 고정값 또는 동적값을 설정합니다. 전역 설정을 정의하고, 각 쿼리에서 필요한 컬럼만 선택적으로 적용할 수 있습니다.
 
 #### 전역 컬럼 오버라이드 설정
 
@@ -281,19 +281,32 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
 </query>
 ```
 
-#### 사용법
+#### 선택적 적용 (applyGlobalColumns)
 
-모든 쿼리에 공통으로 적용되며, 개별 쿼리별 설정은 지원하지 않습니다. 
-일관된 컬럼 값 설정으로 데이터 품질과 일관성을 보장합니다.
+각 쿼리에서 `applyGlobalColumns` 속성을 사용하여 전역 컬럼 오버라이드를 선택적으로 적용할 수 있습니다.
 
-**적용 결과:**
-```
-모든 쿼리에 적용되는 globalColumnOverrides:
-- created_by: "SYSTEM_MIGRATOR" (전역에서)
-- updated_by: "SYSTEM_MIGRATOR" (전역에서) 
-- migration_date: "2024-12-01 15:30:00" (전역에서)
-- processed_at: "GETDATE()" (전역에서)
-- data_version: "2.1" (전역에서)
+**사용 가능한 값:**
+- `all`: 모든 전역 컬럼 오버라이드 적용 (기본값)
+- `none`: 전역 컬럼 오버라이드 적용 안함
+- `컬럼명`: 특정 컬럼만 적용 (예: `created_by`)
+- `컬럼명1,컬럼명2`: 여러 컬럼 선택적 적용 (예: `created_by,updated_by`)
+
+**사용 예시:**
+```xml
+<!-- 모든 전역 컬럼 적용 -->
+<query id="migrate_users" applyGlobalColumns="all">
+  <!-- 결과: created_by, updated_by, migration_date, processed_at, data_version 모두 적용 -->
+</query>
+
+<!-- 특정 컬럼만 적용 -->
+<query id="migrate_products" applyGlobalColumns="created_by,updated_by">
+  <!-- 결과: created_by, updated_by만 적용 -->
+</query>
+
+<!-- 전역 컬럼 적용 안함 -->
+<query id="migrate_logs" applyGlobalColumns="none">
+  <!-- 결과: 전역 컬럼 오버라이드 적용 안함 -->
+</query>
 ```
 
 #### 기본 문법

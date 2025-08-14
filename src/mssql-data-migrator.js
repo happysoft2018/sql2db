@@ -161,6 +161,54 @@ class MSSQLDataMigrator {
         }
     }
 
+    // applyGlobalColumns 설정에 따라 선택적으로 globalColumnOverrides 적용
+    selectivelyApplyGlobalColumnOverrides(globalColumnOverrides, applyGlobalColumns) {
+        if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
+            return {};
+        }
+        
+        // applyGlobalColumns 값에 따른 처리
+        switch (applyGlobalColumns) {
+            case 'all':
+                // 모든 전역 컬럼 오버라이드 적용
+                return { ...globalColumnOverrides };
+                
+            case 'none':
+                // 전역 컬럼 오버라이드 적용 안함
+                return {};
+                
+            default:
+                // 쉼표로 구분된 컬럼 목록에서 지정된 컬럼만 적용
+                if (typeof applyGlobalColumns === 'string' && applyGlobalColumns.includes(',')) {
+                    const selectedColumns = applyGlobalColumns.split(',').map(col => col.trim());
+                    const selectedOverrides = {};
+                    
+                    selectedColumns.forEach(column => {
+                        if (globalColumnOverrides.hasOwnProperty(column)) {
+                            selectedOverrides[column] = globalColumnOverrides[column];
+                        } else {
+                            logger.warn(`지정된 컬럼 '${column}'이 globalColumnOverrides에 정의되지 않았습니다.`, {
+                                availableColumns: Object.keys(globalColumnOverrides)
+                            });
+                        }
+                    });
+                    
+                    return selectedOverrides;
+                } else {
+                    // 단일 컬럼 지정
+                    const column = applyGlobalColumns.trim();
+                    if (globalColumnOverrides.hasOwnProperty(column)) {
+                        return { [column]: globalColumnOverrides[column] };
+                    } else {
+                        logger.warn(`지정된 컬럼 '${column}'이 globalColumnOverrides에 정의되지 않았습니다.`, {
+                            availableColumns: Object.keys(globalColumnOverrides)
+                        });
+                        return {};
+                    }
+                }
+        }
+    }
+
     // XML 쿼리문정의 파일 파싱
     async parseXmlConfig(xmlData) {
         try {
@@ -360,6 +408,7 @@ class MSSQLDataMigrator {
                         batchSize: q.batchSize || config.settings.batchSize,  // 개별 설정이 없으면 글로벌 설정 사용
                         primaryKey: q.primaryKey,
                         deleteBeforeInsert: q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert,  // 개별 설정이 없으면 글로벌 설정 사용
+                        applyGlobalColumns: q.applyGlobalColumns || 'all', // 기본값은 'all'
                         enabled: q.enabled === 'true'
                     };
                     
@@ -371,14 +420,18 @@ class MSSQLDataMigrator {
                         query.sourceQuery = q.sourceQuery.trim();
                     }
                     
-                    // globalColumnOverrides만 적용
-                    query.columnOverrides = { ...config.globalColumnOverrides }; // 전역 설정만 사용
+                    // applyGlobalColumns 설정에 따라 선택적으로 globalColumnOverrides 적용
+                    query.columnOverrides = this.selectivelyApplyGlobalColumnOverrides(
+                        config.globalColumnOverrides, 
+                        query.applyGlobalColumns
+                    );
                     
-                    // globalColumnOverrides 로깅 (개발/디버그용)
+                    // 적용된 columnOverrides 로깅 (개발/디버그용)
                     if (Object.keys(query.columnOverrides).length > 0) {
-                        logger.debug(`[${query.id}] globalColumnOverrides 적용됨`, {
-                            columns: Object.keys(query.columnOverrides),
-                            globalOverrides: Object.keys(config.globalColumnOverrides)
+                        logger.debug(`[${query.id}] 선택적 globalColumnOverrides 적용됨`, {
+                            applyGlobalColumns: query.applyGlobalColumns,
+                            appliedColumns: Object.keys(query.columnOverrides),
+                            availableGlobalColumns: Object.keys(config.globalColumnOverrides)
                         });
                     }
                     
