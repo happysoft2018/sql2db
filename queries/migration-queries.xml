@@ -342,10 +342,9 @@
            targetTable="users"
            targetColumns="user_id,username,email,created_date,status,migration_flag,updated_by,migration_date"
            primaryKey="user_id"
-           applyGlobalColumns="created_by,updated_by,migration_date,processed_at"
            enabled="true">
       <!-- 이 쿼리 실행 전 전처리 -->
-      <preProcess description="사용자 테이블 이관 준비">
+      <preProcess description="사용자 테이블 이관 준비" applyGlobalColumns="created_by,updated_by">
         <![CDATA[
           -- 임시 테이블 생성
           IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
@@ -378,7 +377,7 @@
         ]]>
       </preProcess>
       
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="created_by,updated_by,migration_date,processed_at">
         <![CDATA[
           SELECT user_id, username, email, created_date 
           FROM users 
@@ -389,7 +388,7 @@
       </sourceQuery>
       
       <!-- 이 쿼리 실행 후 후처리 -->
-      <postProcess description="사용자 테이블 이관 마무리">
+      <postProcess description="사용자 테이블 이관 마무리" applyGlobalColumns="created_by,migration_date">
         <![CDATA[
           -- 데이터 검증 (동적변수 사용)
           DECLARE @source_count INT, @target_count INT, @active_user_count INT;
@@ -440,9 +439,8 @@
            targetTable="products"
            targetColumns=""
            primaryKey="product_id"
-           applyGlobalColumns="all"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="all">
         <![CDATA[
           SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY product_id
         ]]>
@@ -458,9 +456,8 @@
            targetTable="orders"
            targetColumns="order_id,customer_id,order_date,total_amount,status"
            primaryKey="order_id"
-           applyGlobalColumns="created_by,updated_by"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="created_by,updated_by">
         <![CDATA[
           SELECT order_id,customer_id,order_date,total_amount,status
           FROM orders 
@@ -476,9 +473,8 @@
            targetTable="products"
            targetColumns="product_id,product_name,category_id,price,status"
            primaryKey="product_id"
-           applyGlobalColumns="data_version"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="data_version">
         <![CDATA[
           SELECT product_id, product_name, category_id, price, status 
           FROM products 
@@ -496,9 +492,8 @@
            targetTable="employees"
            targetColumns="emp_id,emp_name,department_code,hire_date,salary"
            primaryKey="emp_id"
-           applyGlobalColumns="created_by,migration_date,processed_at"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="created_by,migration_date,processed_at">
         <![CDATA[
           SELECT emp_id, emp_name, department_code, hire_date, salary 
           FROM employees 
@@ -823,7 +818,6 @@
            targetTable="example_table"
            targetColumns="id,name,email,created_date"
            primaryKey="id"
-           applyGlobalColumns="all"
            enabled="false">
       
       <!-- 전처리에서 SELECT * 사용 -->
@@ -853,7 +847,7 @@
         ]]>
       </preProcess>
       
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="all">
         <![CDATA[
           SELECT id, name, email, created_date 
           FROM example_table 
@@ -908,9 +902,8 @@
            targetTable="audit_table"
            targetColumns="user_id,action_type,action_date,details"
            primaryKey="user_id"
-           applyGlobalColumns="none"
-           enabled="false">
-      
+                      enabled="false">
+
       <!-- 전처리 스크립트 -->
       <preProcess description="감사 로그 생성">
         <![CDATA[
@@ -937,7 +930,7 @@
         ]]>
       </preProcess>
       
-      <sourceQuery>
+      <sourceQuery applyGlobalColumns="none">
         <![CDATA[
           SELECT user_id, 'DATA_PROCESSED' as action_type, GETDATE() as action_date, 'User data migrated' as details
           FROM users 

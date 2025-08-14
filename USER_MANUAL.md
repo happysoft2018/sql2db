@@ -1428,9 +1428,93 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 - **전처리 그룹 오류**: 마이그레이션 전체 중단
 - **후처리 그룹 오류**: 경고 로그 후 다음 그룹 계속 진행
 
-### 12. 전/후처리 컬럼 오버라이드
+### 12. 처리 단계별 컬럼 오버라이드 제어
 
-전/후처리 스크립트의 INSERT/UPDATE 문에도 globalColumnOverrides가 자동으로 적용됩니다.
+각 처리 단계(preProcess, sourceQuery, postProcess)에서 개별적으로 어떤 전역 컬럼 오버라이드를 적용할지 선택할 수 있습니다.
+
+#### 단계별 applyGlobalColumns 설정
+
+```xml
+<query id="migrate_users" targetTable="users" ...>
+  <!-- 전처리에서는 created_by, updated_by만 적용 -->
+  <preProcess description="사용자 백업" applyGlobalColumns="created_by,updated_by">
+    <![CDATA[
+      INSERT INTO user_backup SELECT * FROM users WHERE id > 100;
+    ]]>
+  </preProcess>
+  
+  <!-- 소스쿼리에서는 모든 전역 컬럼 적용 -->
+  <sourceQuery applyGlobalColumns="all">
+    <![CDATA[
+      SELECT user_id, username, email FROM users_source
+    ]]>
+  </sourceQuery>
+  
+  <!-- 후처리에서는 migration_date만 적용 -->
+  <postProcess description="마이그레이션 로그" applyGlobalColumns="migration_date">
+    <![CDATA[
+      INSERT INTO migration_log (table_name, count) 
+      VALUES ('users', (SELECT COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}'));
+    ]]>
+  </postProcess>
+</query>
+```
+
+#### 선택 가능한 값
+
+각 단계에서 다음 값들을 사용할 수 있습니다:
+
+- **`all`**: 모든 globalColumnOverrides 적용 (기본값)
+- **`none`**: globalColumnOverrides 적용하지 않음
+- **`컬럼명`**: 단일 컬럼만 적용
+- **`컬럼1,컬럼2,...`**: 쉼표로 구분된 여러 컬럼 적용
+
+#### 실제 사용 예시
+
+```xml
+<globalColumnOverrides>
+  <override column="created_by">${migrationUser}</override>
+  <override column="updated_by">${migrationUser}</override>
+  <override column="migration_date">${migrationTimestamp}</override>
+  <override column="processed_at">GETDATE()</override>
+  <override column="data_version">2.1</override>
+</globalColumnOverrides>
+
+<query id="step_by_step_example" targetTable="users" ...>
+  <!-- 백업용 - 생성자 정보만 -->
+  <preProcess description="기존 데이터 백업" applyGlobalColumns="created_by">
+    <![CDATA[
+      INSERT INTO users_backup 
+      SELECT * FROM users WHERE status = 'ACTIVE';
+    ]]>
+  </preProcess>
+  
+  <!-- 실제 이관 - 모든 컬럼 -->
+  <sourceQuery applyGlobalColumns="created_by,updated_by,migration_date,processed_at">
+    <![CDATA[
+      SELECT user_id, username, email, status 
+      FROM users_source 
+      WHERE created_date >= '${startDate}'
+    ]]>
+  </sourceQuery>
+  
+  <!-- 검증용 로그 - 날짜만 -->
+  <postProcess description="검증 및 로그" applyGlobalColumns="migration_date">
+    <![CDATA[
+      INSERT INTO validation_log (table_name, migrated_count, check_date)
+      SELECT 'users', COUNT(*), GETDATE()
+      FROM users 
+      WHERE migration_date = '${migrationTimestamp}';
+    ]]>
+  </postProcess>
+</query>
+```
+
+#### 장점
+
+1. **세밀한 제어**: 각 단계의 목적에 맞게 필요한 컬럼만 적용
+2. **성능 최적화**: 불필요한 컬럼 처리 생략
+3. **명확한 의도**: 각 단계별로 어떤 컬럼이 필요한지 명시적 표현
 
 #### 자동 적용 예시
 ```xml

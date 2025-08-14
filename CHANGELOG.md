@@ -1,5 +1,44 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🔧 v2.6 - 처리 단계별 컬럼 오버라이드 제어 (2024-12-29)
+
+### ✨ 새로운 기능
+
+#### 처리 단계별 applyGlobalColumns 제어
+- **세분화된 제어**: preProcess, sourceQuery, postProcess 각 단계별로 개별 applyGlobalColumns 설정 가능
+- **유연한 컬럼 적용**: 단계별 목적에 맞게 필요한 전역 컬럼만 선택적 적용
+- **성능 최적화**: 불필요한 컬럼 처리 생략으로 성능 향상
+
+#### 단계별 설정 방식
+```xml
+<query id="migrate_users" targetTable="users" ...>
+  <preProcess description="백업" applyGlobalColumns="created_by,updated_by">
+    <![CDATA[INSERT INTO user_backup SELECT * FROM users;]]>
+  </preProcess>
+  
+  <sourceQuery applyGlobalColumns="all">
+    <![CDATA[SELECT user_id, username, email FROM users_source;]]>
+  </sourceQuery>
+  
+  <postProcess description="로그" applyGlobalColumns="migration_date">
+    <![CDATA[INSERT INTO migration_log VALUES ('users', GETDATE());]]>
+  </postProcess>
+</query>
+```
+
+### 🔄 변경 사항
+- **기존**: query 레벨에서 단일 applyGlobalColumns 설정
+- **신규**: 각 처리 단계별로 독립적인 applyGlobalColumns 설정
+
+### 📝 사용 예시
+
+#### 단계별 컬럼 적용
+- **preProcess**: 백업 테이블에는 생성자 정보만 (`created_by`)
+- **sourceQuery**: 실제 데이터 이관에는 모든 컬럼 (`all`)
+- **postProcess**: 로그 테이블에는 타임스탬프만 (`migration_date`)
+
+이를 통해 각 단계의 목적에 맞는 최적화된 컬럼 오버라이드 적용이 가능합니다.
+
 ## 🎯 v2.5 - 전역 전/후처리 그룹 관리 기능 (2024-12-29)
 
 ### ✨ 새로운 기능

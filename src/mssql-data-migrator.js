@@ -442,44 +442,52 @@ class MSSQLDataMigrator {
                         batchSize: q.batchSize || config.settings.batchSize,  // 개별 설정이 없으면 글로벌 설정 사용
                         primaryKey: q.primaryKey,
                         deleteBeforeInsert: q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert,  // 개별 설정이 없으면 글로벌 설정 사용
-                        applyGlobalColumns: q.applyGlobalColumns || 'all', // 기본값은 'all'
                         enabled: q.enabled === 'true'
                     };
                     
-                    // sourceQuery 또는 sourceQueryFile 처리
+                    // sourceQuery 처리 및 개별 applyGlobalColumns 적용
                     if (q.sourceQueryFile) {
                         query.sourceQueryFile = q.sourceQueryFile;
+                        query.sourceQueryApplyGlobalColumns = 'all'; // 파일 기반은 기본값
                     } else if (q.sourceQuery) {
-                        // query.sourceQuery = q.sourceQuery._.trim();
-                        query.sourceQuery = q.sourceQuery.trim();
+                        // sourceQuery에서 applyGlobalColumns 속성 파싱
+                        if (typeof q.sourceQuery === 'object' && q.sourceQuery.applyGlobalColumns) {
+                            query.sourceQueryApplyGlobalColumns = q.sourceQuery.applyGlobalColumns;
+                            query.sourceQuery = q.sourceQuery._.trim();
+                        } else {
+                            query.sourceQueryApplyGlobalColumns = 'all'; // 기본값
+                            query.sourceQuery = q.sourceQuery.trim();
+                        }
                     }
                     
-                    // applyGlobalColumns 설정에 따라 선택적으로 globalColumnOverrides 적용
+                    // sourceQuery용 columnOverrides 적용
                     query.columnOverrides = this.selectivelyApplyGlobalColumnOverrides(
                         config.globalColumnOverrides, 
-                        query.applyGlobalColumns
+                        query.sourceQueryApplyGlobalColumns
                     );
                     
                     // 적용된 columnOverrides 로깅 (개발/디버그용)
                     if (Object.keys(query.columnOverrides).length > 0) {
-                        logger.debug(`[${query.id}] 선택적 globalColumnOverrides 적용됨`, {
-                            applyGlobalColumns: query.applyGlobalColumns,
+                        logger.debug(`[${query.id}] sourceQuery용 globalColumnOverrides 적용됨`, {
+                            sourceQueryApplyGlobalColumns: query.sourceQueryApplyGlobalColumns,
                             appliedColumns: Object.keys(query.columnOverrides),
                             availableGlobalColumns: Object.keys(config.globalColumnOverrides)
                         });
                     }
                     
-                    // 개별 쿼리 전처리/후처리 파싱
+                    // 개별 쿼리 전처리/후처리 파싱 (각각의 applyGlobalColumns 포함)
                     if (q.preProcess) {
                         query.preProcess = {
                             description: q.preProcess.description || `${query.id} 전처리`,
-                            script: q.preProcess._.trim()
+                            script: q.preProcess._.trim(),
+                            applyGlobalColumns: q.preProcess.applyGlobalColumns || 'all'
                         };
                     }
                     if (q.postProcess) {
                         query.postProcess = {
                             description: q.postProcess.description || `${query.id} 후처리`,
-                            script: q.postProcess._.trim()
+                            script: q.postProcess._.trim(),
+                            applyGlobalColumns: q.postProcess.applyGlobalColumns || 'all'
                         };
                     }
                     
@@ -1466,11 +1474,23 @@ class MSSQLDataMigrator {
             }
             
             // globalColumnOverrides 처리 (SELECT * 처리 후, 주석 제거 전)
-            // 현재 실행 중인 쿼리의 globalColumnOverrides 사용
-            const currentQuery = this.getCurrentQuery();
-            const globalColumnOverridesProcessedScript = currentQuery && currentQuery.columnOverrides 
-                ? this.processGlobalColumnOverridesInScript(selectStarProcessedScript, currentQuery.columnOverrides, database)
-                : selectStarProcessedScript;
+            // 단계별 applyGlobalColumns 설정 사용
+            let globalColumnOverridesProcessedScript;
+            if (scriptConfig.applyGlobalColumns) {
+                const stepColumnOverrides = this.selectivelyApplyGlobalColumnOverrides(
+                    this.config.globalColumnOverrides, 
+                    scriptConfig.applyGlobalColumns
+                );
+                globalColumnOverridesProcessedScript = stepColumnOverrides && Object.keys(stepColumnOverrides).length > 0
+                    ? this.processGlobalColumnOverridesInScript(selectStarProcessedScript, stepColumnOverrides, database)
+                    : selectStarProcessedScript;
+            } else {
+                // 기본적으로 현재 쿼리의 columnOverrides 사용 (기존 동작 유지)
+                const currentQuery = this.getCurrentQuery();
+                globalColumnOverridesProcessedScript = currentQuery && currentQuery.columnOverrides 
+                    ? this.processGlobalColumnOverridesInScript(selectStarProcessedScript, currentQuery.columnOverrides, database)
+                    : selectStarProcessedScript;
+            }
             
             if (debugScripts && globalColumnOverridesProcessedScript !== selectStarProcessedScript) {
                 this.log(`globalColumnOverrides 처리 후 스크립트: ${globalColumnOverridesProcessedScript.substring(0, 300)}${globalColumnOverridesProcessedScript.length > 300 ? '...' : ''}`);
