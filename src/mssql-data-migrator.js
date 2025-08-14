@@ -1401,7 +1401,14 @@ class MSSQLDataMigrator {
                         this.log(`경고: ${errorMsg} - 다음 그룹 계속 진행`);
                     }
                 } else {
+                    // 그룹별 실행 결과 상세 표시
                     this.log(`--- [${group.id}] ${group.description} 완료 ---`);
+                    if (result.executedCount !== undefined) {
+                        this.log(`  📈 실행 통계: ${result.executedCount}/${result.totalStatements}개 SQL 문 성공`);
+                        if (result.errors && result.errors.length > 0) {
+                            this.log(`  ⚠️  경고: ${result.errors.length}개 SQL 문에서 오류 발생`);
+                        }
+                    }
                 }
             } catch (error) {
                 const errorMsg = `전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}] 실행 중 오류: ${error.message}`;
@@ -1527,12 +1534,27 @@ class MSSQLDataMigrator {
                         this.log(`SQL 문 ${i + 1}/${sqlStatements.length} 실행: ${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`);
                     }
                     
+                    let result;
                     if (database === 'source') {
-                        await this.connectionManager.executeQueryOnSource(sql);
+                        result = await this.connectionManager.executeQueryOnSource(sql);
                     } else {
-                        await this.connectionManager.executeQueryOnTarget(sql);
+                        result = await this.connectionManager.executeQueryOnTarget(sql);
                     }
                     executedCount++;
+                    
+                    // 실행 결과 상세 표시
+                    if (result && result.rowsAffected && result.rowsAffected.length > 0) {
+                        const affectedRows = result.rowsAffected.reduce((sum, count) => sum + count, 0);
+                        if (affectedRows > 0) {
+                            this.log(`  ✓ SQL 문 ${i + 1} 실행 성공: ${affectedRows}행 영향받음`);
+                        } else {
+                            this.log(`  ✓ SQL 문 ${i + 1} 실행 성공 (영향받은 행 없음)`);
+                        }
+                    } else if (result && result.recordset && result.recordset.length > 0) {
+                        this.log(`  ✓ SQL 문 ${i + 1} 실행 성공: ${result.recordset.length}행 조회됨`);
+                    } else {
+                        this.log(`  ✓ SQL 문 ${i + 1} 실행 성공`);
+                    }
                     
                     if (debugScripts) {
                         this.log(`SQL 문 ${i + 1} 실행 성공`);
@@ -1556,7 +1578,16 @@ class MSSQLDataMigrator {
                 this.log(`총 ${errors.length}개의 SQL 실행 오류가 발생했습니다.`);
             }
             
-            this.log(`${scriptConfig.description} 완료: ${executedCount}/${sqlStatements.length}개 SQL 문 실행`);
+            // 전/후처리 실행 결과 상세 요약
+            this.log(`\n📊 ${scriptConfig.description} 실행 결과:`);
+            this.log(`  • 총 SQL 문: ${sqlStatements.length}개`);
+            this.log(`  • 성공 실행: ${executedCount}개`);
+            if (errors.length > 0) {
+                this.log(`  • 실패: ${errors.length}개`);
+                this.log(`  • 성공률: ${((executedCount / sqlStatements.length) * 100).toFixed(1)}%`);
+            }
+            this.log(`  • 실행 시간: ${new Date().toLocaleTimeString()}`);
+            
             return { 
                 success: true, 
                 executedCount, 
@@ -1749,6 +1780,13 @@ class MSSQLDataMigrator {
                     throw new Error(`${queryConfig.id} 전처리 실행 실패: ${preResult.error}`);
                 }
                 this.log(`--- ${queryConfig.id} 전처리 완료 ---`);
+                // 전처리 실행 결과 상세 표시
+                if (preResult.executedCount !== undefined) {
+                    this.log(`  📊 전처리 통계: ${preResult.executedCount}/${preResult.totalStatements}개 SQL 문 성공`);
+                    if (preResult.errors && preResult.errors.length > 0) {
+                        this.log(`  ⚠️  전처리 경고: ${preResult.errors.length}개 SQL 문에서 오류 발생`);
+                    }
+                }
             }
             
             // 배치 크기 결정
@@ -1801,6 +1839,13 @@ class MSSQLDataMigrator {
                     // 후처리 실패는 경고로 처리하고 계속 진행
                 }
                 this.log(`--- ${queryConfig.id} 후처리 완료 ---`);
+                // 후처리 실행 결과 상세 표시
+                if (postResult.executedCount !== undefined) {
+                    this.log(`  📊 후처리 통계: ${postResult.executedCount}/${postResult.totalStatements}개 SQL 문 성공`);
+                    if (postResult.errors && postResult.errors.length > 0) {
+                        this.log(`  ⚠️  후처리 경고: ${postResult.errors.length}개 SQL 문에서 오류 발생`);
+                    }
+                }
             }
             
             this.log(`=== 쿼리 이관 완료: ${queryConfig.id} (${insertedRows}행 처리) ===\n`);
