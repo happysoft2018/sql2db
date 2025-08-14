@@ -1523,6 +1523,44 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 행 수 추정을 위한 안전한 쿼리 처리
+    async estimateQueryRowCount(queryConfig) {
+        try {
+            let sourceQuery;
+            
+            // SQL 파일에서 쿼리 로드
+            if (queryConfig.sourceQueryFile) {
+                this.log(`행 수 추정용 SQL 파일 로드: ${queryConfig.sourceQueryFile}`);
+                const fileQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile);
+                sourceQuery = this.replaceVariables(fileQuery);
+            } else if (queryConfig.sourceQuery) {
+                // 기존 방식: sourceQuery 직접 사용
+                sourceQuery = this.replaceVariables(queryConfig.sourceQuery);
+            } else {
+                throw new Error('sourceQuery 또는 sourceQueryFile 중 하나는 반드시 지정해야 합니다.');
+            }
+            
+            // 행 수만 조회하기 위한 COUNT 쿼리로 변환 시도
+            try {
+                // 원본 쿼리를 서브쿼리로 감싸서 COUNT 쿼리 생성
+                const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery}) as sub_query`;
+                const countData = await this.connectionManager.querySource(countQuery);
+                const rowCount = countData[0]?.row_count || 0;
+                this.log(`쿼리 ${queryConfig.id} 예상 행 수: ${rowCount.toLocaleString()}`);
+                return rowCount;
+            } catch (countError) {
+                // COUNT 쿼리 실패 시 원본 쿼리로 전체 데이터 조회 (fallback)
+                this.log(`COUNT 쿼리 실패, 원본 쿼리로 fallback: ${countError.message}`);
+                const sourceData = await this.connectionManager.querySource(sourceQuery);
+                return sourceData.length;
+            }
+            
+        } catch (error) {
+            this.log(`쿼리 ${queryConfig.id} 행 수 추정 중 오류: ${error.message}`);
+            return 0; // 추정 실패 시 0 반환
+        }
+    }
+
     // 쿼리 설정에서 SELECT * 처리 및 컬럼 자동 설정
     async processQueryConfig(queryConfig) {
         try {
@@ -1758,14 +1796,12 @@ class MSSQLDataMigrator {
             // 전체 행 수 추정 (남은 쿼리들만)
             let totalEstimatedRows = 0;
             if (!isResuming) {
+                this.log('🔍 쿼리별 행 수 추정 시작...');
                 for (const query of enabledQueries) {
-                    try {
-                        const sourceData = await this.executeSourceQuery(query.sourceQuery);
-                        totalEstimatedRows += sourceData.length;
-                    } catch (error) {
-                        this.log(`쿼리 ${query.id} 행 수 추정 실패: ${error.message}`);
-                    }
+                    const rowCount = await this.estimateQueryRowCount(query);
+                    totalEstimatedRows += rowCount;
                 }
+                this.log(`📊 총 예상 이관 행 수: ${totalEstimatedRows.toLocaleString()}`);
                 
                 // 진행 상황 관리자 시작
                 this.progressManager.startMigration(this.config.queries.filter(query => query.enabled).length, totalEstimatedRows);
@@ -2096,23 +2132,12 @@ class MSSQLDataMigrator {
                 console.log(`   대상 테이블: ${queryConfig.targetTable}`);
                 
                 try {
-                    // 소스 쿼리 처리
-                    let sourceQuery = queryConfig.sourceQuery;
-                    if (queryConfig.sourceQueryFile) {
-                        console.log(`   소스 파일: ${queryConfig.sourceQueryFile}`);
-                        sourceQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile);
-                    }
-                    
-                    const processedQuery = this.replaceVariables(sourceQuery);
-                    console.log(`   처리된 쿼리: ${processedQuery.substring(0, 100)}${processedQuery.length > 100 ? '...' : ''}`);
-                    
-                    // 데이터 건수 확인
-                    const sourceData = await this.connectionManager.querySource(processedQuery);
-                    const rowCount = sourceData.length;
+                    // 안전한 행 수 추정 사용
+                    const rowCount = await this.estimateQueryRowCount(queryConfig);
                     totalRows += rowCount;
                     totalQueries++;
                     
-                    console.log(`   📊 이관 예정 데이터: ${rowCount}행`);
+                    console.log(`   📊 이관 예정 데이터: ${rowCount.toLocaleString()}행`);
                     
                     if (queryConfig.deleteBeforeInsert) {
                         console.log(`   🗑️ 삭제 방식: PK(${queryConfig.primaryKey}) 기준 삭제`);
