@@ -38,45 +38,105 @@
     <override column="data_version">2.1</override>
   </globalColumnOverrides>
 
-  <!-- 전역 전처리/후처리 -->
+  <!-- 전역 전처리/후처리 그룹 -->
   <globalProcesses>
-    <!-- 전체 이관 시작 전 실행 -->
-    <preProcess description="이관 준비 작업">
-      <![CDATA[
-        -- 성능 향상을 위한 인덱스 비활성화
-        ALTER INDEX ALL ON users DISABLE;
-        ALTER INDEX ALL ON products DISABLE;
-        
-        -- 제약조건 비활성화
-        ALTER TABLE users NOCHECK CONSTRAINT ALL;
-        ALTER TABLE products NOCHECK CONSTRAINT ALL;
-        
-        -- 통계 정보 업데이트
-        UPDATE STATISTICS users;
-        UPDATE STATISTICS products;
-      ]]>
-    </preProcess>
+    <!-- 전체 이관 시작 전 실행 그룹들 -->
+    <preProcessGroups>
+      <group id="performance_setup" description="성능 최적화 설정" enabled="true">
+        <![CDATA[
+          -- 성능 향상을 위한 인덱스 비활성화
+          ALTER INDEX ALL ON users DISABLE;
+          ALTER INDEX ALL ON products DISABLE;
+          
+          -- 제약조건 비활성화
+          ALTER TABLE users NOCHECK CONSTRAINT ALL;
+          ALTER TABLE products NOCHECK CONSTRAINT ALL;
+          
+          -- 통계 정보 업데이트 비활성화
+          ALTER DATABASE ${targetDatabase} SET AUTO_UPDATE_STATISTICS OFF;
+        ]]>
+      </group>
+      
+      <group id="logging" description="마이그레이션 로그 초기화" enabled="true">
+        <![CDATA[
+          -- 마이그레이션 시작 로그
+          INSERT INTO migration_log (migration_date, status, description, user_name) 
+          VALUES (GETDATE(), 'STARTED', 'Migration started', '${migrationUser}');
+          
+          -- 세션 정보 기록
+          INSERT INTO migration_session (session_id, start_time, config_file)
+          VALUES (NEWID(), GETDATE(), 'migration-queries.xml');
+        ]]>
+      </group>
+      
+      <group id="validation" description="데이터 검증" enabled="true">
+        <![CDATA[
+          -- 소스 데이터 기본 검증
+          IF EXISTS (SELECT 1 FROM users_source WHERE username IS NULL OR email IS NULL)
+          BEGIN
+            INSERT INTO validation_errors (error_type, message, created_date)
+            VALUES ('NULL_REQUIRED_FIELDS', 'Required fields contain NULL values', GETDATE());
+          END
+          
+          -- 중복 데이터 체크
+          IF EXISTS (SELECT user_id, COUNT(*) FROM users_source GROUP BY user_id HAVING COUNT(*) > 1)
+          BEGIN
+            RAISERROR('중복된 사용자 ID가 발견되었습니다. 마이그레이션을 중단합니다.', 16, 1);
+          END
+        ]]>
+      </group>
+    </preProcessGroups>
     
-    <!-- 전체 이관 완료 후 실행 -->
-    <postProcess description="이관 마무리 작업">
-      <![CDATA[
-        -- 인덱스 재활성화 및 재구성
-        ALTER INDEX ALL ON users REBUILD;
-        ALTER INDEX ALL ON products REBUILD;
-        
-        -- 제약조건 재활성화
-        ALTER TABLE users CHECK CONSTRAINT ALL;
-        ALTER TABLE products CHECK CONSTRAINT ALL;
-        
-        -- 통계 정보 업데이트
-        UPDATE STATISTICS users WITH FULLSCAN;
-        UPDATE STATISTICS products WITH FULLSCAN;
-        
-        -- 이관 완료 로그 기록
-        INSERT INTO migration_log (migration_date, status, description) 
-        VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully');
-      ]]>
-    </postProcess>
+    <!-- 전체 이관 완료 후 실행 그룹들 -->
+    <postProcessGroups>
+      <group id="performance_restore" description="성능 최적화 복원" enabled="true">
+        <![CDATA[
+          -- 인덱스 재구성
+          ALTER INDEX ALL ON users REBUILD;
+          ALTER INDEX ALL ON products REBUILD;
+          
+          -- 제약조건 활성화
+          ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
+          ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
+          
+          -- 통계 정보 업데이트 활성화 및 실행
+          ALTER DATABASE ${targetDatabase} SET AUTO_UPDATE_STATISTICS ON;
+          UPDATE STATISTICS users WITH FULLSCAN;
+          UPDATE STATISTICS products WITH FULLSCAN;
+        ]]>
+      </group>
+      
+      <group id="verification" description="데이터 검증" enabled="true">
+        <![CDATA[
+          -- 이관 후 데이터 개수 검증
+          DECLARE @source_count INT, @target_count INT;
+          SELECT @source_count = COUNT(*) FROM users_source;
+          SELECT @target_count = COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}';
+          
+          IF @source_count != @target_count
+          BEGIN
+            INSERT INTO validation_errors (error_type, message, source_count, target_count, created_date)
+            VALUES ('COUNT_MISMATCH', 'Source and target counts do not match', @source_count, @target_count, GETDATE());
+          END
+        ]]>
+      </group>
+      
+      <group id="completion" description="완료 로그" enabled="true">
+        <![CDATA[
+          -- 이관 완료 로그 기록
+          INSERT INTO migration_log (migration_date, status, description, total_rows) 
+          VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully', 
+                  (SELECT COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}'));
+          
+          -- 세션 완료 업데이트
+          UPDATE migration_session 
+          SET end_time = GETDATE(), 
+              status = 'COMPLETED',
+              total_migrated = (SELECT COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}')
+          WHERE session_id = (SELECT TOP 1 session_id FROM migration_session ORDER BY start_time DESC);
+        ]]>
+      </group>
+    </postProcessGroups>
   </globalProcesses>
 
   <!-- 동적 변수 정의 -->

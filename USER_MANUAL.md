@@ -1299,7 +1299,136 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 </postProcess>
 ```
 
-### 11. 전/후처리 컬럼 오버라이드
+### 11. 전역 전/후처리 그룹
+
+전역 전처리와 후처리를 여러 그룹으로 나누어 기능별로 관리할 수 있습니다.
+
+#### 그룹 정의
+
+```xml
+<globalProcesses>
+  <!-- 전처리 그룹들 -->
+  <preProcessGroups>
+    <group id="performance_setup" description="성능 최적화 설정" enabled="true">
+      <![CDATA[
+        -- 인덱스 비활성화
+        ALTER INDEX ALL ON users DISABLE;
+        ALTER INDEX ALL ON products DISABLE;
+        
+        -- 제약조건 비활성화
+        ALTER TABLE users NOCHECK CONSTRAINT ALL;
+        ALTER TABLE products NOCHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="logging" description="마이그레이션 로그 초기화" enabled="true">
+      <![CDATA[
+        -- 마이그레이션 시작 로그
+        INSERT INTO migration_log (migration_date, status, description, user_name) 
+        VALUES (GETDATE(), 'STARTED', 'Migration started', '${migrationUser}');
+      ]]>
+    </group>
+    
+    <group id="validation" description="데이터 검증" enabled="true">
+      <![CDATA[
+        -- 소스 데이터 기본 검증
+        IF EXISTS (SELECT 1 FROM users_source WHERE username IS NULL OR email IS NULL)
+        BEGIN
+          INSERT INTO validation_errors (error_type, message, created_date)
+          VALUES ('NULL_REQUIRED_FIELDS', 'Required fields contain NULL values', GETDATE());
+        END
+        
+        -- 중복 데이터 체크
+        IF EXISTS (SELECT user_id, COUNT(*) FROM users_source GROUP BY user_id HAVING COUNT(*) > 1)
+        BEGIN
+          RAISERROR('중복된 사용자 ID가 발견되었습니다. 마이그레이션을 중단합니다.', 16, 1);
+        END
+      ]]>
+    </group>
+  </preProcessGroups>
+  
+  <!-- 후처리 그룹들 -->
+  <postProcessGroups>
+    <group id="performance_restore" description="성능 최적화 복원" enabled="true">
+      <![CDATA[
+        -- 인덱스 재구성
+        ALTER INDEX ALL ON users REBUILD;
+        ALTER INDEX ALL ON products REBUILD;
+        
+        -- 제약조건 활성화
+        ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
+        ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="verification" description="데이터 검증" enabled="true">
+      <![CDATA[
+        -- 이관 후 데이터 개수 검증
+        DECLARE @source_count INT, @target_count INT;
+        SELECT @source_count = COUNT(*) FROM users_source;
+        SELECT @target_count = COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}';
+        
+        IF @source_count != @target_count
+        BEGIN
+          INSERT INTO validation_errors (error_type, message, source_count, target_count, created_date)
+          VALUES ('COUNT_MISMATCH', 'Source and target counts do not match', @source_count, @target_count, GETDATE());
+        END
+      ]]>
+    </group>
+    
+    <group id="completion" description="완료 로그" enabled="true">
+      <![CDATA[
+        -- 이관 완료 로그 기록
+        INSERT INTO migration_log (migration_date, status, description, total_rows) 
+        VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully', 
+                (SELECT COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}'));
+      ]]>
+    </group>
+  </postProcessGroups>
+</globalProcesses>
+```
+
+#### 그룹 속성
+
+- **id**: 그룹의 고유 식별자
+- **description**: 그룹 설명
+- **enabled**: 그룹 활성화 여부 (true/false)
+
+#### 실행 순서
+
+1. **전역 전처리 그룹들** (정의된 순서대로)
+2. 동적변수 추출
+3. 개별 쿼리 마이그레이션
+4. **전역 후처리 그룹들** (정의된 순서대로)
+
+#### 동적변수 사용
+
+그룹 스크립트에서도 모든 동적변수를 사용할 수 있습니다:
+
+```xml
+<group id="audit_logging" description="감사 로그" enabled="true">
+  <![CDATA[
+    -- 활성 사용자 로그 (동적변수 사용)
+    INSERT INTO migration_user_tracking (user_id, tracking_type)
+    SELECT user_id, 'ACTIVE_USER'
+    FROM users_source 
+    WHERE user_id IN (${activeUserIds});
+    
+    -- 회사별 통계 (key_value_pairs 동적변수)
+    INSERT INTO company_stats (company_code, company_name)
+    SELECT 'COMP01', '${companyMapping.COMP01}'
+    UNION ALL
+    SELECT 'COMP02', '${companyMapping.COMP02}';
+  ]]>
+</group>
+```
+
+#### 오류 처리
+
+- **전처리 그룹 오류**: 마이그레이션 전체 중단
+- **후처리 그룹 오류**: 경고 로그 후 다음 그룹 계속 진행
+
+### 12. 전/후처리 컬럼 오버라이드
 
 전/후처리 스크립트의 INSERT/UPDATE 문에도 globalColumnOverrides가 자동으로 적용됩니다.
 

@@ -303,22 +303,56 @@ class MSSQLDataMigrator {
                 }
             }
             
-            // 전역 전처리/후처리 파싱
+            // 전역 전처리/후처리 그룹 파싱
             if (migration.globalProcesses) {
-                if (migration.globalProcesses.preProcess) {
-                    config.globalProcesses.preProcess = {
-                        description: migration.globalProcesses.preProcess.description || '전역 전처리',
-                        script: migration.globalProcesses.preProcess._.trim()
-                    };
+                config.globalProcesses.preProcessGroups = [];
+                config.globalProcesses.postProcessGroups = [];
+                
+                // 전역 전처리 그룹들 파싱
+                if (migration.globalProcesses.preProcessGroups && migration.globalProcesses.preProcessGroups.group) {
+                    const preGroups = Array.isArray(migration.globalProcesses.preProcessGroups.group) 
+                        ? migration.globalProcesses.preProcessGroups.group 
+                        : [migration.globalProcesses.preProcessGroups.group];
+                    
+                    preGroups.forEach(group => {
+                        if (group.id && group._) {
+                            config.globalProcesses.preProcessGroups.push({
+                                id: group.id,
+                                description: group.description || `전처리 그룹 ${group.id}`,
+                                enabled: group.enabled === 'true' || group.enabled === true,
+                                script: group._.trim()
+                            });
+                        }
+                    });
                 }
-                if (migration.globalProcesses.postProcess) {
-                    config.globalProcesses.postProcess = {
-                        description: migration.globalProcesses.postProcess.description || '전역 후처리',
-                        script: migration.globalProcesses.postProcess._.trim()
-                    };
+                
+                // 전역 후처리 그룹들 파싱
+                if (migration.globalProcesses.postProcessGroups && migration.globalProcesses.postProcessGroups.group) {
+                    const postGroups = Array.isArray(migration.globalProcesses.postProcessGroups.group) 
+                        ? migration.globalProcesses.postProcessGroups.group 
+                        : [migration.globalProcesses.postProcessGroups.group];
+                    
+                    postGroups.forEach(group => {
+                        if (group.id && group._) {
+                            config.globalProcesses.postProcessGroups.push({
+                                id: group.id,
+                                description: group.description || `후처리 그룹 ${group.id}`,
+                                enabled: group.enabled === 'true' || group.enabled === true,
+                                script: group._.trim()
+                            });
+                        }
+                    });
                 }
+                
+                logger.info('전역 전/후처리 그룹 로드됨', {
+                    preProcessGroups: config.globalProcesses.preProcessGroups.length,
+                    postProcessGroups: config.globalProcesses.postProcessGroups.length,
+                    enabledPreGroups: config.globalProcesses.preProcessGroups.filter(g => g.enabled).map(g => g.id),
+                    enabledPostGroups: config.globalProcesses.postProcessGroups.filter(g => g.enabled).map(g => g.id)
+                });
             }
             
+
             // 전역 변수 파싱
             if (migration.variables && migration.variables.var) {
                 const vars = Array.isArray(migration.variables.var) 
@@ -1314,6 +1348,74 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 전역 전/후처리 그룹 실행
+    async executeGlobalProcessGroups(phase) {
+        const groups = phase === 'preProcess' 
+            ? this.config.globalProcesses.preProcessGroups 
+            : this.config.globalProcesses.postProcessGroups;
+        
+        const enabledGroups = groups.filter(group => group.enabled);
+        
+        if (enabledGroups.length === 0) {
+            this.log(`활성화된 전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹이 없습니다.`);
+            return;
+        }
+        
+        this.log(`\n=== 전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 실행 (${enabledGroups.length}개) ===`);
+        this.progressManager.updatePhase(
+            phase === 'preProcess' ? 'PRE_PROCESSING' : 'POST_PROCESSING', 
+            'RUNNING', 
+            `Executing global ${phase === 'preProcess' ? 'pre' : 'post'}-processing groups`
+        );
+        
+        for (const group of enabledGroups) {
+            this.log(`\n--- [${group.id}] ${group.description} 실행 중 ---`);
+            
+            try {
+                const scriptConfig = {
+                    description: group.description,
+                    script: group.script
+                };
+                
+                const result = await this.executeProcessScript(scriptConfig, 'target');
+                
+                if (!result.success) {
+                    const errorMsg = `전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}] 실행 실패: ${result.error}`;
+                    this.log(errorMsg);
+                    
+                    // 전처리 실패 시 마이그레이션 중단
+                    if (phase === 'preProcess') {
+                        this.progressManager.updatePhase('PRE_PROCESSING', 'FAILED', errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                    // 후처리 실패 시 경고만 기록하고 계속 진행
+                    else {
+                        this.log(`경고: ${errorMsg} - 다음 그룹 계속 진행`);
+                    }
+                } else {
+                    this.log(`--- [${group.id}] ${group.description} 완료 ---`);
+                }
+            } catch (error) {
+                const errorMsg = `전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}] 실행 중 오류: ${error.message}`;
+                this.log(errorMsg);
+                
+                if (phase === 'preProcess') {
+                    this.progressManager.updatePhase('PRE_PROCESSING', 'FAILED', errorMsg);
+                    throw new Error(errorMsg);
+                } else {
+                    this.log(`경고: ${errorMsg} - 다음 그룹 계속 진행`);
+                }
+            }
+        }
+        
+        this.progressManager.updatePhase(
+            phase === 'preProcess' ? 'PRE_PROCESSING' : 'POST_PROCESSING', 
+            'COMPLETED', 
+            `Global ${phase === 'preProcess' ? 'pre' : 'post'}-processing groups completed`
+        );
+        this.log(`=== 전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 완료 ===\n`);
+    }
+
     // 전처리/후처리 SQL 실행
     async executeProcessScript(scriptConfig, database = 'target') {
         try {
@@ -1737,16 +1839,9 @@ class MSSQLDataMigrator {
             this.progressManager.updatePhase('CONNECTING', 'RUNNING', 'Connecting to databases');
             await this.connectionManager.connectBoth();
             
-            // 전역 전처리 실행
-            if (this.config.globalProcesses && this.config.globalProcesses.preProcess) {
-                this.log('\n=== 전역 전처리 실행 ===');
-                this.progressManager.updatePhase('PRE_PROCESSING', 'RUNNING', 'Executing global pre-processing scripts');
-                const preResult = await this.executeProcessScript(this.config.globalProcesses.preProcess, 'target');
-                if (!preResult.success) {
-                    throw new Error(`전역 전처리 실행 실패: ${preResult.error}`);
-                }
-                this.progressManager.updatePhase('PRE_PROCESSING', 'COMPLETED', 'Global pre-processing completed');
-                this.log('=== 전역 전처리 완료 ===\n');
+            // 전역 전처리 그룹 실행
+            if (this.config.globalProcesses && this.config.globalProcesses.preProcessGroups) {
+                await this.executeGlobalProcessGroups('preProcess');
             }
             
             // 동적 변수 추출 실행
@@ -1877,19 +1972,9 @@ class MSSQLDataMigrator {
                     await transaction.commit();
                 }
                 
-                // 전역 후처리 실행
-                if (this.config.globalProcesses && this.config.globalProcesses.postProcess) {
-                    this.log('\n=== 전역 후처리 실행 ===');
-                    this.progressManager.updatePhase('POST_PROCESSING', 'RUNNING', 'Executing global post-processing scripts');
-                    const postResult = await this.executeProcessScript(this.config.globalProcesses.postProcess, 'target');
-                    if (!postResult.success) {
-                        this.log(`전역 후처리 실행 실패: ${postResult.error}`);
-                        this.progressManager.updatePhase('POST_PROCESSING', 'FAILED', `Post-processing failed: ${postResult.error}`);
-                        // 후처리 실패는 경고로 처리하고 계속 진행
-                    } else {
-                        this.progressManager.updatePhase('POST_PROCESSING', 'COMPLETED', 'Global post-processing completed');
-                    }
-                    this.log('=== 전역 후처리 완료 ===\n');
+                // 전역 후처리 그룹 실행
+                if (this.config.globalProcesses && this.config.globalProcesses.postProcessGroups) {
+                    await this.executeGlobalProcessGroups('postProcess');
                 }
                 
             } catch (error) {

@@ -1,5 +1,79 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🎯 v2.5 - 전역 전/후처리 그룹 관리 기능 (2024-12-29)
+
+### ✨ 새로운 기능
+
+#### 전역 전/후처리 그룹 시스템
+- **간단한 그룹화**: globalProcesses 내에서 전/후처리를 기능별 그룹으로 관리
+- **순차 실행**: 정의된 순서대로 그룹별 실행
+- **개별 제어**: 각 그룹별 활성화/비활성화 설정
+- **동적변수 완전 지원**: 모든 그룹에서 동적변수 사용 가능
+
+#### 기본 제공 그룹 예시
+1. **performance_setup**: 성능 최적화 설정 (인덱스/제약조건 비활성화)
+2. **logging**: 마이그레이션 로그 초기화
+3. **validation**: 데이터 검증 및 품질 체크
+4. **performance_restore**: 성능 최적화 복원 (인덱스/제약조건 재활성화)
+5. **verification**: 이관 후 데이터 검증
+6. **completion**: 완료 로그 및 통계
+
+### 🔄 실행 순서
+1. **전역 전처리 그룹들** (정의된 순서대로)
+2. 동적변수 추출
+3. 개별 쿼리 마이그레이션
+4. **전역 후처리 그룹들** (정의된 순서대로)
+
+### 🛡️ 오류 처리
+- **전처리 그룹 오류**: 마이그레이션 전체 중단
+- **후처리 그룹 오류**: 경고 로그 후 다음 그룹 계속 진행
+
+### 📝 사용법 예시
+
+#### XML 그룹 설정
+```xml
+<globalProcesses>
+  <preProcessGroups>
+    <group id="performance_setup" description="성능 최적화 설정" enabled="true">
+      <![CDATA[
+        -- 인덱스 비활성화
+        ALTER INDEX ALL ON users DISABLE;
+        ALTER INDEX ALL ON products DISABLE;
+        
+        -- 제약조건 비활성화
+        ALTER TABLE users NOCHECK CONSTRAINT ALL;
+        ALTER TABLE products NOCHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="validation" description="데이터 검증" enabled="true">
+      <![CDATA[
+        -- 중복 데이터 체크 (동적변수 사용)
+        IF EXISTS (SELECT user_id, COUNT(*) FROM users_source GROUP BY user_id HAVING COUNT(*) > 1)
+        BEGIN
+          RAISERROR('중복된 사용자 ID가 발견되었습니다.', 16, 1);
+        END
+        
+        -- 활성 사용자 검증
+        INSERT INTO validation_log 
+        SELECT 'ACTIVE_USER_CHECK', COUNT(*), GETDATE()
+        FROM users_source WHERE user_id IN (${activeUserIds});
+      ]]>
+    </group>
+  </preProcessGroups>
+  
+  <postProcessGroups>
+    <group id="performance_restore" description="성능 최적화 복원" enabled="true">
+      <![CDATA[
+        -- 인덱스 재구성
+        ALTER INDEX ALL ON users REBUILD;
+        ALTER INDEX ALL ON products REBUILD;
+      ]]>
+    </group>
+  </postProcessGroups>
+</globalProcesses>
+```
+
 ## 🔄 v2.4 - columnOverrides 기능 개선 (2024-12-28)
 
 ### ✨ 새로운 기능
