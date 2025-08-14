@@ -28,22 +28,22 @@ INSERT INTO departments (department_name, department_code, budget) VALUES
 -- ===============================================
 PRINT '👥 사용자 데이터 입력 중...';
 
-INSERT INTO users (username, email, first_name, last_name, status, department_id, last_login_date, salary, birth_date) VALUES
-('john.doe', 'john.doe@company.com', '존', '도', 'ACTIVE', 1, DATEADD(day, -1, GETDATE()), 75000.00, '1985-03-15'),
-('jane.smith', 'jane.smith@company.com', '제인', '스미스', 'ACTIVE', 1, DATEADD(day, -2, GETDATE()), 82000.00, '1987-07-22'),
-('mike.johnson', 'mike.johnson@company.com', '마이크', '존슨', 'ACTIVE', 2, DATEADD(day, -3, GETDATE()), 68000.00, '1990-11-08'),
-('sarah.wilson', 'sarah.wilson@company.com', '사라', '윌슨', 'ACTIVE', 3, DATEADD(hour, -5, GETDATE()), 72000.00, '1988-05-14'),
-('david.brown', 'david.brown@company.com', '데이비드', '브라운', 'PENDING', 1, NULL, 78000.00, '1986-09-30'),
-('emily.davis', 'emily.davis@company.com', '에밀리', '데이비스', 'ACTIVE', 4, DATEADD(day, -7, GETDATE()), 65000.00, '1992-01-18'),
-('robert.miller', 'robert.miller@company.com', '로버트', '밀러', 'ACTIVE', 5, DATEADD(day, -1, GETDATE()), 85000.00, '1983-12-05'),
-('lisa.garcia', 'lisa.garcia@company.com', '리사', '가르시아', 'ACTIVE', 6, DATEADD(hour, -12, GETDATE()), 70000.00, '1989-08-27'),
-('kevin.martinez', 'kevin.martinez@company.com', '케빈', '마르티네즈', 'APPROVED', 7, DATEADD(day, -4, GETDATE()), 73000.00, '1991-04-12'),
-('amanda.taylor', 'amanda.taylor@company.com', '아만다', '테일러', 'ACTIVE', 8, DATEADD(day, -2, GETDATE()), 67000.00, '1990-10-03'),
-('chris.anderson', 'chris.anderson@company.com', '크리스', '앤더슨', 'PENDING', 2, NULL, 71000.00, '1987-06-19'),
-('nicole.thomas', 'nicole.thomas@company.com', '니콜', '토마스', 'ACTIVE', 3, DATEADD(day, -6, GETDATE()), 74000.00, '1988-02-28'),
-('ryan.jackson', 'ryan.jackson@company.com', '라이언', '잭슨', 'ACTIVE', 1, DATEADD(hour, -8, GETDATE()), 79000.00, '1985-11-16'),
-('jennifer.white', 'jennifer.white@company.com', '제니퍼', '화이트', 'APPROVED', 4, DATEADD(day, -3, GETDATE()), 66000.00, '1993-07-07'),
-('matthew.harris', 'matthew.harris@company.com', '매튜', '해리스', 'ACTIVE', 5, DATEADD(day, -1, GETDATE()), 81000.00, '1984-04-25');
+INSERT INTO users (username, email, first_name, last_name, status, department_id, company_code, last_login_date, salary, birth_date) VALUES
+('john.doe', 'john.doe@company.com', '존', '도', 'ACTIVE', 1, 'COMPANY01', DATEADD(day, -1, GETDATE()), 75000.00, '1985-03-15'),
+('jane.smith', 'jane.smith@company.com', '제인', '스미스', 'ACTIVE', 1, 'COMPANY01', DATEADD(day, -2, GETDATE()), 82000.00, '1987-07-22'),
+('mike.johnson', 'mike.johnson@company.com', '마이크', '존슨', 'ACTIVE', 2, 'COMPANY01', DATEADD(day, -3, GETDATE()), 68000.00, '1990-11-08'),
+('sarah.wilson', 'sarah.wilson@company.com', '사라', '윌슨', 'ACTIVE', 3, 'COMPANY02', DATEADD(hour, -5, GETDATE()), 72000.00, '1988-05-14'),
+('david.brown', 'david.brown@company.com', '데이비드', '브라운', 'PENDING', 1, 'COMPANY02', NULL, 78000.00, '1986-09-30'),
+('emily.davis', 'emily.davis@company.com', '에밀리', '데이비스', 'ACTIVE', 4, 'COMPANY02', DATEADD(day, -7, GETDATE()), 65000.00, '1992-01-18'),
+('robert.miller', 'robert.miller@company.com', '로버트', '밀러', 'ACTIVE', 5, 'COMPANY03', DATEADD(day, -1, GETDATE()), 85000.00, '1983-12-05'),
+('lisa.garcia', 'lisa.garcia@company.com', '리사', '가르시아', 'ACTIVE', 6, 'COMPANY03', DATEADD(hour, -12, GETDATE()), 70000.00, '1989-08-27'),
+('kevin.martinez', 'kevin.martinez@company.com', '케빈', '마르티네즈', 'APPROVED', 7, 'COMPANY03', DATEADD(day, -4, GETDATE()), 73000.00, '1991-04-12'),
+('amanda.taylor', 'amanda.taylor@company.com', '아만다', '테일러', 'ACTIVE', 8, 'COMPANY01', DATEADD(day, -2, GETDATE()), 67000.00, '1990-10-03'),
+('chris.anderson', 'chris.anderson@company.com', '크리스', '앤더슨', 'PENDING', 2, 'COMPANY01', NULL, 71000.00, '1987-06-19'),
+('nicole.thomas', 'nicole.thomas@company.com', '니콜', '토마스', 'ACTIVE', 3, 'COMPANY02', DATEADD(day, -6, GETDATE()), 74000.00, '1988-02-28'),
+('ryan.jackson', 'ryan.jackson@company.com', '라이언', '잭슨', 'ACTIVE', 1, 'COMPANY02', DATEADD(hour, -8, GETDATE()), 79000.00, '1985-11-16'),
+('jennifer.white', 'jennifer.white@company.com', '제니퍼', '화이트', 'APPROVED', 4, 'COMPANY03', DATEADD(day, -3, GETDATE()), 66000.00, '1993-07-07'),
+('matthew.harris', 'matthew.harris@company.com', '매튜', '해리스', 'ACTIVE', 5, 'COMPANY03', DATEADD(day, -1, GETDATE()), 81000.00, '1984-04-25');
 
 -- 부서 관리자 업데이트
 UPDATE departments SET manager_id = 1 WHERE department_id = 1; -- 개발팀 관리자: john.doe
@@ -183,6 +183,158 @@ INSERT INTO activity_logs (user_id, action, table_name, record_id, ip_address, u
 (1, '사용자 승인', 'users', 5, '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'),
 (12, '비밀번호 변경', 'users', 12, '192.168.1.103', 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1)');
 
+-- ===============================================
+-- 9. 회사 데이터 입력 (Companies)
+-- ===============================================
+PRINT '🏢 회사 데이터 입력 중...';
+
+INSERT INTO companies (company_code, company_name, address, phone, email, status) VALUES
+('COMPANY01', '테크이노베이션(주)', '서울시 강남구 테헤란로 123', '02-1234-5678', 'info@techinnovation.com', 'ACTIVE'),
+('COMPANY02', '글로벌솔루션', '서울시 서초구 서초대로 456', '02-2345-6789', 'contact@globalsolution.com', 'ACTIVE'),
+('COMPANY03', '스마트시스템즈', '경기도 성남시 분당구 판교로 789', '031-3456-7890', 'support@smartsystems.com', 'ACTIVE'),
+('COMPANY04', '디지털퓨처', '부산시 해운대구 해운대로 101', '051-4567-8901', 'hello@digitalfuture.com', 'INACTIVE'),
+('COMPANY05', '넥스트웨이브', '대전시 유성구 대학로 202', '042-5678-9012', 'admin@nextwave.com', 'ACTIVE');
+
+-- ===============================================
+-- 10. 직원 데이터 입력 (Employees)
+-- ===============================================
+PRINT '👨‍💼 직원 데이터 입력 중...';
+
+INSERT INTO employees (emp_name, emp_code, department_code, hire_date, salary, status, email, phone) VALUES
+('김철수', 'EMP001', 'DEV', '2020-03-15', 85000.00, 'ACTIVE', 'kim.cs@company.com', '010-1111-2222'),
+('이영희', 'EMP002', 'DEV', '2021-07-22', 78000.00, 'ACTIVE', 'lee.yh@company.com', '010-2222-3333'),
+('박민수', 'EMP003', 'MKT', '2019-11-08', 72000.00, 'ACTIVE', 'park.ms@company.com', '010-3333-4444'),
+('정수연', 'EMP004', 'SALES', '2022-05-14', 75000.00, 'ACTIVE', 'jung.sy@company.com', '010-4444-5555'),
+('최동욱', 'EMP005', 'HR', '2020-09-30', 68000.00, 'ACTIVE', 'choi.dw@company.com', '010-5555-6666'),
+('한지민', 'EMP006', 'FIN', '2021-01-18', 73000.00, 'ACTIVE', 'han.jm@company.com', '010-6666-7777'),
+('송민호', 'EMP007', 'IT', '2019-12-05', 80000.00, 'ACTIVE', 'song.mh@company.com', '010-7777-8888'),
+('윤서희', 'EMP008', 'QA', '2020-08-27', 71000.00, 'ACTIVE', 'yoon.sh@company.com', '010-8888-9999'),
+('강태현', 'EMP009', 'DESIGN', '2021-04-12', 76000.00, 'ACTIVE', 'kang.th@company.com', '010-9999-0000'),
+('임수빈', 'EMP010', 'DEV', '2022-10-03', 82000.00, 'ACTIVE', 'lim.sb@company.com', '010-0000-1111');
+
+-- 직원 관리자 관계 설정
+UPDATE employees SET manager_id = 1 WHERE emp_id IN (2, 10); -- 김철수가 이영희, 임수빈의 관리자
+UPDATE employees SET manager_id = 3 WHERE emp_id = 9; -- 박민수가 강태현의 관리자
+UPDATE employees SET manager_id = 7 WHERE emp_id = 8; -- 송민호가 윤서희의 관리자
+
+-- ===============================================
+-- 11. 상품 리뷰 데이터 입력 (Product_Reviews)
+-- ===============================================
+PRINT '⭐ 상품 리뷰 데이터 입력 중...';
+
+INSERT INTO product_reviews (product_id, customer_id, rating, review_title, review_text, is_verified, helpful_count) VALUES
+(1, 1, 5, '최고의 스마트폰!', '갤럭시 S24 Ultra 정말 만족합니다. 카메라 품질이 뛰어나고 배터리도 오래갑니다.', 1, 15),
+(1, 3, 4, '좋은 제품이에요', '성능은 훌륭하지만 가격이 조금 비싸네요. 그래도 추천합니다.', 1, 8),
+(2, 2, 5, '아이폰 최고!', '아이폰 15 Pro는 역시 아이폰이네요. 디자인과 성능 모두 만족합니다.', 1, 22),
+(3, 4, 5, '개발자에게 최적', '맥북 프로 16인치로 개발 작업이 훨씬 편해졌습니다. 강력 추천!', 1, 35),
+(4, 5, 4, '가성비 좋은 노트북', '델 XPS 13은 가볍고 성능도 좋습니다. 휴대성이 뛰어나요.', 1, 12),
+(5, 6, 5, '편안한 운동화', '나이키 에어맥스는 정말 편안합니다. 러닝할 때 발이 안 아파요.', 1, 18),
+(9, 7, 5, '해리포터 팬 필수', '해리포터 전집은 몇 번을 읽어도 재미있어요. 소장가치 충분합니다.', 1, 45),
+(10, 8, 5, '개발자 필독서', '클린 코드는 모든 개발자가 읽어야 할 책입니다. 정말 도움됩니다.', 1, 67),
+(11, 9, 4, '만족스러운 소파', '모던 소파 디자인도 좋고 앉았을 때도 편안합니다. 추천해요.', 1, 9),
+(14, 10, 5, '홈트레이닝 최고', '러닝머신 구매 후 집에서 운동하기 편해졌습니다. 품질도 좋아요.', 1, 28);
+
+-- ===============================================
+-- 12. 엔티티 관계 데이터 입력 (Entity_Relationships)
+-- ===============================================
+PRINT '🔗 엔티티 관계 데이터 입력 중...';
+
+INSERT INTO entity_relationships (entity_id, related_entity_id, relation_type, entity_type, related_entity_type, description, created_by) VALUES
+(1, 1, 'BELONGS_TO', 'USER', 'DEPARTMENT', '사용자-부서 소속 관계', 1),
+(2, 1, 'BELONGS_TO', 'USER', 'DEPARTMENT', '사용자-부서 소속 관계', 1),
+(3, 2, 'BELONGS_TO', 'USER', 'DEPARTMENT', '사용자-부서 소속 관계', 1),
+(1, 6, 'PURCHASED', 'CUSTOMER', 'PRODUCT', '고객-상품 구매 관계', 4),
+(2, 3, 'PURCHASED', 'CUSTOMER', 'PRODUCT', '고객-상품 구매 관계', 4),
+(3, 5, 'PURCHASED', 'CUSTOMER', 'PRODUCT', '고객-상품 구매 관계', 12),
+(6, 7, 'CATEGORY_RELATION', 'PRODUCT', 'CATEGORY', '상품-카테고리 관계', 1),
+(7, 9, 'CATEGORY_RELATION', 'PRODUCT', 'CATEGORY', '상품-카테고리 관계', 1),
+(1, 2, 'COLLEAGUE', 'USER', 'USER', '동료 관계', 1),
+(4, 12, 'REPORTS_TO', 'USER', 'USER', '보고 관계', 4);
+
+-- ===============================================
+-- 13. 승인 요청 데이터 입력 (Approval_Requests)
+-- ===============================================
+PRINT '📋 승인 요청 데이터 입력 중...';
+
+INSERT INTO approval_requests (request_code, approver_code, requester_code, product_code, request_type, request_amount, description, status, created_by) VALUES
+('REQ001', 'EMP001', 'EMP002', 'PHONE001', 'PURCHASE', 1200000.00, '개발팀 스마트폰 구매 요청', 'APPROVED', 2),
+('REQ002', 'EMP003', 'EMP004', 'LAPTOP001', 'PURCHASE', 3200000.00, '영업팀 노트북 구매 요청', 'PENDING', 4),
+('REQ003', 'EMP001', 'EMP005', 'FURN001', 'PURCHASE', 850000.00, '사무용 소파 구매 요청', 'REJECTED', 5),
+('REQ004', 'EMP007', 'EMP008', 'SPORT001', 'PURCHASE', 1500000.00, '헬스장 러닝머신 구매 요청', 'APPROVED', 8),
+('REQ005', 'EMP003', 'EMP009', 'BOOK001', 'PURCHASE', 120000.00, '도서 구매 요청', 'PENDING', 9),
+('REQ006', 'EMP001', 'EMP010', 'LAPTOP002', 'PURCHASE', 1800000.00, '개발팀 추가 노트북 구매 요청', 'APPROVED', 10);
+
+-- ===============================================
+-- 14. 감사 로그 데이터 입력 (Audit_Logs)
+-- ===============================================
+PRINT '🔍 감사 로그 데이터 입력 중...';
+
+INSERT INTO audit_logs (action_type, entity_code, user_code, table_name, record_id, log_message, ip_address, user_agent, session_id) VALUES
+('LOGIN', 'USER001', 'EMP001', 'users', 1, '사용자 로그인', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS001'),
+('CREATE', 'ORD001', 'EMP004', 'orders', 1, '주문 생성', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS002'),
+('UPDATE', 'PROD001', 'EMP001', 'products', 1, '상품 정보 수정', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS001'),
+('APPROVE', 'REQ001', 'EMP001', 'approval_requests', 1, '구매 요청 승인', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS001'),
+('REJECT', 'REQ003', 'EMP001', 'approval_requests', 3, '구매 요청 거부', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS001'),
+('DELETE', 'CUST005', 'EMP005', 'customers', 5, '고객 정보 삭제', '192.168.1.105', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS005'),
+('UPDATE', 'EMP002', 'EMP001', 'employees', 2, '직원 정보 수정', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS001'),
+('CREATE', 'REV001', 'EMP003', 'product_reviews', 1, '상품 리뷰 작성', '192.168.1.103', 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1)', 'SESS003'),
+('LOGIN', 'USER007', 'EMP007', 'users', 7, '사용자 로그인', '192.168.1.107', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 'SESS007'),
+('UPDATE', 'ORD003', 'EMP004', 'orders', 3, '주문 상태 변경', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'SESS002');
+
+-- ===============================================
+-- 15. 상태 코드 데이터 입력 (Status_Codes)
+-- ===============================================
+PRINT '📊 상태 코드 데이터 입력 중...';
+
+INSERT INTO status_codes (category, status_code, status_description, sort_order) VALUES
+('USER_STATUS', 'ACTIVE', '활성 사용자', 1),
+('USER_STATUS', 'PENDING', '승인 대기 중', 2),
+('USER_STATUS', 'APPROVED', '승인됨', 3),
+('USER_STATUS', 'INACTIVE', '비활성', 4),
+('USER_STATUS', 'SUSPENDED', '정지됨', 5),
+('ORDER_STATUS', 'PENDING', '주문 대기', 1),
+('ORDER_STATUS', 'CONFIRMED', '주문 확인', 2),
+('ORDER_STATUS', 'PROCESSING', '처리 중', 3),
+('ORDER_STATUS', 'SHIPPED', '배송 중', 4),
+('ORDER_STATUS', 'COMPLETED', '완료', 5),
+('ORDER_STATUS', 'CANCELLED', '취소됨', 6),
+('PRODUCT_STATUS', 'ACTIVE', '판매 중', 1),
+('PRODUCT_STATUS', 'INACTIVE', '판매 중지', 2),
+('PRODUCT_STATUS', 'DISCONTINUED', '단종', 3),
+('APPROVAL_STATUS', 'PENDING', '승인 대기', 1),
+('APPROVAL_STATUS', 'APPROVED', '승인됨', 2),
+('APPROVAL_STATUS', 'REJECTED', '거부됨', 3);
+
+-- ===============================================
+-- 16. 승인 관계 데이터 입력 (Approval_Relations)
+-- ===============================================
+PRINT '🔐 승인 관계 데이터 입력 중...';
+
+INSERT INTO approval_relations (approver_id, requester_id, product_id, relation_type, hierarchy_level, created_by, effective_start_date) VALUES
+(1, 2, 1, 'PURCHASE_APPROVAL', 1, 1, '2024-01-01'),
+(1, 13, 3, 'PURCHASE_APPROVAL', 1, 1, '2024-01-01'),
+(3, 4, 2, 'PURCHASE_APPROVAL', 1, 3, '2024-01-01'),
+(3, 9, 9, 'PURCHASE_APPROVAL', 1, 3, '2024-01-01'),
+(7, 8, 14, 'PURCHASE_APPROVAL', 1, 7, '2024-01-01'),
+(1, 5, 11, 'PURCHASE_APPROVAL', 2, 1, '2024-01-01'),
+(4, 12, NULL, 'GENERAL_APPROVAL', 1, 4, '2024-01-01'),
+(6, 14, NULL, 'BUDGET_APPROVAL', 1, 6, '2024-01-01'),
+(7, 15, NULL, 'SYSTEM_APPROVAL', 1, 7, '2024-01-01'),
+(1, 10, 4, 'PURCHASE_APPROVAL', 1, 1, '2024-01-01');
+
+-- ===============================================
+-- 17. 마이그레이션 로그 데이터 입력 (Migration_Log)
+-- ===============================================
+PRINT '📈 마이그레이션 로그 데이터 입력 중...';
+
+INSERT INTO migration_log (migration_id, query_id, phase, operation_type, table_name, message, rows_processed, start_time, end_time, status) VALUES
+('MIG001', 'migrate_users', 'PRE_PROCESS', 'DATA_MIGRATION', 'users', '사용자 테이블 이관 준비 완료', 0, DATEADD(hour, -2, GETDATE()), DATEADD(hour, -2, GETDATE()), 'COMPLETED'),
+('MIG001', 'migrate_users', 'PROCESS', 'DATA_MIGRATION', 'users', '사용자 데이터 이관 중', 15, DATEADD(hour, -2, GETDATE()), DATEADD(hour, -1, GETDATE()), 'COMPLETED'),
+('MIG001', 'migrate_users', 'POST_PROCESS', 'DATA_MIGRATION', 'users', '사용자 테이블 이관 완료', 15, DATEADD(hour, -1, GETDATE()), DATEADD(hour, -1, GETDATE()), 'COMPLETED'),
+('MIG002', 'migrate_products', 'PRE_PROCESS', 'DATA_MIGRATION', 'products', '상품 테이블 이관 준비', 0, DATEADD(minute, -30, GETDATE()), DATEADD(minute, -30, GETDATE()), 'COMPLETED'),
+('MIG002', 'migrate_products', 'PROCESS', 'DATA_MIGRATION', 'products', '상품 데이터 이관 중', 15, DATEADD(minute, -30, GETDATE()), DATEADD(minute, -15, GETDATE()), 'COMPLETED'),
+('MIG003', 'migrate_orders', 'PROCESS', 'DATA_MIGRATION', 'orders', '주문 데이터 이관 중', 10, DATEADD(minute, -10, GETDATE()), NULL, 'RUNNING');
+
 -- 외래키 제약조건 다시 활성화
 EXEC sp_MSforeachtable "ALTER TABLE ? WITH CHECK CHECK CONSTRAINT all";
 
@@ -191,6 +343,7 @@ EXEC sp_MSforeachtable "ALTER TABLE ? WITH CHECK CHECK CONSTRAINT all";
 -- ===============================================
 
 DECLARE @userCount INT, @deptCount INT, @categoryCount INT, @productCount INT, @customerCount INT, @orderCount INT, @orderItemCount INT, @logCount INT;
+DECLARE @companyCount INT, @empCount INT, @reviewCount INT, @relationCount INT, @approvalCount INT, @auditCount INT, @statusCount INT, @approvalRelationCount INT, @migrationLogCount INT;
 
 SELECT @userCount = COUNT(*) FROM users;
 SELECT @deptCount = COUNT(*) FROM departments;
@@ -200,6 +353,15 @@ SELECT @customerCount = COUNT(*) FROM customers;
 SELECT @orderCount = COUNT(*) FROM orders;
 SELECT @orderItemCount = COUNT(*) FROM order_items;
 SELECT @logCount = COUNT(*) FROM activity_logs;
+SELECT @companyCount = COUNT(*) FROM companies;
+SELECT @empCount = COUNT(*) FROM employees;
+SELECT @reviewCount = COUNT(*) FROM product_reviews;
+SELECT @relationCount = COUNT(*) FROM entity_relationships;
+SELECT @approvalCount = COUNT(*) FROM approval_requests;
+SELECT @auditCount = COUNT(*) FROM audit_logs;
+SELECT @statusCount = COUNT(*) FROM status_codes;
+SELECT @approvalRelationCount = COUNT(*) FROM approval_relations;
+SELECT @migrationLogCount = COUNT(*) FROM migration_log;
 
 PRINT '';
 PRINT '✅ 테스트용 샘플 데이터 입력 완료!';
@@ -207,14 +369,25 @@ PRINT '================================================';
 PRINT '📊 입력된 데이터 통계:';
 PRINT '   👥 사용자: ' + CAST(@userCount AS NVARCHAR(10)) + '명';
 PRINT '   🏢 부서: ' + CAST(@deptCount AS NVARCHAR(10)) + '개';
+PRINT '   🏪 회사: ' + CAST(@companyCount AS NVARCHAR(10)) + '개';
+PRINT '   👨‍💼 직원: ' + CAST(@empCount AS NVARCHAR(10)) + '명';
 PRINT '   📂 카테고리: ' + CAST(@categoryCount AS NVARCHAR(10)) + '개';
 PRINT '   📦 상품: ' + CAST(@productCount AS NVARCHAR(10)) + '개';
+PRINT '   ⭐ 상품리뷰: ' + CAST(@reviewCount AS NVARCHAR(10)) + '건';
 PRINT '   🏪 고객: ' + CAST(@customerCount AS NVARCHAR(10)) + '개';
 PRINT '   🛒 주문: ' + CAST(@orderCount AS NVARCHAR(10)) + '건';
 PRINT '   📋 주문상세: ' + CAST(@orderItemCount AS NVARCHAR(10)) + '건';
+PRINT '   🔗 엔티티관계: ' + CAST(@relationCount AS NVARCHAR(10)) + '건';
+PRINT '   📋 승인요청: ' + CAST(@approvalCount AS NVARCHAR(10)) + '건';
+PRINT '   🔐 승인관계: ' + CAST(@approvalRelationCount AS NVARCHAR(10)) + '건';
 PRINT '   📊 활동로그: ' + CAST(@logCount AS NVARCHAR(10)) + '건';
+PRINT '   🔍 감사로그: ' + CAST(@auditCount AS NVARCHAR(10)) + '건';
+PRINT '   📊 상태코드: ' + CAST(@statusCount AS NVARCHAR(10)) + '건';
+PRINT '   📈 마이그레이션로그: ' + CAST(@migrationLogCount AS NVARCHAR(10)) + '건';
 PRINT '================================================';
 PRINT '🎯 이제 SQL2DB 마이그레이션 도구를 테스트할 수 있습니다!';
-PRINT '   - 다양한 데이터 타입과 관계가 설정됨';
+PRINT '   - 17개 테이블에 풍부한 테스트 데이터 구성';
+PRINT '   - 다양한 데이터 타입과 복잡한 관계 설정';
 PRINT '   - 외래키 제약조건이 활성화됨';
-PRINT '   - 테스트 시나리오에 적합한 실제적인 데이터'; 
+PRINT '   - 실제 마이그레이션 시나리오에 적합한 데이터';
+PRINT '   - 동적 변수, IN절, JOIN 등 모든 기능 테스트 가능'; 

@@ -9,6 +9,25 @@
 -- 
 -- ===============================================
 
+ALTER TABLE users NOCHECK CONSTRAINT ALL;
+ALTER TABLE departments NOCHECK CONSTRAINT ALL;
+ALTER TABLE categories NOCHECK CONSTRAINT ALL;
+ALTER TABLE products NOCHECK CONSTRAINT ALL;
+ALTER TABLE orders NOCHECK CONSTRAINT ALL;
+ALTER TABLE order_items NOCHECK CONSTRAINT ALL;
+ALTER TABLE customers NOCHECK CONSTRAINT ALL;
+ALTER TABLE activity_logs NOCHECK CONSTRAINT ALL;
+ALTER TABLE companies NOCHECK CONSTRAINT ALL;
+ALTER TABLE employees NOCHECK CONSTRAINT ALL;
+ALTER TABLE product_reviews NOCHECK CONSTRAINT ALL;
+ALTER TABLE entity_relationships NOCHECK CONSTRAINT ALL;
+ALTER TABLE approval_requests NOCHECK CONSTRAINT ALL;
+ALTER TABLE audit_logs NOCHECK CONSTRAINT ALL;
+ALTER TABLE status_codes NOCHECK CONSTRAINT ALL;
+ALTER TABLE approval_relations NOCHECK CONSTRAINT ALL;
+ALTER TABLE migration_log NOCHECK CONSTRAINT ALL;
+
+
 -- 1. 사용자 테이블 (Users)
 IF OBJECT_ID('users', 'U') IS NOT NULL
     DROP TABLE users;
@@ -21,6 +40,7 @@ CREATE TABLE users (
     last_name NVARCHAR(50) NOT NULL,
     status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
     department_id INT NULL,
+    company_code NVARCHAR(20) NULL,
     created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
     last_login_date DATETIME2 NULL,
     is_active BIT NOT NULL DEFAULT 1,
@@ -150,6 +170,170 @@ CREATE TABLE activity_logs (
     created_date DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 
+-- 9. 회사 테이블 (Companies)
+IF OBJECT_ID('companies', 'U') IS NOT NULL
+    DROP TABLE companies;
+
+CREATE TABLE companies (
+    company_id INT IDENTITY(1,1) PRIMARY KEY,
+    company_code NVARCHAR(20) NOT NULL UNIQUE,
+    company_name NVARCHAR(200) NOT NULL,
+    address NVARCHAR(500) NULL,
+    phone NVARCHAR(50) NULL,
+    email NVARCHAR(100) NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    is_active BIT NOT NULL DEFAULT 1
+);
+
+-- 10. 직원 테이블 (Employees)
+IF OBJECT_ID('employees', 'U') IS NOT NULL
+    DROP TABLE employees;
+
+CREATE TABLE employees (
+    emp_id INT IDENTITY(1,1) PRIMARY KEY,
+    emp_name NVARCHAR(100) NOT NULL,
+    emp_code NVARCHAR(20) NOT NULL UNIQUE,
+    department_code NVARCHAR(10) NOT NULL,
+    hire_date DATE NOT NULL,
+    salary DECIMAL(10,2) NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    manager_id INT NULL,
+    email NVARCHAR(100) NULL,
+    phone NVARCHAR(50) NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    is_active BIT NOT NULL DEFAULT 1
+);
+
+-- 11. 상품 리뷰 테이블 (Product_Reviews)
+IF OBJECT_ID('product_reviews', 'U') IS NOT NULL
+    DROP TABLE product_reviews;
+
+CREATE TABLE product_reviews (
+    review_id INT IDENTITY(1,1) PRIMARY KEY,
+    product_id INT NOT NULL,
+    customer_id INT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    review_title NVARCHAR(200) NULL,
+    review_text NVARCHAR(1000) NULL,
+    is_verified BIT NOT NULL DEFAULT 0,
+    helpful_count INT NOT NULL DEFAULT 0,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    updated_date DATETIME2 NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+);
+
+-- 12. 엔티티 관계 테이블 (Entity_Relationships)
+IF OBJECT_ID('entity_relationships', 'U') IS NOT NULL
+    DROP TABLE entity_relationships;
+
+CREATE TABLE entity_relationships (
+    relation_id INT IDENTITY(1,1) PRIMARY KEY,
+    entity_id INT NOT NULL,
+    related_entity_id INT NOT NULL,
+    relation_type NVARCHAR(50) NOT NULL,
+    entity_type NVARCHAR(50) NOT NULL,
+    related_entity_type NVARCHAR(50) NOT NULL,
+    description NVARCHAR(500) NULL,
+    is_active BIT NOT NULL DEFAULT 1,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    created_by INT NULL
+);
+
+-- 13. 승인 요청 테이블 (Approval_Requests)
+IF OBJECT_ID('approval_requests', 'U') IS NOT NULL
+    DROP TABLE approval_requests;
+
+CREATE TABLE approval_requests (
+    request_id INT IDENTITY(1,1) PRIMARY KEY,
+    request_code NVARCHAR(50) NOT NULL UNIQUE,
+    approver_code NVARCHAR(20) NOT NULL,
+    requester_code NVARCHAR(20) NOT NULL,
+    product_code NVARCHAR(50) NULL,
+    request_type NVARCHAR(50) NOT NULL,
+    request_amount DECIMAL(15,2) NULL,
+    description NVARCHAR(1000) NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    requested_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    approved_date DATETIME2 NULL,
+    rejected_date DATETIME2 NULL,
+    comments NVARCHAR(1000) NULL,
+    created_by INT NULL
+);
+
+-- 14. 감사 로그 테이블 (Audit_Logs)
+IF OBJECT_ID('audit_logs', 'U') IS NOT NULL
+    DROP TABLE audit_logs;
+
+CREATE TABLE audit_logs (
+    log_id INT IDENTITY(1,1) PRIMARY KEY,
+    action_type NVARCHAR(100) NOT NULL,
+    entity_code NVARCHAR(50) NULL,
+    user_code NVARCHAR(20) NULL,
+    table_name NVARCHAR(100) NULL,
+    record_id INT NULL,
+    log_message NVARCHAR(1000) NULL,
+    old_values NVARCHAR(MAX) NULL,
+    new_values NVARCHAR(MAX) NULL,
+    ip_address NVARCHAR(45) NULL,
+    user_agent NVARCHAR(500) NULL,
+    session_id NVARCHAR(100) NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+);
+
+-- 15. 상태 코드 테이블 (Status_Codes)
+IF OBJECT_ID('status_codes', 'U') IS NOT NULL
+    DROP TABLE status_codes;
+
+CREATE TABLE status_codes (
+    status_id INT IDENTITY(1,1) PRIMARY KEY,
+    category NVARCHAR(50) NOT NULL,
+    status_code NVARCHAR(20) NOT NULL,
+    status_description NVARCHAR(200) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active BIT NOT NULL DEFAULT 1,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UNIQUE(category, status_code)
+);
+
+-- 16. 승인 관계 테이블 (Approval_Relations)
+IF OBJECT_ID('approval_relations', 'U') IS NOT NULL
+    DROP TABLE approval_relations;
+
+CREATE TABLE approval_relations (
+    relation_id INT IDENTITY(1,1) PRIMARY KEY,
+    approver_id INT NOT NULL,
+    requester_id INT NOT NULL,
+    product_id INT NULL,
+    relation_type NVARCHAR(50) NOT NULL,
+    hierarchy_level INT NOT NULL DEFAULT 1,
+    is_active BIT NOT NULL DEFAULT 1,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    created_by INT NULL,
+    effective_start_date DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    effective_end_date DATE NULL
+);
+
+-- 17. 마이그레이션 로그 테이블 (Migration_Log)
+IF OBJECT_ID('migration_log', 'U') IS NOT NULL
+    DROP TABLE migration_log;
+
+CREATE TABLE migration_log (
+    log_id INT IDENTITY(1,1) PRIMARY KEY,
+    migration_id NVARCHAR(50) NULL,
+    query_id NVARCHAR(100) NULL,
+    phase NVARCHAR(50) NULL,
+    operation_type NVARCHAR(50) NULL,
+    table_name NVARCHAR(100) NULL,
+    message NVARCHAR(1000) NULL,
+    rows_processed INT NULL,
+    start_time DATETIME2 NULL,
+    end_time DATETIME2 NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'RUNNING',
+    error_message NVARCHAR(MAX) NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+);
+
 -- ===============================================
 -- 외래키 제약조건 추가
 -- ===============================================
@@ -204,7 +388,61 @@ ALTER TABLE activity_logs
 ADD CONSTRAINT FK_activity_logs_users 
 FOREIGN KEY (user_id) REFERENCES users(user_id);
 
+-- ===============================================
+-- 새로운 테이블들의 외래키 제약조건 추가
+-- ===============================================
+
+-- Users → Companies
+ALTER TABLE users 
+ADD CONSTRAINT FK_users_companies 
+FOREIGN KEY (company_code) REFERENCES companies(company_code);
+
+-- Employees → Employees (Self-reference for Manager)
+ALTER TABLE employees 
+ADD CONSTRAINT FK_employees_manager 
+FOREIGN KEY (manager_id) REFERENCES employees(emp_id);
+
+-- Product_Reviews → Products
+ALTER TABLE product_reviews 
+ADD CONSTRAINT FK_product_reviews_products 
+FOREIGN KEY (product_id) REFERENCES products(product_id);
+
+-- Product_Reviews → Customers
+ALTER TABLE product_reviews 
+ADD CONSTRAINT FK_product_reviews_customers 
+FOREIGN KEY (customer_id) REFERENCES customers(customer_id);
+
+-- Entity_Relationships → Users (Created by)
+ALTER TABLE entity_relationships 
+ADD CONSTRAINT FK_entity_relationships_users 
+FOREIGN KEY (created_by) REFERENCES users(user_id);
+
+-- Approval_Requests → Users (Created by)
+ALTER TABLE approval_requests 
+ADD CONSTRAINT FK_approval_requests_users 
+FOREIGN KEY (created_by) REFERENCES users(user_id);
+
+-- Approval_Relations → Users (Approver)
+ALTER TABLE approval_relations 
+ADD CONSTRAINT FK_approval_relations_approver 
+FOREIGN KEY (approver_id) REFERENCES users(user_id);
+
+-- Approval_Relations → Users (Requester)
+ALTER TABLE approval_relations 
+ADD CONSTRAINT FK_approval_relations_requester 
+FOREIGN KEY (requester_id) REFERENCES users(user_id);
+
+-- Approval_Relations → Products
+ALTER TABLE approval_relations 
+ADD CONSTRAINT FK_approval_relations_products 
+FOREIGN KEY (product_id) REFERENCES products(product_id);
+
+-- Approval_Relations → Users (Created by)
+ALTER TABLE approval_relations 
+ADD CONSTRAINT FK_approval_relations_users 
+FOREIGN KEY (created_by) REFERENCES users(user_id);
+
 PRINT '✅ 테스트용 샘플 테이블 생성 완료!';
-PRINT '   - 8개 테이블 생성됨';
+PRINT '   - 17개 테이블 생성됨';
 PRINT '   - 외래키 관계 설정됨';
 PRINT '   - 다음으로 insert-sample-data.sql을 실행하세요.'; 
