@@ -1,5 +1,43 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🔄 v2.4 - columnOverrides 기능 간소화 (2024-12-28)
+
+### ⚠️ 주요 변경사항
+
+#### columnOverrides 기능 단순화
+- **개별 쿼리 columnOverrides 제거**: 각 쿼리의 `<columnOverrides>` 설정 완전 제거
+- **globalColumnOverrides만 유지**: 전역 설정으로만 컬럼 오버라이드 지원  
+- **코드 간소화**: 복잡한 병합 로직 제거로 성능 향상 및 유지보수성 개선
+- **일관성 향상**: 모든 쿼리에 동일한 컬럼 오버라이드 적용으로 일관성 보장
+
+### 📋 마이그레이션 가이드
+
+기존 XML 파일을 수정하여 개별 쿼리의 `<columnOverrides>` 섹션을 제거하고, 
+필요한 경우 `<globalColumnOverrides>`에 추가하시기 바랍니다.
+
+**변경 전:**
+```xml
+<query id="example">
+  <columnOverrides>
+    <override column="status">MIGRATED</override>
+  </columnOverrides>
+</query>
+```
+
+**변경 후:**
+```xml
+<!-- globalColumnOverrides에 통합 -->
+<globalColumnOverrides>
+  <override column="status">MIGRATED</override>
+</globalColumnOverrides>
+
+<query id="example">
+  <!-- columnOverrides 섹션 제거 -->
+</query>
+```
+
+---
+
 ## 🌟 v2.3 - 고급 기능 대폭 강화 (2025-08-11)
 
 ### ✨ 새로운 기능

@@ -311,18 +311,6 @@
         ]]>
       </sourceQuery>
       
-      <!-- 특정 컬럼에 고정값 설정 -->
-      <columnOverrides>
-        <override column="status">MIGRATED</override>
-        <override column="migration_flag">1</override>
-        <override column="updated_by">${migrationUser}</override>
-        <override column="migration_date">${migrationTimestamp}</override>
-        <override column="current_timestamp">${CURRENT_TIMESTAMP}</override>
-        <override column="processed_at">${NOW}</override>
-      </columnOverrides>
-      
-
-      
       <!-- 이 쿼리 실행 후 후처리 -->
       <postProcess description="사용자 테이블 이관 마무리">
         <![CDATA[
@@ -362,15 +350,7 @@
           SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY product_id
         ]]>
       </sourceQuery>
-      <!-- SELECT * 와 함께 columnOverrides 사용 예시 -->
-      <columnOverrides>
-        <override column="migration_status">MIGRATED_BULK</override>
-        <override column="last_migration_date">${migrationTimestamp}</override>
-        <override column="status">MIGRATED</override>
-        <override column="bulk_processed_date">${CURRENT_DATE}</override>
-        <override column="bulk_processed_time">${CURRENT_TIME}</override>
-        <override column="unix_timestamp">${UNIX_TIMESTAMP}</override>
-      </columnOverrides>
+
 
     </query>
 
@@ -498,9 +478,7 @@
           ORDER BY relation_id
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_flag">RELATED_ENTITY</override>
-      </columnOverrides>
+
     </query>
 
     <!-- 방법 1: 개별 변수를 사용한 쿼리 -->
@@ -526,9 +504,7 @@
           ORDER BY created_date DESC
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">APPROVER_AUDIT</override>
-      </columnOverrides>
+
     </query>
 
     <query id="migrate_requester_audit_logs"
@@ -553,9 +529,7 @@
           ORDER BY created_date DESC
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">REQUESTER_AUDIT</override>
-      </columnOverrides>
+
     </query>
 
     <!-- 방법 2: multiple_columns 사용 (기존) -->
@@ -582,9 +556,7 @@
           ORDER BY created_date DESC
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">APPROVAL_AUDIT</override>
-      </columnOverrides>
+
     </query>
 
     <!-- 방법 3: column_identified 사용 (NEW!) -->
@@ -618,9 +590,7 @@
           ORDER BY created_date DESC
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">IDENTIFIED_APPROVAL_AUDIT</override>
-      </columnOverrides>
+
     </query>
 
     <!-- 컬럼별 식별을 활용한 복합 쿼리 예시 -->
@@ -659,9 +629,7 @@
           ORDER BY created_date DESC
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">COMPLEX_APPROVAL_RELATION</override>
-      </columnOverrides>
+
     </query>
 
     <!-- key_value_pairs 사용 예시 쿼리들 -->
@@ -692,9 +660,7 @@
           ORDER BY u.user_id
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">COMPANY_MAPPING</override>
-      </columnOverrides>
+
     </query>
 
     <query id="migrate_employees_with_dept_info"
@@ -722,9 +688,7 @@
           ORDER BY e.emp_id
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">DEPT_STATUS_MAPPING</override>
-      </columnOverrides>
+
     </query>
 
     <!-- key_value_pairs를 조건절에서 활용하는 예시 -->
@@ -750,9 +714,7 @@
           ORDER BY rd.processed_date DESC
         ]]>
       </sourceQuery>
-      <columnOverrides>
-        <override column="migration_source">MAPPING_FILTERED</override>
-      </columnOverrides>
+
     </query>
 
     <!-- SELECT * 사용 예시 (전/후처리에서) -->
@@ -836,35 +798,31 @@
         ]]>
       </postProcess>
       
-      <columnOverrides>
-        <override column="migration_flag">SELECT_STAR_PROCESSED</override>
-        <override column="processed_by">${migrationUser}</override>
-        <override column="processed_at">${CURRENT_TIMESTAMP}</override>
-      </columnOverrides>
+
     </query>
 
-    <!-- 전/후처리에서 columnOverrides 사용 예시 -->
-    <query id="migrate_with_column_overrides_in_process"
-           description="전/후처리 작업에서 columnOverrides 자동 적용 예시"
+    <!-- 전/후처리 예시 쿼리 -->
+    <query id="migrate_with_global_overrides_example"
+           description="전역 columnOverrides 적용 예시"
            targetTable="audit_table"
            targetColumns="user_id,action_type,action_date,details"
            primaryKey="user_id"
            enabled="false">
       
-      <!-- 전처리에서 INSERT문이 columnOverrides 자동 적용됨 -->
-      <preProcess description="감사 로그 생성 (columnOverrides 자동 적용)">
+      <!-- 전처리 스크립트 -->
+      <preProcess description="감사 로그 생성">
         <![CDATA[
-          -- 마이그레이션 시작 로그 (migration_user, migration_date 자동 추가됨)
+          -- 마이그레이션 시작 로그
           INSERT INTO migration_audit_log (operation_type, start_time, table_name)
           VALUES ('DATA_MIGRATION', GETDATE(), 'users');
           
-          -- 사용자 액션 로그 (created_by, created_date 자동 추가됨)
+          -- 사용자 액션 로그
           INSERT INTO user_action_log (user_id, action_type, action_date, details)
           SELECT user_id, 'MIGRATION_START', GETDATE(), 'Data migration started'
           FROM users 
           WHERE created_date >= '${startDate}';
           
-          -- 백업 테이블에 데이터 저장 (backup_by, backup_date 자동 추가됨)
+          -- 백업 테이블에 데이터 저장
           INSERT INTO users_backup (user_id, username, email, original_created_date)
           SELECT user_id, username, email, created_date
           FROM users 
@@ -888,14 +846,14 @@
         ]]>
       </sourceQuery>
       
-      <!-- 후처리에서 UPDATE문도 columnOverrides 자동 적용됨 -->
-      <postProcess description="마이그레이션 완료 처리 (columnOverrides 자동 적용)">
+      <!-- 후처리 스크립트 -->
+      <postProcess description="마이그레이션 완료 처리">
         <![CDATA[
-          -- 완료 로그 삽입 (migration_user, migration_date 자동 추가됨)
+          -- 완료 로그 삽입
           INSERT INTO migration_audit_log (operation_type, end_time, table_name, rows_processed)
           VALUES ('DATA_MIGRATION', GETDATE(), 'audit_table', @@ROWCOUNT);
           
-          -- 사용자별 완료 상태 업데이트 (updated_by, updated_date 자동 추가됨)
+          -- 사용자별 완료 상태 업데이트
           UPDATE user_migration_status 
           SET status = 'COMPLETED', completion_time = GETDATE()
           WHERE user_id IN (
@@ -903,7 +861,7 @@
             WHERE migration_date = '${migrationTimestamp}'
           );
           
-          -- 통계 업데이트 (processed_by, processed_date 자동 추가됨)
+          -- 통계 업데이트
           UPDATE migration_stats 
           SET processed_count = (
             SELECT COUNT(*) FROM audit_table 
@@ -911,7 +869,7 @@
           ), end_time = GETDATE(), status = 'COMPLETED'
           WHERE migration_id = '${migrationId}';
           
-          -- 알림 로그 (notification_by, notification_date 자동 추가됨)
+          -- 알림 로그
           INSERT INTO notification_log (message_type, message, target_users)
           VALUES ('MIGRATION_COMPLETE', 'User data migration completed successfully', 'admin,manager');
           
@@ -919,23 +877,6 @@
           DELETE FROM temp_migration_data WHERE created_date < DATEADD(HOUR, -1, GETDATE());
         ]]>
       </postProcess>
-      
-      <columnOverrides>
-        <!-- 이 설정들이 전/후처리의 INSERT/UPDATE 문에도 자동 적용됨 -->
-        <override column="migration_user">${migrationUser}</override>
-        <override column="migration_date">${migrationTimestamp}</override>
-        <override column="migration_id">${migrationId}</override>
-        <override column="created_by">${migrationUser}</override>
-        <override column="created_date">GETDATE()</override>
-        <override column="updated_by">${migrationUser}</override>
-        <override column="updated_date">GETDATE()</override>
-        <override column="backup_by">${migrationUser}</override>
-        <override column="backup_date">GETDATE()</override>
-        <override column="processed_by">${migrationUser}</override>
-        <override column="processed_date">GETDATE()</override>
-        <override column="notification_by">${migrationUser}</override>
-        <override column="notification_date">GETDATE()</override>
-      </columnOverrides>
     </query>
 
   </queries>

@@ -167,11 +167,7 @@ ENABLE_TRANSACTION=true
         <![CDATA[ SELECT * FROM users ]]>
       </sourceQuery>
 
-      <!-- 컬럼 오버라이드 -->
-      <columnOverrides>
-        <override column="status">MIGRATED</override>
-        <override column="updated_by">${migrationUser}</override>
-      </columnOverrides>
+      <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
 
       <!-- deleteWhere 기능은 제거됨 - deleteBeforeInsert=true시 PK 기준으로 자동 삭제 -->
 
@@ -242,9 +238,9 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
 
 ## 🚀 고급 기능
 
-### 1. 컬럼 오버라이드 (columnOverrides)
+### 1. 전역 컬럼 오버라이드 (globalColumnOverrides)
 
-특정 컬럼에 고정값 또는 동적값을 설정합니다. 전역 설정과 개별 쿼리 설정을 지원합니다.
+특정 컬럼에 고정값 또는 동적값을 설정합니다. 모든 쿼리에 공통으로 적용되는 전역 설정만 지원합니다.
 
 #### 전역 컬럼 오버라이드 설정
 
@@ -282,44 +278,28 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
     SELECT user_id, username, email FROM users WHERE status = 'ACTIVE'
   </sourceQuery>
   
-  <!-- 개별 쿼리 컬럼 오버라이드 -->
-  <columnOverrides>
-    <!-- 고정값 설정 -->
-    <override column="status">MIGRATED</override>
-    <override column="environment">PROD</override>
-    
-    <!-- 전역 설정 덮어쓰기 -->
-    <override column="migration_date">2024-12-01 20:00:00</override>
-    
-    <!-- SQL 함수 사용 -->
-    <override column="last_updated">GETDATE()</override>
-  </columnOverrides>
 </query>
 ```
 
-#### 병합 규칙
+#### 사용법
 
-1. **전역 설정이 먼저 적용됨**: 모든 쿼리에 전역 `globalColumnOverrides` 설정이 기본으로 적용
-2. **개별 설정이 우선됨**: 개별 쿼리의 `columnOverrides`가 같은 컬럼의 전역 설정을 덮어씀
-3. **추가 설정 가능**: 개별 쿼리에서 전역에 없는 새로운 컬럼 오버라이드 추가 가능
+모든 쿼리에 공통으로 적용되며, 개별 쿼리별 설정은 지원하지 않습니다. 
+일관된 컬럼 값 설정으로 데이터 품질과 일관성을 보장합니다.
 
-**예시 결과:**
+**적용 결과:**
 ```
-최종 적용되는 columnOverrides:
+모든 쿼리에 적용되는 globalColumnOverrides:
 - created_by: "SYSTEM_MIGRATOR" (전역에서)
 - updated_by: "SYSTEM_MIGRATOR" (전역에서) 
-- migration_date: "2024-12-01 20:00:00" (개별에서 덮어씀)
+- migration_date: "2024-12-01 15:30:00" (전역에서)
 - processed_at: "GETDATE()" (전역에서)
 - data_version: "2.1" (전역에서)
-- status: "MIGRATED" (개별에서 추가)
-- environment: "PROD" (개별에서 추가)
-- last_updated: "GETDATE()" (개별에서 추가)
 ```
 
-#### 기본 컬럼 오버라이드 문법
+#### 기본 문법
 
 ```xml
-<columnOverrides>
+<globalColumnOverrides>
   <!-- 고정값 설정 -->
   <override column="migration_flag">1</override>
   
@@ -331,7 +311,7 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
   <override column="migration_date">${CURRENT_DATE}</override>
   <override column="migration_time">${CURRENT_TIME}</override>
   <override column="timestamp_unix">${UNIX_TIMESTAMP}</override>
-</columnOverrides>
+</globalColumnOverrides>
 ```
 
 #### 활용 사례
@@ -734,9 +714,11 @@ company_code | company_name
   ]]>
 </sourceQuery>
 
-<columnOverrides>
+<!-- 전역 컬럼 오버라이드 사용:
+<globalColumnOverrides>
   <override column="migration_batch">${companyCode}_${startDate}</override>
-</columnOverrides>
+</globalColumnOverrides>
+-->
 ```
 
 ## 📝 예시
@@ -759,9 +741,7 @@ company_code | company_name
     ]]>
   </sourceQuery>
   
-  <columnOverrides>
-    <override column="status">MIGRATED</override>
-  </columnOverrides>
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
   
   <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 PK 기준으로 자동 삭제됨 -->
 </query>
@@ -782,13 +762,7 @@ company_code | company_name
     ]]>
   </sourceQuery>
   
-  <columnOverrides>
-    <override column="migration_source">LEGACY_SYSTEM</override>
-    <override column="status">MIGRATED</override>
-    <override column="last_updated">GETDATE()</override>
-    <override column="processed_at">${CURRENT_TIMESTAMP}</override>
-    <override column="process_date">${CURRENT_DATE}</override>
-  </columnOverrides>
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
 </query>
 ```
 
@@ -808,15 +782,7 @@ company_code | company_name
     ]]>
   </sourceQuery>
   
-  <columnOverrides>
-    <!-- 다양한 시각 형식으로 컬럼 추가 -->
-    <override column="migrated_at">${CURRENT_TIMESTAMP}</override>
-    <override column="migration_date">${CURRENT_DATE}</override>
-    <override column="migration_time">${CURRENT_TIME}</override>
-    <override column="unix_timestamp">${UNIX_TIMESTAMP}</override>
-    <override column="iso_timestamp">${ISO_TIMESTAMP}</override>
-    <override column="process_id">${UNIX_TIMESTAMP}_${CURRENT_DATE}</override>
-  </columnOverrides>
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
 </query>
 ```
 
@@ -1258,7 +1224,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ### 10. 전/후처리 컬럼 오버라이드
 
-전/후처리 스크립트의 INSERT/UPDATE 문에도 columnOverrides가 자동으로 적용됩니다.
+전/후처리 스크립트의 INSERT/UPDATE 문에도 globalColumnOverrides가 자동으로 적용됩니다.
 
 #### 자동 적용 예시
 ```xml
@@ -1276,12 +1242,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
     ]]>
   </preProcess>
   
-  <columnOverrides>
-    <override column="migration_user">${migrationUser}</override>
-    <override column="migration_date">GETDATE()</override>
-    <override column="updated_by">${migrationUser}</override>
-    <override column="updated_date">GETDATE()</override>
-  </columnOverrides>
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
 </query>
 ```
 
