@@ -1235,7 +1235,71 @@ PROCESS_SELECT_STAR=false node src/migrate-cli.js migrate queries.xml
 DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 ```
 
-### 10. 전/후처리 컬럼 오버라이드
+### 10. 전/후처리에서 동적변수 사용
+
+전/후처리 스크립트에서도 동적변수를 사용할 수 있습니다. 동적변수는 마이그레이션 시작 시 추출되어 전체 과정에서 사용 가능합니다.
+
+#### 사용 가능한 동적변수 타입
+
+1. **single_column**: 단일 컬럼 값들을 배열로 사용
+2. **key_value_pairs**: 키-값 쌍을 매핑으로 사용  
+3. **column_identified**: 컬럼별로 식별된 값들 사용
+4. **multiple_columns**: 여러 컬럼 값들을 통합 배열로 사용
+
+#### 전처리에서 동적변수 사용 예시
+
+```xml
+<preProcess description="동적변수 활용 전처리">
+  <![CDATA[
+    -- 활성 사용자만 백업 (single_column 동적변수)
+    INSERT INTO user_backup 
+    SELECT * FROM users 
+    WHERE user_id IN (${activeUserIds})
+      AND created_date >= '${startDate}';
+    
+    -- 회사별 통계 생성 (key_value_pairs 동적변수)
+    INSERT INTO company_stats (company_code, company_name, user_count)
+    SELECT company_code, 
+           CASE company_code 
+             WHEN 'COMP01' THEN ${companyMapping.COMP01}
+             WHEN 'COMP02' THEN ${companyMapping.COMP02}
+             ELSE 'Unknown'
+           END,
+           COUNT(*)
+    FROM users 
+    WHERE company_code IN (${companyMapping})
+    GROUP BY company_code;
+  ]]>
+</preProcess>
+```
+
+#### 후처리에서 동적변수 사용 예시
+
+```xml
+<postProcess description="동적변수 활용 후처리">
+  <![CDATA[
+    -- 활성 사용자 통계 업데이트
+    UPDATE user_statistics 
+    SET migration_count = (
+      SELECT COUNT(*) FROM users 
+      WHERE user_id IN (${activeUserIds})
+        AND migration_date = '${migrationTimestamp}'
+    )
+    WHERE stat_type = 'ACTIVE_USERS';
+    
+    -- 부서별 완료 알림 (multiple_columns 동적변수)
+    INSERT INTO notification_queue (target_id, message_type, message)
+    SELECT DISTINCT department_id, 
+           'MIGRATION_COMPLETE',
+           'Department migration completed for ' + CAST(COUNT(*) AS VARCHAR) + ' users'
+    FROM users 
+    WHERE user_id IN (${allEntityIds})
+    GROUP BY department_id;
+  ]]>
+</postProcess>
+```
+
+### 11. 전/후처리 컬럼 오버라이드
 
 전/후처리 스크립트의 INSERT/UPDATE 문에도 globalColumnOverrides가 자동으로 적용됩니다.
 
