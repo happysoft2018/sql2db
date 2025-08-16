@@ -334,6 +334,36 @@ CREATE TABLE migration_log (
     created_date DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 
+
+-- 기존 테이블이 있다면 삭제
+IF OBJECT_ID('validation_errors', 'U') IS NOT NULL
+    DROP TABLE validation_errors;
+
+-- Validation Errors 테이블 생성
+CREATE TABLE validation_errors (
+    error_id INT IDENTITY(1,1) PRIMARY KEY,
+    migration_id NVARCHAR(50) NULL,                    -- 마이그레이션 식별자
+    query_id NVARCHAR(100) NULL,                       -- 쿼리 식별자
+    table_name NVARCHAR(100) NOT NULL,                 -- 대상 테이블명
+    column_name NVARCHAR(100) NULL,                    -- 오류가 발생한 컬럼명
+    row_identifier NVARCHAR(500) NULL,                 -- 행 식별자 (PK 값 또는 고유 식별자)
+    error_type NVARCHAR(50) NOT NULL,                  -- 오류 유형 (CONSTRAINT_VIOLATION, DATA_TYPE_MISMATCH, NULL_VIOLATION, UNIQUE_VIOLATION 등)
+    error_code NVARCHAR(20) NULL,                      -- 오류 코드
+    error_message NVARCHAR(1000) NOT NULL,             -- 오류 메시지
+    error_details NVARCHAR(MAX) NULL,                  -- 상세 오류 정보 (JSON 형태 가능)
+    source_data NVARCHAR(MAX) NULL,                    -- 원본 데이터 (문제가 된 데이터)
+    expected_value NVARCHAR(500) NULL,                 -- 예상 값
+    actual_value NVARCHAR(500) NULL,                   -- 실제 값
+    severity NVARCHAR(20) NOT NULL DEFAULT 'ERROR',    -- 심각도 (ERROR, WARNING, INFO)
+    status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',    -- 상태 (PENDING, RESOLVED, IGNORED, FIXED)
+    resolved_by NVARCHAR(100) NULL,                    -- 해결한 사용자
+    resolved_date DATETIME2 NULL,                      -- 해결 날짜
+    resolution_notes NVARCHAR(1000) NULL,              -- 해결 노트
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(), -- 오류 발생 시간
+    updated_date DATETIME2 NULL                        -- 마지막 업데이트 시간
+);
+
+
 -- ===============================================
 -- 외래키 제약조건 추가
 -- ===============================================

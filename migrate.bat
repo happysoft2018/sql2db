@@ -62,7 +62,7 @@ if exist "queries\*.xml" (
     for %%f in (queries\*.xml) do echo   - %%f
 )
 if exist "queries\*.json" (
-    for %%f in (queries\*.xml) do echo   - %%f
+    for %%f in (queries\*.json) do echo   - %%f
 )
 echo.
 echo 쿼리문정의 파일 경로를 입력하세요 (예: queries/my-config.xml):
