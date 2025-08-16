@@ -31,8 +31,6 @@
   <!-- 전역 컬럼 오버라이드 설정 -->
   <globalColumnOverrides>
     <!-- 모든 쿼리에 공통으로 적용될 컬럼 값들 -->
-    <override column="created_by">${migrationUser}</override>
-    <override column="updated_by">${migrationUser}</override>
     <override column="migration_date">${migrationTimestamp}</override>
     <override column="processed_at">GETDATE()</override>
     <override column="data_version">2.1</override>
@@ -381,15 +379,16 @@
     <query id="migrate_products_all"
            description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
            targetTable="products"
-           targetColumns=""
-           primaryKey="product_id"
-           enabled="false">
+           targetColumns="product_code, product_name, category_id, price, status, created_date, updated_date, created_by"
+           primaryKey="product_code"
+           enabled="true">
       <sourceQuery applyGlobalColumns="all">
         <![CDATA[
-          SELECT * FROM products WHERE status = 'ACTIVE'
+          SELECT product_code, product_name, category_id, price, status, created_date, updated_date, created_by
+          FROM products 
+          WHERE status = 'ACTIVE'
+        ]]>
       </sourceQuery>
-
-
     </query>
 
     <!-- 주문 테이블 데이터 이관 (SQL 파일 사용) -->
@@ -400,7 +399,7 @@
            targetColumns="order_id,customer_id,order_date,total_amount,status"
            primaryKey="order_id"
            enabled="false">
-      <sourceQuery applyGlobalColumns="created_by">
+      <sourceQuery applyGlobalColumns="">
         <![CDATA[
           SELECT order_id,customer_id,order_date,total_amount,status
           FROM orders 
@@ -436,7 +435,7 @@
            targetColumns="emp_id,emp_name,department_code,hire_date,salary"
            primaryKey="emp_id"
            enabled="false">
-      <sourceQuery applyGlobalColumns="created_by,processed_at">
+      <sourceQuery applyGlobalColumns="processed_at">
         <![CDATA[
           SELECT emp_id, emp_name, department_code, hire_date, salary 
           FROM employees 
