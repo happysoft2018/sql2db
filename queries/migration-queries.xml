@@ -125,7 +125,11 @@
                 columnName="user_id"
                 enabled="true">
       <![CDATA[
-        SELECT user_id FROM users WHERE status = 'ACTIVE' AND last_login_date >= '${startDate}'
+        SELECT user_id FROM users 
+        WHERE status = 'ACTIVE' 
+          AND last_login_date >= '${startDate}'
+          AND user_id IS NOT NULL
+        ORDER BY user_id
       ]]>
     </dynamicVar>
 
@@ -317,26 +321,19 @@
     <query id="migrate_users"
            description="사용자 테이블 데이터 이관"
            targetTable="users"
-           targetColumns="user_id,username,email,created_date,status"
-           primaryKey="user_id"
+           targetColumns="username, email, first_name, last_name, status, department_id, company_code, created_date, last_login_date, is_active, salary, birth_date"
+           primaryKey="username"
            enabled="true">
       <!-- 이 쿼리 실행 전 전처리 -->
-      <preProcess description="사용자 테이블 이관 준비" applyGlobalColumns="created_by">
+      <preProcess description="사용자 테이블 이관 준비">
         <![CDATA[
           -- 임시 테이블 생성
           IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
           CREATE TABLE #temp_users (user_id INT, old_status VARCHAR(50), new_status VARCHAR(50));
           
           -- 회사별 통계 로그 (key_value_pairs 동적변수 사용)
-          INSERT INTO migration_stats (company_code, company_name, user_count, created_date)
-          SELECT company_code, 
-                 CASE company_code 
-                   WHEN 'COMPANY01' THEN ${companyMapping.COMPANY01}
-                   WHEN 'COMPANY02' THEN ${companyMapping.COMPANY02}
-                   ELSE 'Unknown'
-                 END as company_name,
-                 COUNT(*) as user_count,
-                 GETDATE()
+          INSERT INTO migration_stats (query_id, table_name, stat_type, stat_category, stat_name, stat_value)
+          SELECT 'migrate_users', 'users', 'OVERALL', 'DATA', 'user_count', COUNT(*) 
           FROM users 
           WHERE company_code IN (${companyMapping})
             AND created_date >= '${startDate}'
@@ -348,9 +345,9 @@
         ]]>
       </preProcess>
       
-      <sourceQuery applyGlobalColumns="created_by,processed_at">
+      <sourceQuery>
         <![CDATA[
-          SELECT user_id, username, email, created_date 
+          SELECT username, email, first_name, last_name, status, department_id, company_code, created_date, last_login_date, is_active, salary, birth_date
           FROM users 
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
@@ -359,18 +356,12 @@
       </sourceQuery>
       
       <!-- 이 쿼리 실행 후 후처리 -->
-      <postProcess description="사용자 테이블 이관 마무리" applyGlobalColumns="created_by">
+      <postProcess description="사용자 테이블 이관 마무리">
         <![CDATA[
           -- 데이터 검증 (동적변수 사용)
           DECLARE @source_count INT, @target_count INT, @active_user_count INT;
           SELECT @target_count = COUNT(*) FROM users WHERE created_date = '${migrationTimestamp}';
           SELECT @active_user_count = COUNT(*) FROM users WHERE user_id IN (${activeUserIds});
-          
-          IF @source_count != @target_count
-          BEGIN
-            INSERT INTO migration_errors (query_id, error_message, created_date)
-            VALUES ('migrate_users', 'Row count mismatch: source=' + CAST(@source_count AS VARCHAR) + ', target=' + CAST(@target_count AS VARCHAR), GETDATE());
-          END
           
           -- 통계 업데이트
           UPDATE STATISTICS users;

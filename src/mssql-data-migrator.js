@@ -599,15 +599,20 @@ class MSSQLDataMigrator {
             const beforeReplace = result;
             
             try {
-                // 배열 타입인 경우 IN절 처리
-                if (Array.isArray(value)) {
-                    const inClause = value.map(v => {
-                        if (typeof v === 'string') {
-                            return `'${v.replace(/'/g, "''")}'`;
-                        }
-                        return v;
-                    }).join(', ');
-                    result = result.replace(pattern, inClause);
+                    // 배열 타입인 경우 IN절 처리
+                    if (Array.isArray(value)) {
+                        if (value.length === 0) {
+                            // 빈 배열을 존재하지 않을 것 같은 값으로 치환
+                            result = result.replace(pattern, "'^-_'");
+                        } else {
+                        const inClause = value.map(v => {
+                            if (typeof v === 'string') {
+                                return `'${v.replace(/'/g, "''")}'`;
+                            }
+                            return v;
+                        }).join(', ');
+                        result = result.replace(pattern, inClause);
+                    }
                     
                     if (debugVariables && beforeReplace !== result) {
                         this.log(`동적 변수 [${key}] 치환: 배열 ${value.length}개 → IN절`);
