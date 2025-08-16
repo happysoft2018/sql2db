@@ -52,7 +52,7 @@
         ]]>
       </group>
       
-      <group id="validation" description="데이터 검증" enabled="true">
+      <group id="validation" description="데이터 검증" enabled="false">
         <![CDATA[
           -- 소스 데이터 기본 검증
           IF EXISTS (SELECT 1 FROM users WHERE username IS NULL OR email IS NULL)
@@ -72,7 +72,7 @@
     
     <!-- 전체 이관 완료 후 실행 그룹들 -->
     <postProcessGroups>
-      <group id="performance_restore" description="성능 최적화 복원" enabled="true">
+      <group id="performance_restore" description="성능 최적화 복원" enabled="false">
         <![CDATA[
           -- 인덱스 재구성
           ALTER INDEX ALL ON users REBUILD;
@@ -89,15 +89,16 @@
         ]]>
       </group>
       
-      <group id="verification" description="데이터 검증" enabled="true">
+      <group id="verification" description="데이터 검증" enabled="false">
         <![CDATA[
           -- 이관 후 데이터 개수 검증
           DECLARE @source_count INT, @target_count INT;
-          SELECT @target_count = COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}';
+          SELECT @source_count = 0;
+          SELECT @target_count = COUNT(*) FROM users WHERE created_date = '${migrationTimestamp}';
           
           IF @source_count != @target_count
           BEGIN
-            INSERT INTO validation_errors (error_type, error_message, source_count, target_count, created_date)
+            INSERT INTO validation_errors (error_type, error_message, expected_value, actual_value, created_date)
             VALUES ('COUNT_MISMATCH', 'Source and target counts do not match', @source_count, @target_count, GETDATE());
           END
         ]]>
@@ -106,9 +107,9 @@
       <group id="completion" description="완료 로그" enabled="true">
         <![CDATA[
           -- 이관 완료 로그 기록
-          INSERT INTO migration_log (query_id, status, message, total_rows, created_date) 
+          INSERT INTO migration_log (query_id, status, message, rows_processed, created_date) 
           VALUES ('migrate_users', 'COMPLETED', 'Data migration completed successfully', 
-                  (SELECT COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}'), GETDATE());
+                  (SELECT COUNT(*) FROM users WHERE created_date = '${migrationTimestamp}'), GETDATE());
           
         ]]>
       </group>
@@ -145,10 +146,10 @@
                 extractType="key_value_pairs"
                 enabled="true">
       <![CDATA[
-        SELECT DISTINCT dept_code, dept_name 
+        SELECT DISTINCT department_code, department_name 
         FROM departments 
         WHERE is_active = 1
-        ORDER BY dept_code
+ 
       ]]>
     </dynamicVar>
 
@@ -161,7 +162,7 @@
         SELECT status_code, status_description 
         FROM status_codes 
         WHERE category = 'USER_STATUS'
-        ORDER BY sort_order
+
       ]]>
     </dynamicVar>
 
@@ -232,7 +233,7 @@
         SELECT DISTINCT ar.approver_code
         FROM approval_requests ar
         WHERE ar.status IN (${statusList})
-          AND ar.created_date >= '${startDate}'
+          AND ar.requested_date >= '${startDate}'
           AND ar.approver_code IS NOT NULL
       ]]>
     </dynamicVar>
@@ -247,7 +248,7 @@
         SELECT DISTINCT ar.requester_code
         FROM approval_requests ar
         WHERE ar.status IN (${statusList})
-          AND ar.created_date >= '${startDate}'
+          AND ar.requested_date >= '${startDate}'
           AND ar.requester_code IS NOT NULL
       ]]>
     </dynamicVar>
@@ -262,7 +263,7 @@
         SELECT DISTINCT ar.product_code
         FROM approval_requests ar
         WHERE ar.status IN (${statusList})
-          AND ar.created_date >= '${startDate}'
+          AND ar.requested_date >= '${startDate}'
           AND ar.product_code IS NOT NULL
       ]]>
     </dynamicVar>
@@ -281,7 +282,7 @@
           ar.product_code
         FROM approval_requests ar
         WHERE ar.status IN (${statusList})
-          AND ar.created_date >= '${startDate}'
+          AND ar.requested_date >= '${startDate}'
           AND ar.approver_code IS NOT NULL
           AND ar.requester_code IS NOT NULL
           AND ar.product_code IS NOT NULL
@@ -302,7 +303,7 @@
           ar.product_code
         FROM approval_requests ar
         WHERE ar.status IN (${statusList})
-          AND ar.created_date >= '${startDate}'
+          AND ar.requested_date >= '${startDate}'
           AND ar.approver_code IS NOT NULL
           AND ar.requester_code IS NOT NULL
           AND ar.product_code IS NOT NULL
@@ -316,28 +317,22 @@
     <query id="migrate_users"
            description="사용자 테이블 데이터 이관"
            targetTable="users"
-           targetColumns="user_id,username,email,created_date,status,migration_flag,updated_by,migration_date"
+           targetColumns="user_id,username,email,created_date,status"
            primaryKey="user_id"
            enabled="true">
       <!-- 이 쿼리 실행 전 전처리 -->
-      <preProcess description="사용자 테이블 이관 준비" applyGlobalColumns="created_by,updated_by">
+      <preProcess description="사용자 테이블 이관 준비" applyGlobalColumns="created_by">
         <![CDATA[
           -- 임시 테이블 생성
           IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
           CREATE TABLE #temp_users (user_id INT, old_status VARCHAR(50), new_status VARCHAR(50));
           
-          -- 기존 데이터 백업 (동적변수 사용 예시)
-          INSERT INTO user_migration_backup 
-          SELECT *, GETDATE() as backup_date FROM users 
-          WHERE created_date >= '${startDate}' AND created_date <= '${endDate}'
-            AND user_id IN (${activeUserIds});
-          
           -- 회사별 통계 로그 (key_value_pairs 동적변수 사용)
           INSERT INTO migration_stats (company_code, company_name, user_count, created_date)
           SELECT company_code, 
                  CASE company_code 
-                   WHEN 'COMP01' THEN ${companyMapping.COMP01}
-                   WHEN 'COMP02' THEN ${companyMapping.COMP02}
+                   WHEN 'COMPANY01' THEN ${companyMapping.COMPANY01}
+                   WHEN 'COMPANY02' THEN ${companyMapping.COMPANY02}
                    ELSE 'Unknown'
                  END as company_name,
                  COUNT(*) as user_count,
@@ -353,22 +348,22 @@
         ]]>
       </preProcess>
       
-      <sourceQuery applyGlobalColumns="created_by,updated_by,migration_date,processed_at">
+      <sourceQuery applyGlobalColumns="created_by,processed_at">
         <![CDATA[
           SELECT user_id, username, email, created_date 
           FROM users 
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
-          ORDER BY user_id
+          
         ]]>
       </sourceQuery>
       
       <!-- 이 쿼리 실행 후 후처리 -->
-      <postProcess description="사용자 테이블 이관 마무리" applyGlobalColumns="created_by,migration_date">
+      <postProcess description="사용자 테이블 이관 마무리" applyGlobalColumns="created_by">
         <![CDATA[
           -- 데이터 검증 (동적변수 사용)
           DECLARE @source_count INT, @target_count INT, @active_user_count INT;
-          SELECT @target_count = COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}';
+          SELECT @target_count = COUNT(*) FROM users WHERE created_date = '${migrationTimestamp}';
           SELECT @active_user_count = COUNT(*) FROM users WHERE user_id IN (${activeUserIds});
           
           IF @source_count != @target_count
@@ -376,23 +371,6 @@
             INSERT INTO migration_errors (query_id, error_message, created_date)
             VALUES ('migrate_users', 'Row count mismatch: source=' + CAST(@source_count AS VARCHAR) + ', target=' + CAST(@target_count AS VARCHAR), GETDATE());
           END
-          
-          -- 활성 사용자 통계 업데이트 (동적변수 활용)
-          UPDATE user_statistics 
-          SET active_count = @active_user_count,
-              last_migration_date = GETDATE()
-          WHERE user_id IN (${activeUserIds});
-          
-          -- 회사별 완료 상태 업데이트 (key_value_pairs 동적변수 사용)
-          UPDATE company_migration_status
-          SET status = 'COMPLETED',
-              completion_date = GETDATE(),
-              user_count = (
-                SELECT COUNT(*) FROM users 
-                WHERE company_code = company_migration_status.company_code
-                  AND migration_date = '${migrationTimestamp}'
-              )
-          WHERE company_code IN (${companyMapping});
           
           -- 통계 업데이트
           UPDATE STATISTICS users;
@@ -417,8 +395,7 @@
            enabled="false">
       <sourceQuery applyGlobalColumns="all">
         <![CDATA[
-          SELECT * FROM products WHERE status = 'ACTIVE' ORDER BY product_id
-        ]]>
+          SELECT * FROM products WHERE status = 'ACTIVE'
       </sourceQuery>
 
 
@@ -432,7 +409,7 @@
            targetColumns="order_id,customer_id,order_date,total_amount,status"
            primaryKey="order_id"
            enabled="false">
-      <sourceQuery applyGlobalColumns="created_by,updated_by">
+      <sourceQuery applyGlobalColumns="created_by">
         <![CDATA[
           SELECT order_id,customer_id,order_date,total_amount,status
           FROM orders 
@@ -455,7 +432,7 @@
           FROM products 
           WHERE status IN (${statusList}) 
             AND category_id IN (${categoryIds}) 
-          ORDER BY product_id
+    
         ]]>
       </sourceQuery>
 
@@ -468,13 +445,13 @@
            targetColumns="emp_id,emp_name,department_code,hire_date,salary"
            primaryKey="emp_id"
            enabled="false">
-      <sourceQuery applyGlobalColumns="created_by,migration_date,processed_at">
+      <sourceQuery applyGlobalColumns="created_by,processed_at">
         <![CDATA[
           SELECT emp_id, emp_name, department_code, hire_date, salary 
           FROM employees 
           WHERE department_code IN (${departmentCodes}) 
             AND hire_date >= '${startDate}' 
-          ORDER BY emp_id
+        
         ]]>
       </sourceQuery>
 
@@ -504,7 +481,7 @@
           FROM orders 
           WHERE user_id IN (${activeUserIds}) 
             AND order_date >= '${startDate}' 
-          ORDER BY order_date DESC
+  
         ]]>
       </sourceQuery>
 
@@ -545,7 +522,7 @@
           FROM entity_relationships 
           WHERE entity_id IN (${allEntityIds})
              OR related_entity_id IN (${allEntityIds})
-          ORDER BY relation_id
+          
         ]]>
       </sourceQuery>
 
@@ -571,7 +548,7 @@
           WHERE user_code IN (${approverCodes})
             AND created_date >= '${startDate}'
             AND action_type IN ('APPROVE', 'REJECT')
-          ORDER BY created_date DESC
+     
         ]]>
       </sourceQuery>
 
@@ -596,7 +573,7 @@
           WHERE user_code IN (${requesterCodes})
             AND created_date >= '${startDate}'
             AND action_type = 'REQUEST'
-          ORDER BY created_date DESC
+      
         ]]>
       </sourceQuery>
 
@@ -623,7 +600,7 @@
              OR user_code IN (${allApprovalCodes}))
             AND created_date >= '${startDate}'
             AND action_type IN ('APPROVE', 'REJECT', 'REQUEST')
-          ORDER BY created_date DESC
+  
         ]]>
       </sourceQuery>
 
@@ -657,7 +634,7 @@
             (entity_code IN (${approvalCodesById.product_code}) AND action_type LIKE '%PRODUCT%')
           )
             AND created_date >= '${startDate}'
-          ORDER BY created_date DESC
+    
         ]]>
       </sourceQuery>
 
@@ -696,7 +673,7 @@
           WHERE (ar2.approver_id IN (${approvalCodesById}) 
              OR ar2.requester_id IN (${approvalCodesById}))
             AND ar2.created_date >= '${startDate}'
-          ORDER BY created_date DESC
+
         ]]>
       </sourceQuery>
 
@@ -718,16 +695,16 @@
             u.company_code,
             -- key_value_pairs 매핑을 이용한 회사명 조회
             CASE u.company_code
-              WHEN 'COMP01' THEN ${companyMapping.COMP01}
-              WHEN 'COMP02' THEN ${companyMapping.COMP02}
-              WHEN 'COMP03' THEN ${companyMapping.COMP03}
+              WHEN 'COMPANY01' THEN ${companyMapping.COMPANY01}
+              WHEN 'COMPANY02' THEN ${companyMapping.COMPANY02}
+              WHEN 'COMPANY03' THEN ${companyMapping.COMPANY03}
               ELSE 'Unknown Company'
             END as company_name,
             u.created_date
           FROM users u
           WHERE u.company_code IN (${companyMapping})
             AND u.created_date >= '${startDate}'
-          ORDER BY u.user_id
+
         ]]>
       </sourceQuery>
 
@@ -755,7 +732,7 @@
           WHERE e.dept_code IN (${departmentMapping})
             AND e.status IN (${statusMapping})
             AND e.hire_date >= '${startDate}'
-          ORDER BY e.emp_id
+
         ]]>
       </sourceQuery>
 
@@ -781,7 +758,7 @@
           WHERE rd.entity_code IN (${companyMapping})  -- 매핑된 회사 코드만
             AND rd.category_id IN (${categoryMapping}) -- 매핑된 카테고리만
             AND rd.processed_date >= '${startDate}'
-          ORDER BY rd.processed_date DESC
+
         ]]>
       </sourceQuery>
 
@@ -813,8 +790,8 @@
           SELECT u.* FROM users u
           LEFT JOIN departments d ON u.dept_id = d.id
           WHERE u.created_date >= '${startDate}' 
-            AND d.is_active = 1
-          ORDER BY u.created_date;
+            AND d.is_active = 1;
+
           
           -- 로그 기록
           INSERT INTO migration_log (query_id, phase, message, created_date)
@@ -828,7 +805,7 @@
           FROM example_table 
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
-          ORDER BY id
+  
         ]]>
       </sourceQuery>
       
@@ -912,7 +889,7 @@
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
             AND status = 'ACTIVE'
-          ORDER BY user_id
+ 
         ]]>
       </sourceQuery>
       

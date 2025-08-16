@@ -121,26 +121,26 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 프로젝트에는 다양한 데이터베이스 스크립트가 포함되어 있습니다:
 
 - 📊 **[create-sample-tables.sql](resources/create-sample-tables.sql)**: 테스트용 샘플 테이블들 생성
-- 📝 **[create-validation-errors-table.sql](resources/create-validation-errors-table.sql)**: 데이터 검증 오류 테이블 생성
+- 📝 **[create-example-table.sql](resources/create-example-table.sql)**: 다양한 데이터 타입을 포함한 예시 테이블 생성
 - 📋 **[insert-sample-data.sql](resources/insert-sample-data.sql)**: 샘플 데이터 삽입
 
-### Validation Errors 테이블 사용법
+### Example Table 사용법
 
-마이그레이션 과정에서 발생하는 데이터 검증 오류를 추적하기 위한 테이블을 생성하려면:
+마이그레이션 테스트를 위한 다양한 데이터 타입과 제약조건을 포함한 예시 테이블을 생성하려면:
 
 ```sql
 -- SQL Server Management Studio에서 실행
 -- 또는 명령줄에서 실행
-sqlcmd -S your-server -d your-database -i resources/create-validation-errors-table.sql
+sqlcmd -S your-server -d your-database -i resources/create-example-table.sql
 ```
 
-이 테이블은 다음 정보를 기록합니다:
-- 마이그레이션 식별자 및 쿼리 ID
-- 오류가 발생한 테이블 및 컬럼 정보
-- 오류 유형 및 심각도 (ERROR, WARNING, INFO)
-- 원본 데이터 및 예상/실제 값
-- 오류 해결 상태 및 해결 노트
-- 오류 요약 뷰 및 상태 업데이트 저장 프로시저 포함
+이 테이블은 다음 특징을 포함합니다:
+- 다양한 데이터 타입 (문자열, 숫자, 날짜, 불린, JSON, 바이너리)
+- 계산된 컬럼 (full_name, age_group)
+- 체크 제약조건 (나이, 급여, 이메일 형식 등)
+- 성능 최적화 인덱스
+- 유용한 뷰와 저장 프로시저
+- 한국어 샘플 데이터 포함
 
 ## 📈 진행 상황 관리
 

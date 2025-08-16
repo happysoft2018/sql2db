@@ -9,24 +9,6 @@
 -- 
 -- ===============================================
 
-ALTER TABLE users NOCHECK CONSTRAINT ALL;
-ALTER TABLE departments NOCHECK CONSTRAINT ALL;
-ALTER TABLE categories NOCHECK CONSTRAINT ALL;
-ALTER TABLE products NOCHECK CONSTRAINT ALL;
-ALTER TABLE orders NOCHECK CONSTRAINT ALL;
-ALTER TABLE order_items NOCHECK CONSTRAINT ALL;
-ALTER TABLE customers NOCHECK CONSTRAINT ALL;
-ALTER TABLE activity_logs NOCHECK CONSTRAINT ALL;
-ALTER TABLE companies NOCHECK CONSTRAINT ALL;
-ALTER TABLE employees NOCHECK CONSTRAINT ALL;
-ALTER TABLE product_reviews NOCHECK CONSTRAINT ALL;
-ALTER TABLE entity_relationships NOCHECK CONSTRAINT ALL;
-ALTER TABLE approval_requests NOCHECK CONSTRAINT ALL;
-ALTER TABLE audit_logs NOCHECK CONSTRAINT ALL;
-ALTER TABLE status_codes NOCHECK CONSTRAINT ALL;
-ALTER TABLE approval_relations NOCHECK CONSTRAINT ALL;
-ALTER TABLE migration_log NOCHECK CONSTRAINT ALL;
-
 
 -- 1. 사용자 테이블 (Users)
 IF OBJECT_ID('users', 'U') IS NOT NULL
@@ -363,6 +345,33 @@ CREATE TABLE validation_errors (
     updated_date DATETIME2 NULL                        -- 마지막 업데이트 시간
 );
 
+
+-- 기존 테이블이 있다면 삭제
+IF OBJECT_ID('migration_stats', 'U') IS NOT NULL
+    DROP TABLE migration_stats;
+
+-- Migration Stats 테이블 생성
+CREATE TABLE migration_stats (
+    stat_id INT IDENTITY(1,1) PRIMARY KEY,
+    migration_id NVARCHAR(50) NOT NULL,                 -- 마이그레이션 식별자
+    query_id NVARCHAR(100) NULL,                        -- 쿼리 식별자 (NULL이면 전체 통계)
+    table_name NVARCHAR(100) NULL,                      -- 대상 테이블명
+    stat_type NVARCHAR(50) NOT NULL,                    -- 통계 유형 (OVERALL, QUERY, TABLE, PHASE)
+    stat_category NVARCHAR(50) NOT NULL,                -- 통계 카테고리 (PERFORMANCE, DATA, ERROR, TIMING)
+    stat_name NVARCHAR(100) NOT NULL,                   -- 통계 항목명
+    stat_value DECIMAL(18,4) NULL,                      -- 통계 값 (숫자)
+    stat_text NVARCHAR(500) NULL,                       -- 통계 값 (텍스트)
+    stat_json NVARCHAR(MAX) NULL,                       -- 통계 값 (JSON 형태)
+    start_time DATETIME2 NULL,                          -- 시작 시간
+    end_time DATETIME2 NULL,                            -- 종료 시간
+    duration_seconds DECIMAL(10,3) NULL,                -- 소요 시간 (초)
+    batch_number INT NULL,                              -- 배치 번호
+    phase NVARCHAR(50) NULL,                            -- 실행 단계 (preProcess, sourceQuery, postProcess)
+    status NVARCHAR(20) NOT NULL DEFAULT 'COMPLETED',   -- 상태 (RUNNING, COMPLETED, FAILED)
+    error_message NVARCHAR(1000) NULL,                  -- 오류 메시지
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),  -- 생성 시간
+    updated_date DATETIME2 NULL                         -- 마지막 업데이트 시간
+);
 
 -- ===============================================
 -- 외래키 제약조건 추가
