@@ -194,9 +194,9 @@
     <dynamicVar id="extract_category_products"
                 description="특정 카테고리의 모든 상품 ID 추출"
                 variableName="categoryProductIds"
-                extractType="multiple_columns"
+                extractType="column_identified"
                 columns="product_id,category_id"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT product_id, category_id FROM products WHERE category_id IN (${categoryIds})
       ]]>
@@ -276,7 +276,7 @@
                 variableName="allApprovalCodes"
                 extractType="multiple_columns"
                 columns="approver_code,requester_code,product_code"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT 
           ar.approver_code,
@@ -399,26 +399,18 @@
            targetColumns="*"
            primaryKey="order_number"
            enabled="true">
-      <sourceQuery applyGlobalColumns="">
-        <![CDATA[
-          SELECT *
-          FROM orders 
-          WHERE order_date >= '${startDate}' AND order_date <= '${endDate}'
-        ]]>
-      </sourceQuery>
-
     </query>
 
     <!-- 특정 상태의 상품 데이터 이관 (IN절 사용) -->
     <query id="migrate_products_by_status"
            description="특정 상태의 상품 데이터 이관 (IN절 사용)"
            targetTable="products"
-           targetColumns="product_id,product_name,category_id,price,status"
-           primaryKey="product_id"
-           enabled="false">
+           targetColumns="*"
+           primaryKey="product_code"
+           enabled="true">
       <sourceQuery applyGlobalColumns="data_version">
         <![CDATA[
-          SELECT product_id, product_name, category_id, price, status 
+          SELECT *
           FROM products 
           WHERE status IN (${statusList}) 
             AND category_id IN (${categoryIds}) 
@@ -432,12 +424,12 @@
     <query id="migrate_employees_by_department"
            description="특정 부서 직원 데이터 이관 (IN절 사용)"
            targetTable="employees"
-           targetColumns="emp_id,emp_name,department_code,hire_date,salary"
-           primaryKey="emp_id"
-           enabled="false">
-      <sourceQuery applyGlobalColumns="processed_at">
+           targetColumns="*"
+           primaryKey="emp_code"
+           enabled="true">
+      <sourceQuery applyGlobalColumns="all">
         <![CDATA[
-          SELECT emp_id, emp_name, department_code, hire_date, salary 
+          SELECT *
           FROM employees 
           WHERE department_code IN (${departmentCodes}) 
             AND hire_date >= '${startDate}' 
@@ -452,24 +444,23 @@
            description="상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용)"
            sourceQueryFile="sql/products_in_clause_example.sql"
            targetTable="products"
-           targetColumns="product_id,product_name,category_id,price,status,created_date,updated_date,category_name"
-           primaryKey="product_id"
-           enabled="false">
-
+           targetColumns="*"
+           primaryKey="product_code"
+           enabled="true">
     </query>
 
     <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
     <query id="migrate_user_orders_dynamic"
            description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
            targetTable="orders"
-           targetColumns="order_id,user_id,order_date,total_amount,status"
-           primaryKey="order_id"
-           enabled="false">
+           targetColumns="*"
+           primaryKey="order_number"
+           enabled="true">
       <sourceQuery>
         <![CDATA[
-          SELECT order_id, user_id, order_date, total_amount, status 
+          SELECT *
           FROM orders 
-          WHERE user_id IN (${activeUserIds}) 
+          WHERE customer_id IN (${activeUserIds}) 
             AND order_date >= '${startDate}' 
   
         ]]>
@@ -481,13 +472,14 @@
     <query id="migrate_related_products_dynamic"
            description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
            targetTable="product_reviews"
-           targetColumns=""
-           primaryKey="review_id"
-           enabled="false">
+           targetColumns="*"
+           primaryKey="product_id,customer_id"
+           enabled="true">
       <sourceQuery>
         <![CDATA[
-          SELECT * FROM product_reviews 
-          WHERE product_id IN (${categoryProductIds}) 
+          SELECT * 
+          FROM product_reviews 
+          WHERE product_id IN (${categoryProductIds.product_id}) 
             AND rating >= 4
         ]]>
       </sourceQuery>
