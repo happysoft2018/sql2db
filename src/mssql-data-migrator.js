@@ -522,7 +522,7 @@ class MSSQLDataMigrator {
                         targetTable: q.targetTable,
                         targetColumns: q.targetColumns ? q.targetColumns.split(',').map(c => c.trim()) : [],
                         batchSize: q.batchSize || config.settings.batchSize,  // 개별 설정이 없으면 글로벌 설정 사용
-                        primaryKey: q.primaryKey,
+                        identityColumns: q.identityColumns,
                         deleteBeforeInsert: q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert,  // 개별 설정이 없으면 글로벌 설정 사용
                         enabled: q.enabled === 'true'
                     };
@@ -1912,10 +1912,10 @@ class MSSQLDataMigrator {
                 this.log(`이관 전 대상 테이블 PK 기준 데이터 삭제: ${queryConfig.targetTable}`);
                 if (sourceData && sourceData.length > 0) {
                     // Primary Key가 콤마로 구분된 문자열인 경우 배열로 변환
-                    const primaryKeys = typeof queryConfig.primaryKey === 'string' && queryConfig.primaryKey.includes(',')
-                        ? queryConfig.primaryKey.split(',').map(pk => pk.trim())
-                        : queryConfig.primaryKey;
-                    await this.connectionManager.deleteFromTargetByPK(queryConfig.targetTable, primaryKeys, sourceData);
+                            const identityColumns = typeof queryConfig.identityColumns === 'string' && queryConfig.identityColumns.includes(',')
+            ? queryConfig.identityColumns.split(',').map(pk => pk.trim())
+            : queryConfig.identityColumns;
+        await this.connectionManager.deleteFromTargetByPK(queryConfig.targetTable, identityColumns, sourceData);
                 } else {
                     this.log(`소스 데이터가 없어 ${queryConfig.targetTable} 테이블 삭제를 건너뜁니다.`);
                 }
@@ -2398,7 +2398,7 @@ class MSSQLDataMigrator {
                     console.log(`   📊 이관 예정 데이터: ${rowCount.toLocaleString()}행`);
                     
                     if (queryConfig.deleteBeforeInsert) {
-                        console.log(`   🗑️ 삭제 방식: PK(${queryConfig.primaryKey}) 기준 삭제`);
+                        console.log(`   🗑️ 삭제 방식: PK(${queryConfig.identityColumns}) 기준 삭제`);
                     }
                     
                     // 대상 컬럼 정보

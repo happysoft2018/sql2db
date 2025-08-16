@@ -194,7 +194,7 @@ class MSSQLConnectionManager {
     }
 
     // 대상 데이터베이스에서 테이블 데이터 삭제 (PK 기준)
-    async deleteFromTargetByPK(tableName, primaryKeys, sourceData) {
+    async deleteFromTargetByPK(tableName, identityColumns, sourceData) {
         try {
             if (!this.isTargetConnected) {
                 await this.connectTarget();
@@ -208,17 +208,17 @@ class MSSQLConnectionManager {
             // PK 값들 추출
             const pkValues = [];
             sourceData.forEach(row => {
-                if (Array.isArray(primaryKeys)) {
+                if (Array.isArray(identityColumns)) {
                     // 복합 키인 경우
                     const pkSet = {};
-                    primaryKeys.forEach(pk => {
+                    identityColumns.forEach(pk => {
                         pkSet[pk] = row[pk];
                     });
                     pkValues.push(pkSet);
                 } else {
                     // 단일 키인 경우
-                    if (row[primaryKeys] !== undefined && row[primaryKeys] !== null) {
-                        pkValues.push(row[primaryKeys]);
+                    if (row[identityColumns] !== undefined && row[identityColumns] !== null) {
+                        pkValues.push(row[identityColumns]);
                     }
                 }
             });
@@ -231,10 +231,10 @@ class MSSQLConnectionManager {
             let deleteQuery;
             const request = this.targetPool.request();
 
-            if (Array.isArray(primaryKeys)) {
+            if (Array.isArray(identityColumns)) {
                 // 복합 키인 경우
                 const conditions = pkValues.map((pkSet, index) => {
-                    const conditions = primaryKeys.map(pk => {
+                    const conditions = identityColumns.map(pk => {
                         const paramName = `pk_${pk}_${index}`;
                         const value = pkSet[pk];
                         if (typeof value === 'string') {
@@ -261,7 +261,7 @@ class MSSQLConnectionManager {
                     } else {
                         request.input('pk_value', sql.Variant, value);
                     }
-                    deleteQuery = `DELETE FROM ${tableName} WHERE ${primaryKeys} = @pk_value`;
+                    deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} = @pk_value`;
                 } else {
                     // 여러 PK 값들을 IN절로 처리
                     const inClause = pkValues.map((value, index) => {
@@ -276,7 +276,7 @@ class MSSQLConnectionManager {
                         return `@${paramName}`;
                     }).join(', ');
                     
-                    deleteQuery = `DELETE FROM ${tableName} WHERE ${primaryKeys} IN (${inClause})`;
+                    deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} IN (${inClause})`;
                 }
             }
             

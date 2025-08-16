@@ -198,7 +198,7 @@ ENABLE_TRANSACTION=true
 - `id`: 쿼리 고유 식별자
 - `description`: 쿼리 설명
 - `targetTable`: 타겟 테이블명
-- `primaryKey`: 기본키 컬럼명
+- `identityColumns`: 기본키 컬럼명
 - `enabled`: 실행 여부 (true/false)
 
 #### 선택적 속성
@@ -224,13 +224,13 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
 #### 예시
 ```xml
 <!-- 단일 PK인 경우 -->
-<query primaryKey="user_id" deleteBeforeInsert="true">
+<query identityColumns="user_id" deleteBeforeInsert="true">
   <!-- 소스에서 user_id가 1,2,3인 데이터가 조회되면 -->
   <!-- 타겟에서 user_id IN (1,2,3)인 행들을 먼저 삭제 -->
 </query>
 
 <!-- 복합 PK인 경우 -->
-<query primaryKey="order_id,line_no" deleteBeforeInsert="true">
+<query identityColumns="order_id,line_no" deleteBeforeInsert="true">
   <!-- 소스에서 (order_id=100, line_no=1), (order_id=100, line_no=2) 조회되면 -->
   <!-- 타겟에서 해당 복합키 조합의 행들을 먼저 삭제 -->
 </query>
@@ -743,7 +743,7 @@ company_code | company_name
        description="사용자 데이터 이관"
        targetTable="users"
        targetColumns="user_id,username,email,status,created_date"
-       primaryKey="user_id"
+                  identityColumns="user_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[
@@ -767,7 +767,7 @@ company_code | company_name
        description="상품 전체 데이터 이관"
        targetTable="products"
        targetColumns=""
-       primaryKey="product_id"
+                  identityColumns="product_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[
@@ -785,7 +785,7 @@ company_code | company_name
 <query id="migrate_audit_log"
        description="감사 로그 데이터 이관 (현재 시각 추가)"
        targetTable="audit_log"
-       primaryKey="log_id"
+                  identityColumns="log_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[

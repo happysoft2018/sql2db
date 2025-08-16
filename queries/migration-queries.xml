@@ -320,7 +320,7 @@
            description="사용자 테이블 데이터 이관"
            targetTable="users"
            targetColumns="*"
-           primaryKey="username"
+           identityColumns="username"
            enabled="true">
       <!-- 이 쿼리 실행 전 전처리 -->
       <preProcess description="사용자 테이블 이관 준비">
@@ -380,7 +380,7 @@
            description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
            targetTable="products"
            targetColumns="*"
-           primaryKey="product_code"
+           identityColumns="product_code"
            enabled="true">
       <sourceQuery applyGlobalColumns="all">
         <![CDATA[
@@ -397,7 +397,7 @@
            sourceQueryFile="sql/orders_migration.sql"
            targetTable="orders"
            targetColumns="*"
-           primaryKey="order_number"
+           identityColumns="order_number"
            enabled="true">
     </query>
 
@@ -406,7 +406,7 @@
            description="특정 상태의 상품 데이터 이관 (IN절 사용)"
            targetTable="products"
            targetColumns="*"
-           primaryKey="product_code"
+           identityColumns="product_code"
            enabled="true">
       <sourceQuery applyGlobalColumns="data_version">
         <![CDATA[
@@ -425,7 +425,7 @@
            description="특정 부서 직원 데이터 이관 (IN절 사용)"
            targetTable="employees"
            targetColumns="*"
-           primaryKey="emp_code"
+           identityColumns="emp_code"
            enabled="true">
       <sourceQuery applyGlobalColumns="all">
         <![CDATA[
@@ -445,7 +445,7 @@
            sourceQueryFile="sql/products_in_clause_example.sql"
            targetTable="products"
            targetColumns="*"
-           primaryKey="product_code"
+           identityColumns="product_code"
            enabled="true">
     </query>
 
@@ -454,7 +454,7 @@
            description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
            targetTable="orders"
            targetColumns="*"
-           primaryKey="order_number"
+           identityColumns="order_number"
            enabled="true">
       <sourceQuery>
         <![CDATA[
@@ -473,7 +473,7 @@
            description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
            targetTable="product_reviews"
            targetColumns="*"
-           primaryKey="product_id,customer_id"
+           identityColumns="product_id,customer_id"
            enabled="true">
       <sourceQuery>
         <![CDATA[
@@ -491,7 +491,7 @@
            description="multiple_columns로 추출된 모든 엔티티 ID를 사용한 관련 데이터 이관"
            targetTable="entity_relationships"
            targetColumns="relation_id,entity_id,related_entity_id,relation_type,created_date"
-           primaryKey="relation_id"
+           identityColumns="relation_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -515,7 +515,7 @@
            description="승인자 코드만을 사용한 감사 로그 이관"
            targetTable="audit_logs"
            targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           primaryKey="log_id"
+           identityColumns="log_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -540,7 +540,7 @@
            description="요청자 코드만을 사용한 감사 로그 이관"
            targetTable="audit_logs"
            targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           primaryKey="log_id"
+           identityColumns="log_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -566,7 +566,7 @@
            description="multiple_columns로 추출된 승인 코드들로 감사 로그 이관"
            targetTable="audit_logs"
            targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           primaryKey="log_id"
+           identityColumns="log_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -593,7 +593,7 @@
            description="컬럼별로 식별된 승인 코드들을 사용한 감사 로그 이관"
            targetTable="audit_logs"
            targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           primaryKey="log_id"
+           identityColumns="log_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -627,7 +627,7 @@
            description="컬럼별 식별된 코드들을 사용한 복합 관계 데이터 이관"
            targetTable="approval_relations"
            targetColumns="relation_id,approver_id,requester_id,product_id,relation_type,created_date"
-           primaryKey="relation_id"
+           identityColumns="relation_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -666,7 +666,7 @@
            description="회사 코드-이름 매핑을 사용한 사용자 데이터 이관"
            targetTable="users_with_company"
            targetColumns="user_id,username,email,company_code,company_name,created_date"
-           primaryKey="user_id"
+           identityColumns="user_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -696,7 +696,7 @@
            description="부서 매핑을 사용한 직원 정보 이관"
            targetTable="employees_with_dept"
            targetColumns="emp_id,emp_name,dept_code,dept_name,status,status_desc,hire_date"
-           primaryKey="emp_id"
+           identityColumns="emp_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -725,7 +725,7 @@
            description="매핑 테이블 기반 필터링을 사용한 데이터 이관"
            targetTable="filtered_data"
            targetColumns="record_id,entity_code,entity_name,category_id,category_name,processed_date"
-           primaryKey="record_id"
+           identityColumns="record_id"
            enabled="false">
       <sourceQuery>
         <![CDATA[
@@ -751,7 +751,7 @@
            description="전/후처리에서 SELECT * 사용 예시"
            targetTable="example_table"
            targetColumns="id,name,email,created_date"
-           primaryKey="id"
+           identityColumns="id"
            enabled="false">
       
       <!-- 전처리에서 SELECT * 사용 -->
@@ -835,7 +835,7 @@
            description="전역 columnOverrides 적용 예시"
            targetTable="audit_table"
            targetColumns="user_id,action_type,action_date,details"
-           primaryKey="user_id"
+           identityColumns="user_id"
                       enabled="false">
 
       <!-- 전처리 스크립트 -->
