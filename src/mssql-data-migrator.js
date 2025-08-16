@@ -189,6 +189,38 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 테이블의 IDENTITY 컬럼 목록 조회
+    async getIdentityColumns(tableName, database = 'target') {
+        try {
+            const query = `
+                SELECT c.name AS COLUMN_NAME
+                FROM sys.columns c
+                INNER JOIN sys.tables t ON c.object_id = t.object_id
+                WHERE t.name = '${tableName}'
+                  AND c.is_identity = 1
+                ORDER BY c.column_id
+            `;
+            
+            let result;
+            if (database === 'source') {
+                result = await this.connectionManager.executeQueryOnSource(query);
+            } else {
+                result = await this.connectionManager.executeQueryOnTarget(query);
+            }
+            
+            if (result && result.recordset) {
+                const identityColumns = result.recordset.map(row => row.COLUMN_NAME);
+                this.log(`IDENTITY 컬럼 조회 완료 (${tableName}): ${identityColumns.join(', ')}`);
+                return identityColumns;
+            }
+            
+            return [];
+        } catch (error) {
+            this.log(`⚠️ IDENTITY 컬럼 조회 실패 (${tableName}): ${error.message}`);
+            return [];
+        }
+    }
+
     // applyGlobalColumns 설정에 따라 선택적으로 globalColumnOverrides 적용
     async selectivelyApplyGlobalColumnOverrides(globalColumnOverrides, applyGlobalColumns, tableName = null, database = 'target') {
         if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
@@ -1814,14 +1846,23 @@ class MSSQLDataMigrator {
                     throw new Error(`대상 테이블 ${queryConfig.targetTable}의 컬럼 정보를 찾을 수 없습니다.`);
                 }
                 
-                // targetColumns 자동 설정
+                // IDENTITY 컬럼 조회
+                const identityColumns = await this.getIdentityColumns(queryConfig.targetTable, false);
+                
+                // targetColumns 자동 설정 (IDENTITY 컬럼 제외)
                 const columnNames = columns.map(col => col.name);
-                queryConfig.targetColumns = columnNames;
+                const filteredColumnNames = columnNames.filter(col => !identityColumns.includes(col));
                 
-                this.log(`자동 설정된 컬럼 목록 (${columnNames.length}개): ${columnNames.join(', ')}`);
+                if (identityColumns.length > 0) {
+                    this.log(`IDENTITY 컬럼 자동 제외: ${identityColumns.join(', ')}`);
+                }
                 
-                // sourceQuery도 컬럼명으로 변경 (옵션)
-                const explicitColumns = columnNames.join(', ');
+                queryConfig.targetColumns = filteredColumnNames;
+                
+                this.log(`자동 설정된 컬럼 목록 (${filteredColumnNames.length}개, IDENTITY 제외): ${filteredColumnNames.join(', ')}`);
+                
+                // sourceQuery도 컬럼명으로 변경 (IDENTITY 컬럼 제외)
+                const explicitColumns = filteredColumnNames.join(', ');
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/SELECT\s+\*/i, `SELECT ${explicitColumns}`);
                 this.log(`변경된 소스 쿼리: ${queryConfig.sourceQuery}`);
             }

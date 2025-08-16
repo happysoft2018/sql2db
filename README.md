@@ -12,6 +12,7 @@ MSSQL DB간 데이터 이관을 위한 Node.js 기반 솔루션 입니다.
 - ✅ **트랜잭션 지원**: 데이터 일관성 보장
 - ✅ **상세 로깅**: 5단계 로그 레벨 시스템
 - ✅ **DRY RUN 모드**: 실제 변경 없이 시뮬레이션
+- ✅ **SELECT * 자동 처리**: IDENTITY 컬럼 자동 제외
 
 ## 빠른 시작
 
@@ -177,6 +178,41 @@ node src/progress-cli.js cleanup 7
 - 💾 **영구 저장**: 진행 상황 파일로 이력 관리
 - 🛠️ **CLI 도구**: 다양한 조회 및 관리 명령어
 
+## SELECT * 자동 처리
+
+`SELECT *`를 사용할 때 IDENTITY 컬럼을 자동으로 제외하는 기능이 추가되었습니다:
+
+### 기능 설명
+- **자동 감지**: `SELECT * FROM table_name` 패턴을 자동으로 감지
+- **IDENTITY 컬럼 제외**: 대상 테이블의 IDENTITY 컬럼을 자동으로 식별하고 제외
+- **컬럼 목록 자동 생성**: `targetColumns`를 자동으로 설정
+- **소스 쿼리 변환**: `SELECT *`를 명시적 컬럼 목록으로 변환
+
+### 사용 예시
+```xml
+<query id="migrate_users" targetTable="users" enabled="true">
+  <sourceQuery>
+    <![CDATA[SELECT * FROM users WHERE status = 'ACTIVE']]>
+  </sourceQuery>
+  <!-- targetColumns는 자동으로 설정됩니다 (IDENTITY 컬럼 제외) -->
+</query>
+```
+
+### 처리 과정
+1. `SELECT *` 패턴 감지
+2. 대상 테이블의 모든 컬럼 조회
+3. IDENTITY 컬럼 식별 및 제외
+4. `targetColumns` 자동 설정
+5. 소스 쿼리를 명시적 컬럼 목록으로 변환
+
+### 로그 예시
+```
+SELECT * 감지됨. 테이블 users의 컬럼 정보를 자동으로 가져옵니다.
+IDENTITY 컬럼 자동 제외: id
+자동 설정된 컬럼 목록 (15개, IDENTITY 제외): name, email, status, created_date, ...
+변경된 소스 쿼리: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
+```
+
 ## 테스트
 
 프로젝트에는 다양한 기능을 테스트할 수 있는 배치 파일들이 포함되어 있습니다:
@@ -186,6 +222,7 @@ test-xml-migration.bat      # XML 설정 테스트
 test-dry-run.bat           # DRY RUN 모드 테스트
 test-dbid-migration.bat    # DB ID 참조 테스트
 test-log-levels.bat        # 로그 레벨 테스트
+test-select-star-identity.bat  # SELECT * IDENTITY 제외 테스트
 ```
 
 ## 기여하기
