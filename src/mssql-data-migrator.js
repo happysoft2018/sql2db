@@ -161,17 +161,67 @@ class MSSQLDataMigrator {
         }
     }
 
+    // 테이블의 실제 컬럼 목록 조회
+    async getTableColumns(tableName, database = 'target') {
+        try {
+            const query = `
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = '${tableName}' 
+                ORDER BY ORDINAL_POSITION
+            `;
+            
+            let result;
+            if (database === 'source') {
+                result = await this.connectionManager.executeQueryOnSource(query);
+            } else {
+                result = await this.connectionManager.executeQueryOnTarget(query);
+            }
+            
+            if (result && result.recordset) {
+                return result.recordset.map(row => row.COLUMN_NAME);
+            }
+            
+            return [];
+        } catch (error) {
+            this.log(`⚠️ 테이블 컬럼 조회 실패 (${tableName}): ${error.message}`);
+            return [];
+        }
+    }
+
     // applyGlobalColumns 설정에 따라 선택적으로 globalColumnOverrides 적용
-    selectivelyApplyGlobalColumnOverrides(globalColumnOverrides, applyGlobalColumns) {
+    async selectivelyApplyGlobalColumnOverrides(globalColumnOverrides, applyGlobalColumns, tableName = null, database = 'target') {
         if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
+            return {};
+        }
+        
+        // applyGlobalColumns가 명시되지 않았거나 값이 없으면 컬럼 오버라이드 적용 안함
+        if (!applyGlobalColumns || applyGlobalColumns === '' || applyGlobalColumns === 'undefined') {
             return {};
         }
         
         // applyGlobalColumns 값에 따른 처리
         switch (applyGlobalColumns) {
             case 'all':
-                // 모든 전역 컬럼 오버라이드 적용
-                return { ...globalColumnOverrides };
+                // 모든 전역 컬럼 오버라이드 적용 (존재하는 컬럼만)
+                if (tableName) {
+                    // 테이블의 실제 컬럼 확인
+                    const tableColumns = await this.getTableColumns(tableName, database);
+                    const existingOverrides = {};
+                    
+                    Object.keys(globalColumnOverrides).forEach(column => {
+                        if (tableColumns.includes(column)) {
+                            existingOverrides[column] = globalColumnOverrides[column];
+                        } else {
+                            this.log(`⚠️ 컬럼 '${column}'이 테이블 '${tableName}'에 존재하지 않아 globalColumnOverrides에서 제외됩니다.`);
+                        }
+                    });
+                    
+                    return existingOverrides;
+                } else {
+                    // 테이블명이 없으면 모든 컬럼 적용 (기존 동작)
+                    return { ...globalColumnOverrides };
+                }
                 
             case 'none':
                 // 전역 컬럼 오버라이드 적용 안함
@@ -460,11 +510,12 @@ class MSSQLDataMigrator {
                         }
                     }
                     
-                    // sourceQuery용 columnOverrides 적용
-                    query.columnOverrides = this.selectivelyApplyGlobalColumnOverrides(
-                        config.globalColumnOverrides, 
-                        query.sourceQueryApplyGlobalColumns
-                    );
+                    // sourceQuery용 columnOverrides 적용 (비동기 처리 불가능하므로 기본값 사용)
+                    query.columnOverrides = {};
+                    if (query.sourceQueryApplyGlobalColumns && query.sourceQueryApplyGlobalColumns !== 'none') {
+                        // 기본적으로 모든 컬럼 적용 (실제 테이블 검증은 나중에 수행)
+                        query.columnOverrides = { ...config.globalColumnOverrides };
+                    }
                     
                     // 적용된 columnOverrides 로깅 (개발/디버그용)
                     if (Object.keys(query.columnOverrides).length > 0) {
@@ -480,14 +531,14 @@ class MSSQLDataMigrator {
                         query.preProcess = {
                             description: q.preProcess.description || `${query.id} 전처리`,
                             script: q.preProcess._.trim(),
-                            applyGlobalColumns: q.preProcess.applyGlobalColumns || 'all'
+                            applyGlobalColumns: q.preProcess.applyGlobalColumns || undefined
                         };
                     }
                     if (q.postProcess) {
                         query.postProcess = {
                             description: q.postProcess.description || `${query.id} 후처리`,
                             script: q.postProcess._.trim(),
-                            applyGlobalColumns: q.postProcess.applyGlobalColumns || 'all'
+                            applyGlobalColumns: q.postProcess.applyGlobalColumns || undefined
                         };
                     }
                     
@@ -1484,19 +1535,30 @@ class MSSQLDataMigrator {
             // 단계별 applyGlobalColumns 설정 사용
             let globalColumnOverridesProcessedScript;
             if (scriptConfig.applyGlobalColumns) {
-                const stepColumnOverrides = this.selectivelyApplyGlobalColumnOverrides(
+                // 현재 쿼리에서 테이블명 추출
+                const currentQuery = this.getCurrentQuery();
+                let tableName = null;
+                
+                if (currentQuery && currentQuery.sql) {
+                    // INSERT 문에서 테이블명 추출
+                    const insertMatch = currentQuery.sql.match(/INSERT\s+INTO\s+(\w+)/i);
+                    if (insertMatch) {
+                        tableName = insertMatch[1];
+                    }
+                }
+                
+                const stepColumnOverrides = await this.selectivelyApplyGlobalColumnOverrides(
                     this.config.globalColumnOverrides, 
-                    scriptConfig.applyGlobalColumns
+                    scriptConfig.applyGlobalColumns,
+                    tableName,
+                    database
                 );
                 globalColumnOverridesProcessedScript = stepColumnOverrides && Object.keys(stepColumnOverrides).length > 0
                     ? this.processGlobalColumnOverridesInScript(selectStarProcessedScript, stepColumnOverrides, database)
                     : selectStarProcessedScript;
             } else {
-                // 기본적으로 현재 쿼리의 columnOverrides 사용 (기존 동작 유지)
-                const currentQuery = this.getCurrentQuery();
-                globalColumnOverridesProcessedScript = currentQuery && currentQuery.columnOverrides 
-                    ? this.processGlobalColumnOverridesInScript(selectStarProcessedScript, currentQuery.columnOverrides, database)
-                    : selectStarProcessedScript;
+                // applyGlobalColumns가 명시되지 않았으면 컬럼 오버라이드 적용 안함
+                globalColumnOverridesProcessedScript = selectStarProcessedScript;
             }
             
             if (debugScripts && globalColumnOverridesProcessedScript !== selectStarProcessedScript) {
