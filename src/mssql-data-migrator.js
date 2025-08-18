@@ -568,25 +568,36 @@ class MSSQLDataMigrator {
                     const query = {
                         id: q.id,
                         description: q.description,
-                        targetTable: q.targetTable,
-                        targetColumns: q.targetColumns ? q.targetColumns.split(',').map(c => c.trim()) : [],
                         batchSize: q.batchSize || config.settings.batchSize,  // 개별 설정이 없으면 글로벌 설정 사용
-                        identityColumns: q.identityColumns,
-                        deleteBeforeInsert: q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert,  // 개별 설정이 없으면 글로벌 설정 사용
                         enabled: q.enabled === 'true'
                     };
                     
-                    // sourceQuery 처리 및 개별 applyGlobalColumns 적용
+                    // sourceQuery 처리 및 개별 applyGlobalColumns, deleteBeforeInsert, targetTable, targetColumns, identityColumns, sourceQueryFile 적용
                     if (q.sourceQueryFile) {
+                        // 기존 query 레벨 sourceQueryFile 처리 (하위 호환성)
                         query.sourceQueryFile = q.sourceQueryFile;
                         query.sourceQueryApplyGlobalColumns = 'all'; // 파일 기반은 기본값
+                        query.sourceQueryDeleteBeforeInsert = q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert; // 개별 설정이 없으면 글로벌 설정 사용
+                        query.targetTable = q.targetTable;
+                        query.targetColumns = q.targetColumns ? q.targetColumns.split(',').map(c => c.trim()) : [];
+                        query.identityColumns = q.identityColumns;
                     } else if (q.sourceQuery) {
-                        // sourceQuery에서 applyGlobalColumns 속성 파싱
-                        if (typeof q.sourceQuery === 'object' && q.sourceQuery.applyGlobalColumns) {
-                            query.sourceQueryApplyGlobalColumns = q.sourceQuery.applyGlobalColumns;
-                            query.sourceQuery = q.sourceQuery._.trim();
+                        // sourceQuery에서 applyGlobalColumns, deleteBeforeInsert, targetTable, targetColumns, identityColumns, sourceQueryFile 속성 파싱
+                        if (typeof q.sourceQuery === 'object') {
+                            query.sourceQueryApplyGlobalColumns = q.sourceQuery.applyGlobalColumns || 'all';
+                            query.sourceQueryDeleteBeforeInsert = q.sourceQuery.deleteBeforeInsert !== undefined ? (q.sourceQuery.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert;
+                            query.targetTable = q.sourceQuery.targetTable;
+                            query.targetColumns = q.sourceQuery.targetColumns ? q.sourceQuery.targetColumns.split(',').map(c => c.trim()) : [];
+                            query.identityColumns = q.sourceQuery.identityColumns;
+                            query.sourceQueryFile = q.sourceQuery.sourceQueryFile;
+                            query.sourceQuery = q.sourceQuery._ ? q.sourceQuery._.trim() : '';
                         } else {
                             query.sourceQueryApplyGlobalColumns = 'all'; // 기본값
+                            query.sourceQueryDeleteBeforeInsert = q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert; // 개별 설정이 없으면 글로벌 설정 사용
+                            // 문자열 sourceQuery의 경우 기존 query 레벨 속성 사용 (하위 호환성)
+                            query.targetTable = q.targetTable;
+                            query.targetColumns = q.targetColumns ? q.targetColumns.split(',').map(c => c.trim()) : [];
+                            query.identityColumns = q.identityColumns;
                             query.sourceQuery = q.sourceQuery.trim();
                         }
                     }
@@ -1628,12 +1639,14 @@ class MSSQLDataMigrator {
                 this.log(`INSERT SELECT 컬럼 맞춤 처리 후 스크립트: ${insertSelectAlignedScript.substring(0, 300)}${insertSelectAlignedScript.length > 300 ? '...' : ''}`);
             }
             
+            // deleteBeforeInsert 처리는 sourceQuery에서만 적용 (전처리/후처리에서는 제외)
+            let deleteBeforeInsertProcessedScript = insertSelectAlignedScript;
+            
             // globalColumnOverrides 처리 (SELECT * 처리 후, 주석 제거 전)
             // 단계별 applyGlobalColumns 설정 사용
             let globalColumnOverridesProcessedScript;
             if (scriptConfig.applyGlobalColumns) {
                 // 현재 쿼리에서 테이블명 추출
-                const currentQuery = this.getCurrentQuery();
                 let tableName = null;
                 
                 if (currentQuery && currentQuery.sql) {
@@ -1651,23 +1664,23 @@ class MSSQLDataMigrator {
                     database
                 );
                 globalColumnOverridesProcessedScript = stepColumnOverrides && Object.keys(stepColumnOverrides).length > 0
-                    ? this.processGlobalColumnOverridesInScript(insertSelectAlignedScript, stepColumnOverrides, database)
-                    : insertSelectAlignedScript;
+                    ? this.processGlobalColumnOverridesInScript(deleteBeforeInsertProcessedScript, stepColumnOverrides, database)
+                    : deleteBeforeInsertProcessedScript;
             } else {
                 // applyGlobalColumns가 명시되지 않았으면 컬럼 오버라이드 적용 안함
-                globalColumnOverridesProcessedScript = insertSelectAlignedScript;
+                globalColumnOverridesProcessedScript = deleteBeforeInsertProcessedScript;
             }
             
-            if (debugScripts && globalColumnOverridesProcessedScript !== insertSelectAlignedScript) {
+            if (debugScripts && globalColumnOverridesProcessedScript !== deleteBeforeInsertProcessedScript) {
                 this.log(`globalColumnOverrides 처리 후 스크립트: ${globalColumnOverridesProcessedScript.substring(0, 300)}${globalColumnOverridesProcessedScript.length > 300 ? '...' : ''}`);
             }
             
             // 스크립트 전처리: 주석 제거
             const cleanedScript = this.removeComments(globalColumnOverridesProcessedScript);
             
-            if (debugScripts && cleanedScript !== insertSelectAlignedScript) {
+            if (debugScripts && cleanedScript !== globalColumnOverridesProcessedScript) {
                 this.log(`주석 제거 후 스크립트: ${cleanedScript.substring(0, 300)}${cleanedScript.length > 300 ? '...' : ''}`);
-                this.log(`스크립트 길이 변화: ${insertSelectAlignedScript.length} → ${cleanedScript.length} 문자`);
+                this.log(`스크립트 길이 변화: ${globalColumnOverridesProcessedScript.length} → ${cleanedScript.length} 문자`);
             }
             
             // 스크립트를 세미콜론으로 분할하여 개별 SQL 문으로 실행
@@ -1968,7 +1981,7 @@ class MSSQLDataMigrator {
             const sourceData = await this.executeSourceQuery(queryConfig.sourceQuery);
             
             // PK 기준 삭제 처리
-            if (queryConfig.deleteBeforeInsert) {
+            if (queryConfig.sourceQueryDeleteBeforeInsert) {
                 this.log(`이관 전 대상 테이블 PK 기준 데이터 삭제: ${queryConfig.targetTable}`);
                 if (sourceData && sourceData.length > 0) {
                     // Primary Key가 콤마로 구분된 문자열인 경우 배열로 변환
@@ -2634,6 +2647,8 @@ class MSSQLDataMigrator {
             return script;
         }
     }
+
+
 }
 
 module.exports = MSSQLDataMigrator;

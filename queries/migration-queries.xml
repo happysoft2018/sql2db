@@ -318,9 +318,6 @@
     <!-- 사용자 테이블 데이터 이관 -->
     <query id="migrate_users"
            description="사용자 테이블 데이터 이관"
-           targetTable="users"
-           targetColumns="*"
-           identityColumns="username"
            enabled="true">
       <!-- 이 쿼리 실행 전 전처리 -->
       <preProcess description="사용자 테이블 이관 준비">
@@ -343,7 +340,11 @@
         ]]>
       </preProcess>
       
-      <sourceQuery>
+      <sourceQuery targetTable="users" 
+                  targetColumns="*" 
+                  identityColumns="username" 
+                  deleteBeforeInsert="true"
+                  enabled="true">
         <![CDATA[
           SELECT *
           FROM users 
@@ -378,11 +379,12 @@
     <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->
     <query id="migrate_products_all"
            description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
-           targetTable="products"
-           targetColumns="*"
-           identityColumns="product_code"
            enabled="true">
-      <sourceQuery applyGlobalColumns="all">
+      <sourceQuery targetTable="products" 
+                  targetColumns="*" 
+                  identityColumns="product_code" 
+                  applyGlobalColumns="all" 
+                  deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
           FROM products 
@@ -394,21 +396,22 @@
     <!-- 주문 테이블 데이터 이관 (SQL 파일 사용) -->
     <query id="migrate_orders_from_file"
            description="주문 테이블 데이터 이관 (SQL 파일 사용)"
-           sourceQueryFile="sql/orders_migration.sql"
-           targetTable="orders"
-           targetColumns="*"
-           identityColumns="order_number"
            enabled="true">
+      <sourceQuery sourceQueryFile="sql/orders_migration.sql"
+                  targetTable="orders"
+                  targetColumns="*"
+                  identityColumns="order_number">
+      </sourceQuery>
     </query>
 
     <!-- 특정 상태의 상품 데이터 이관 (IN절 사용) -->
     <query id="migrate_products_by_status"
            description="특정 상태의 상품 데이터 이관 (IN절 사용)"
-           targetTable="products"
-           targetColumns="*"
-           identityColumns="product_code"
            enabled="true">
-      <sourceQuery applyGlobalColumns="data_version">
+      <sourceQuery targetTable="products" 
+                  targetColumns="*" 
+                  identityColumns="product_code" 
+                  applyGlobalColumns="data_version">
         <![CDATA[
           SELECT *
           FROM products 
@@ -423,11 +426,11 @@
     <!-- 특정 부서 직원 데이터 이관 (IN절 사용) -->
     <query id="migrate_employees_by_department"
            description="특정 부서 직원 데이터 이관 (IN절 사용)"
-           targetTable="employees"
-           targetColumns="*"
-           identityColumns="emp_code"
            enabled="true">
-      <sourceQuery applyGlobalColumns="all">
+      <sourceQuery targetTable="employees" 
+                  targetColumns="*" 
+                  identityColumns="emp_code" 
+                  applyGlobalColumns="all">
         <![CDATA[
           SELECT *
           FROM employees 
@@ -442,21 +445,21 @@
     <!-- 상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용) -->
     <query id="migrate_products_from_file_with_in"
            description="상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용)"
-           sourceQueryFile="sql/products_in_clause_example.sql"
-           targetTable="products"
-           targetColumns="*"
-           identityColumns="product_code"
            enabled="true">
+      <sourceQuery sourceQueryFile="sql/products_in_clause_example.sql"
+                  targetTable="products"
+                  targetColumns="*"
+                  identityColumns="product_code">
+      </sourceQuery>
     </query>
 
     <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
     <query id="migrate_user_orders_dynamic"
            description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
-           targetTable="orders"
-           targetColumns="*"
-           identityColumns="order_number"
            enabled="true">
-      <sourceQuery>
+      <sourceQuery targetTable="orders" 
+                  targetColumns="*" 
+                  identityColumns="order_number">
         <![CDATA[
           SELECT *
           FROM orders 
@@ -471,11 +474,10 @@
     <!-- 추출된 상품 관련 데이터 이관 (동적 변수 사용) -->
     <query id="migrate_related_products_dynamic"
            description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
-           targetTable="product_reviews"
-           targetColumns="*"
-           identityColumns="product_id,customer_id"
            enabled="true">
-      <sourceQuery>
+      <sourceQuery targetTable="product_reviews" 
+                  targetColumns="*" 
+                  identityColumns="product_id,customer_id">
         <![CDATA[
           SELECT * 
           FROM product_reviews 
@@ -489,11 +491,10 @@
     <!-- multiple_columns 동적 변수 사용 예시 쿼리들 -->
     <query id="migrate_related_entities"
            description="multiple_columns로 추출된 모든 엔티티 ID를 사용한 관련 데이터 이관"
-           targetTable="entity_relationships"
-           targetColumns="relation_id,entity_id,related_entity_id,relation_type,created_date"
-           identityColumns="relation_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="entity_relationships" 
+                  targetColumns="relation_id,entity_id,related_entity_id,relation_type,created_date" 
+                  identityColumns="relation_id">
         <![CDATA[
           SELECT 
             relation_id,
@@ -513,11 +514,10 @@
     <!-- 방법 1: 개별 변수를 사용한 쿼리 -->
     <query id="migrate_approver_audit_logs"
            description="승인자 코드만을 사용한 감사 로그 이관"
-           targetTable="audit_logs"
-           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           identityColumns="log_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="audit_logs" 
+                  targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
+                  identityColumns="log_id">
         <![CDATA[
           SELECT 
             log_id,
@@ -538,11 +538,10 @@
 
     <query id="migrate_requester_audit_logs"
            description="요청자 코드만을 사용한 감사 로그 이관"
-           targetTable="audit_logs"
-           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           identityColumns="log_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="audit_logs" 
+                  targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
+                  identityColumns="log_id">
         <![CDATA[
           SELECT 
             log_id,
@@ -564,11 +563,10 @@
     <!-- 방법 2: multiple_columns 사용 (기존) -->
     <query id="migrate_audit_logs_by_codes"
            description="multiple_columns로 추출된 승인 코드들로 감사 로그 이관"
-           targetTable="audit_logs"
-           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           identityColumns="log_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="audit_logs" 
+                  targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
+                  identityColumns="log_id">
         <![CDATA[
           SELECT 
             log_id,
@@ -591,19 +589,12 @@
     <!-- 방법 3: column_identified 사용 (NEW!) -->
     <query id="migrate_audit_logs_by_identified_codes"
            description="컬럼별로 식별된 승인 코드들을 사용한 감사 로그 이관"
-           targetTable="audit_logs"
-           targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date"
-           identityColumns="log_id"
-           enabled="false">
-      <sourceQuery>
+           enabled="true">
+      <sourceQuery targetTable="audit_logs" 
+                  targetColumns="*" 
+                  identityColumns="log_id">
         <![CDATA[
-          SELECT 
-            log_id,
-            action_type,
-            entity_code,
-            user_code,
-            log_message,
-            created_date
+          SELECT *
           FROM audit_logs 
           WHERE (
             -- 승인자 코드로 필터링
@@ -625,11 +616,10 @@
     <!-- 컬럼별 식별을 활용한 복합 쿼리 예시 -->
     <query id="migrate_complex_approval_relations"
            description="컬럼별 식별된 코드들을 사용한 복합 관계 데이터 이관"
-           targetTable="approval_relations"
-           targetColumns="relation_id,approver_id,requester_id,product_id,relation_type,created_date"
-           identityColumns="relation_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="approval_relations" 
+                  targetColumns="relation_id,approver_id,requester_id,product_id,relation_type,created_date" 
+                  identityColumns="relation_id">
         <![CDATA[
           SELECT 
             ar.relation_id,
@@ -664,11 +654,10 @@
     <!-- key_value_pairs 사용 예시 쿼리들 -->
     <query id="migrate_users_with_company_names"
            description="회사 코드-이름 매핑을 사용한 사용자 데이터 이관"
-           targetTable="users_with_company"
-           targetColumns="user_id,username,email,company_code,company_name,created_date"
-           identityColumns="user_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="users_with_company" 
+                  targetColumns="user_id,username,email,company_code,company_name,created_date" 
+                  identityColumns="user_id">
         <![CDATA[
           SELECT 
             u.user_id,
@@ -694,11 +683,10 @@
 
     <query id="migrate_employees_with_dept_info"
            description="부서 매핑을 사용한 직원 정보 이관"
-           targetTable="employees_with_dept"
-           targetColumns="emp_id,emp_name,dept_code,dept_name,status,status_desc,hire_date"
-           identityColumns="emp_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="employees_with_dept" 
+                  targetColumns="emp_id,emp_name,dept_code,dept_name,status,status_desc,hire_date" 
+                  identityColumns="emp_id">
         <![CDATA[
           SELECT 
             e.emp_id,
@@ -723,11 +711,10 @@
     <!-- key_value_pairs를 조건절에서 활용하는 예시 -->
     <query id="migrate_filtered_by_mapping"
            description="매핑 테이블 기반 필터링을 사용한 데이터 이관"
-           targetTable="filtered_data"
-           targetColumns="record_id,entity_code,entity_name,category_id,category_name,processed_date"
-           identityColumns="record_id"
            enabled="false">
-      <sourceQuery>
+      <sourceQuery targetTable="filtered_data" 
+                  targetColumns="record_id,entity_code,entity_name,category_id,category_name,processed_date" 
+                  identityColumns="record_id">
         <![CDATA[
           SELECT 
             rd.record_id,
@@ -749,9 +736,6 @@
     <!-- SELECT * 사용 예시 (전/후처리에서) -->
     <query id="migrate_with_select_star_in_process"
            description="전/후처리에서 SELECT * 사용 예시"
-           targetTable="example_table"
-           targetColumns=""
-           identityColumns="unique_code"
            enabled="true">
       
       <!-- 전처리에서 SELECT * 사용 -->
@@ -768,7 +752,10 @@
         ]]>
       </preProcess>
       
-      <sourceQuery applyGlobalColumns="all">
+      <sourceQuery targetTable="example_table" 
+                  targetColumns="" 
+                  identityColumns="unique_code" 
+                  applyGlobalColumns="all">
         <![CDATA[
           SELECT *
           FROM example_table 
@@ -804,10 +791,7 @@
     <!-- 전/후처리 예시 쿼리 -->
     <query id="migrate_with_global_overrides_example"
            description="전역 columnOverrides 적용 예시"
-           targetTable="audit_table"
-           targetColumns="user_id,action_type,action_date,details"
-           identityColumns="user_id"
-                      enabled="false">
+           enabled="false">
 
       <!-- 전처리 스크립트 -->
       <preProcess description="감사 로그 생성">
@@ -835,7 +819,10 @@
         ]]>
       </preProcess>
       
-      <sourceQuery applyGlobalColumns="none">
+      <sourceQuery targetTable="audit_table" 
+                  targetColumns="user_id,action_type,action_date,details" 
+                  identityColumns="user_id" 
+                  applyGlobalColumns="none">
         <![CDATA[
           SELECT user_id, 'DATA_PROCESSED' as action_type, GETDATE() as action_date, 'User data migrated' as details
           FROM users 
