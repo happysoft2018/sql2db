@@ -741,6 +741,9 @@
       <!-- 전처리에서 SELECT * 사용 -->
       <preProcess description="SELECT * 를 사용한 백업 및 준비 작업">
         <![CDATA[
+
+          DELETE FROM example_table_backup;
+
           -- 기존 데이터 전체 백업 (SELECT * 사용)
           INSERT INTO example_table_backup (*)
           SELECT * FROM example_table 
