@@ -9,6 +9,7 @@ class MSSQLConnectionManager {
         this.isTargetConnected = false;
         this.customSourceConfig = null;
         this.customTargetConfig = null;
+        this.tableColumnCache = {}; // 테이블 컬럼 정보 캐시
     }
 
     // 커스텀 DB 설정 지정
@@ -153,9 +154,44 @@ class MSSQLConnectionManager {
         }
     }
 
-    // 테이블 컬럼 정보 조회
+    // 테이블 컬럼 캐시 초기화
+    clearTableColumnCache() {
+        this.tableColumnCache = {};
+        console.log('🗑️ 테이블 컬럼 캐시 초기화 완료 (Identity Column 제외 적용)');
+    }
+
+    // 테이블 컬럼 캐시 통계 조회
+    getTableColumnCacheStats() {
+        const cacheKeys = Object.keys(this.tableColumnCache);
+        const stats = {
+            cachedTables: cacheKeys.length,
+            cacheKeys: cacheKeys,
+            totalColumns: 0
+        };
+        
+        cacheKeys.forEach(key => {
+            const columns = this.tableColumnCache[key];
+            if (Array.isArray(columns)) {
+                stats.totalColumns += columns.length;
+            }
+        });
+        
+        console.log(`📊 테이블 컬럼 캐시 통계: ${stats.cachedTables}개 테이블, ${stats.totalColumns}개 컬럼`);
+        return stats;
+    }
+
+    // 테이블 컬럼 정보 조회 (캐시 적용)
     async getTableColumns(tableName, isSource = false) {
         try {
+            // 캐시 키 생성 (테이블명 + 데이터베이스 타입)
+            const cacheKey = `${tableName}_${isSource ? 'source' : 'target'}`;
+            
+            // 캐시에서 먼저 확인
+            if (this.tableColumnCache[cacheKey]) {
+                console.log(`📋 캐시에서 테이블 컬럼 정보 사용: ${tableName} (${isSource ? '소스' : '대상'})`);
+                return this.tableColumnCache[cacheKey];
+            }
+            
             const pool = isSource ? this.sourcePool : this.targetPool;
             const connectionType = isSource ? '소스' : '대상';
             
@@ -180,11 +216,12 @@ class MSSQLConnectionManager {
                     AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
                 WHERE c.TABLE_NAME = '${tableName}'
                     AND sc.is_computed = 0  -- Computed Column 제외
+                    AND sc.is_identity = 0  -- Identity Column 제외
                     AND c.DATA_TYPE NOT IN ('varbinary', 'binary', 'image')  -- VARBINARY 컬럼 제외
                 ORDER BY c.ORDINAL_POSITION
             `;
             
-            console.log(`${connectionType} 테이블 컬럼 정보 조회: ${tableName}`);
+            console.log(`🔍 ${connectionType} 데이터베이스에서 테이블 컬럼 정보 조회: ${tableName} - Identity Column 제외`);
             const result = await request.query(query);
             
             const columns = result.recordset.map(row => ({
@@ -194,7 +231,10 @@ class MSSQLConnectionManager {
                 defaultValue: row.COLUMN_DEFAULT
             }));
             
-            console.log(`${connectionType} 테이블 ${tableName}의 컬럼 수: ${columns.length} (Computed Column, VARBINARY 제외)`);
+            // 캐시에 저장
+            this.tableColumnCache[cacheKey] = columns;
+            console.log(`💾 테이블 컬럼 정보 캐시 저장: ${tableName} (${connectionType}) - ${columns.length}개 컬럼`);
+            
             return columns;
         } catch (error) {
             console.error(`테이블 컬럼 정보 조회 실패 (${tableName}):`, error.message);

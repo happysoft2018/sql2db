@@ -22,6 +22,7 @@ class MSSQLDataMigrator {
         this.dryRun = dryRun; // DRY RUN 모드
         this.progressManager = null; // 진행 상황 관리자
         this.currentQuery = null; // 현재 실행 중인 쿼리 추적
+        this.tableColumnCache = {}; // 테이블 컬럼 정보 캐시
     }
 
     // DB 정보 파일 로드
@@ -161,9 +162,46 @@ class MSSQLDataMigrator {
         }
     }
 
-    // 테이블의 실제 컬럼 목록 조회
+    // 테이블 컬럼 캐시 초기화
+    clearTableColumnCache() {
+        this.tableColumnCache = {};
+        this.log('🗑️ 테이블 컬럼 캐시 초기화 완료 (Identity Column 제외 적용)');
+    }
+
+    // 테이블 컬럼 캐시 통계 조회
+    getTableColumnCacheStats() {
+        const cacheKeys = Object.keys(this.tableColumnCache);
+        const stats = {
+            cachedTables: cacheKeys.length,
+            cacheKeys: cacheKeys,
+            totalColumns: 0
+        };
+        
+        cacheKeys.forEach(key => {
+            const columns = this.tableColumnCache[key];
+            if (Array.isArray(columns)) {
+                stats.totalColumns += columns.length;
+            }
+        });
+        
+        this.log(`📊 테이블 컬럼 캐시 통계: ${stats.cachedTables}개 테이블, ${stats.totalColumns}개 컬럼`);
+        return stats;
+    }
+
+    // 테이블의 실제 컬럼 목록 조회 (캐시 적용)
     async getTableColumns(tableName, database = 'target') {
         try {
+            // 캐시 키 생성 (테이블명 + 데이터베이스)
+            const cacheKey = `${tableName}_${database}`;
+            
+            // 캐시에서 먼저 확인
+            if (this.tableColumnCache[cacheKey]) {
+                this.log(`📋 캐시에서 테이블 컬럼 정보 사용: ${tableName} (${database})`);
+                return this.tableColumnCache[cacheKey];
+            }
+            
+            this.log(`🔍 데이터베이스에서 테이블 컬럼 정보 조회: ${tableName} (${database}) - Identity Column 제외`);
+            
             const query = `
                 SELECT c.COLUMN_NAME 
                 FROM INFORMATION_SCHEMA.COLUMNS c
@@ -171,6 +209,7 @@ class MSSQLDataMigrator {
                     AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
                 WHERE c.TABLE_NAME = '${tableName}'
                     AND sc.is_computed = 0  -- Computed Column 제외
+                    AND sc.is_identity = 0  -- Identity Column 제외
                     AND c.DATA_TYPE NOT IN ('varbinary', 'binary', 'image')  -- VARBINARY 컬럼 제외
                 ORDER BY c.ORDINAL_POSITION
             `;
@@ -183,7 +222,13 @@ class MSSQLDataMigrator {
             }
             
             if (result && result.recordset) {
-                return result.recordset.map(row => row.COLUMN_NAME);
+                const columns = result.recordset.map(row => row.COLUMN_NAME);
+                
+                // 캐시에 저장
+                this.tableColumnCache[cacheKey] = columns;
+                this.log(`💾 테이블 컬럼 정보 캐시 저장: ${tableName} (${database}) - ${columns.length}개 컬럼`);
+                
+                return columns;
             }
             
             return [];
@@ -1094,6 +1139,10 @@ class MSSQLDataMigrator {
                 
                 this.log(`✅ INSERT 문에 globalColumnOverrides 적용: ${tableName} 테이블에 ${newColumns.length}개 컬럼 추가`);
                 this.log(`추가된 컬럼: ${newColumns.join(', ')}`);
+                this.log(`INSERT 컬럼: ${updatedColumnsPart}`);
+                this.log(`VALUES/SELECT 컬럼 수: ${valuesPart.toUpperCase().startsWith('VALUES') ? 
+                    valuesPart.match(/VALUES\s*\(([^)]+)\)/i)?.[1]?.split(',').length || 0 :
+                    updatedValuesPart.match(/SELECT\s+(.+?)(\s+FROM\s+.+)/i)?.[1]?.split(',').length || 0}`);
                 
                 return result;
                 
@@ -1572,6 +1621,13 @@ class MSSQLDataMigrator {
                 this.log(`SELECT * 처리 후 스크립트: ${selectStarProcessedScript.substring(0, 300)}${selectStarProcessedScript.length > 300 ? '...' : ''}`);
             }
             
+            // INSERT SELECT 컬럼 맞춤 처리 (SELECT * 처리 후, globalColumnOverrides 처리 전)
+            const insertSelectAlignedScript = await this.processInsertSelectColumnAlignment(selectStarProcessedScript, database);
+            
+            if (debugScripts && insertSelectAlignedScript !== selectStarProcessedScript) {
+                this.log(`INSERT SELECT 컬럼 맞춤 처리 후 스크립트: ${insertSelectAlignedScript.substring(0, 300)}${insertSelectAlignedScript.length > 300 ? '...' : ''}`);
+            }
+            
             // globalColumnOverrides 처리 (SELECT * 처리 후, 주석 제거 전)
             // 단계별 applyGlobalColumns 설정 사용
             let globalColumnOverridesProcessedScript;
@@ -1595,23 +1651,23 @@ class MSSQLDataMigrator {
                     database
                 );
                 globalColumnOverridesProcessedScript = stepColumnOverrides && Object.keys(stepColumnOverrides).length > 0
-                    ? this.processGlobalColumnOverridesInScript(selectStarProcessedScript, stepColumnOverrides, database)
-                    : selectStarProcessedScript;
+                    ? this.processGlobalColumnOverridesInScript(insertSelectAlignedScript, stepColumnOverrides, database)
+                    : insertSelectAlignedScript;
             } else {
                 // applyGlobalColumns가 명시되지 않았으면 컬럼 오버라이드 적용 안함
-                globalColumnOverridesProcessedScript = selectStarProcessedScript;
+                globalColumnOverridesProcessedScript = insertSelectAlignedScript;
             }
             
-            if (debugScripts && globalColumnOverridesProcessedScript !== selectStarProcessedScript) {
+            if (debugScripts && globalColumnOverridesProcessedScript !== insertSelectAlignedScript) {
                 this.log(`globalColumnOverrides 처리 후 스크립트: ${globalColumnOverridesProcessedScript.substring(0, 300)}${globalColumnOverridesProcessedScript.length > 300 ? '...' : ''}`);
             }
             
             // 스크립트 전처리: 주석 제거
             const cleanedScript = this.removeComments(globalColumnOverridesProcessedScript);
             
-            if (debugScripts && cleanedScript !== selectStarProcessedScript) {
+            if (debugScripts && cleanedScript !== insertSelectAlignedScript) {
                 this.log(`주석 제거 후 스크립트: ${cleanedScript.substring(0, 300)}${cleanedScript.length > 300 ? '...' : ''}`);
-                this.log(`스크립트 길이 변화: ${selectStarProcessedScript.length} → ${cleanedScript.length} 문자`);
+                this.log(`스크립트 길이 변화: ${insertSelectAlignedScript.length} → ${cleanedScript.length} 문자`);
             }
             
             // 스크립트를 세미콜론으로 분할하여 개별 SQL 문으로 실행
@@ -1665,7 +1721,7 @@ class MSSQLDataMigrator {
                 } catch (sqlError) {
                     const errorMsg = `SQL 실행 경고 (계속 진행): ${sqlError.message}`;
                     this.log(errorMsg);
-                    this.log(`실패한 SQL: ${sql.substring(0, 100)}...`);
+                    this.log(`실패한 SQL: ${sql}`);
                     
                     errors.push({
                         sqlIndex: i + 1,
@@ -2482,6 +2538,100 @@ class MSSQLDataMigrator {
             };
         } finally {
             await this.connectionManager.closeConnections();
+        }
+    }
+
+    // INSERT SELECT 구문에서 컬럼 자동 맞춤
+    async processInsertSelectColumnAlignment(script, database = 'target') {
+        try {
+            // INSERT INTO table_name (columns) SELECT ... 패턴
+            const insertSelectPattern = /INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s+SELECT\s+(.+?)(\s+FROM\s+.+)/gi;
+            let processedScript = script;
+            const matches = [...script.matchAll(insertSelectPattern)];
+            
+            if (matches.length === 0) {
+                return script; // INSERT SELECT 패턴이 없으면 원본 반환
+            }
+            
+            this.log(`INSERT SELECT 컬럼 맞춤 처리 중: ${matches.length}개 패턴 발견`);
+            
+            for (const match of matches) {
+                const fullMatch = match[0];
+                const insertTableName = match[1];
+                const insertColumnsPart = match[2];
+                const selectColumnsPart = match[3];
+                const fromPart = match[4];
+                
+                try {
+                    // INSERT 테이블의 컬럼 정보 조회
+                    const insertTableColumns = await this.connectionManager.getTableColumns(insertTableName, database === 'source');
+                    const insertColumnNames = insertTableColumns.map(col => col.name);
+                    
+                    if (insertColumnNames.length === 0) {
+                        this.log(`⚠️ INSERT 테이블 ${insertTableName}의 컬럼 정보를 찾을 수 없습니다. 원본 쿼리를 유지합니다.`);
+                        continue;
+                    }
+                    
+                    // SELECT 컬럼 파싱
+                    const selectColumns = selectColumnsPart.split(',').map(col => col.trim());
+                    
+                    // INSERT 컬럼 파싱
+                    const insertColumns = insertColumnsPart.split(',').map(col => col.trim());
+                    
+                    this.log(`INSERT SELECT 분석: ${insertTableName} 테이블`);
+                    this.log(`  INSERT 컬럼: ${insertColumnsPart}`);
+                    this.log(`  SELECT 컬럼: ${selectColumnsPart}`);
+                    this.log(`  INSERT 테이블 실제 컬럼: ${insertColumnNames.join(', ')}`);
+                    this.log(`  컬럼 수 - INSERT: ${insertColumns.length}, SELECT: ${selectColumns.length}, 테이블: ${insertColumnNames.length}`);
+                    
+                    // INSERT 컬럼이 *이거나 SELECT 컬럼 수와 다른 경우 처리
+                    if (insertColumnsPart.trim() === '*' || selectColumns.length !== insertColumns.length) {
+                        let alignedInsertColumns;
+                        
+                        if (insertColumnsPart.trim() === '*') {
+                            // INSERT 컬럼이 *인 경우: SELECT 컬럼 수만큼 INSERT 테이블의 컬럼 사용
+                            if (selectColumns.length <= insertColumnNames.length) {
+                                alignedInsertColumns = insertColumnNames.slice(0, selectColumns.length);
+                            } else {
+                                this.log(`⚠️ SELECT 컬럼 수(${selectColumns.length})가 INSERT 테이블 컬럼 수(${insertColumnNames.length})보다 많습니다.`);
+                                this.log(`  초과된 SELECT 컬럼: ${selectColumns.slice(insertColumnNames.length).join(', ')}`);
+                                alignedInsertColumns = insertColumnNames; // 모든 컬럼 사용
+                            }
+                        } else {
+                            // INSERT 컬럼 수와 SELECT 컬럼 수가 다른 경우: SELECT 컬럼 수에 맞춤
+                            if (selectColumns.length <= insertColumnNames.length) {
+                                alignedInsertColumns = insertColumnNames.slice(0, selectColumns.length);
+                            } else {
+                                this.log(`⚠️ SELECT 컬럼 수(${selectColumns.length})가 INSERT 테이블 컬럼 수(${insertColumnNames.length})보다 많습니다.`);
+                                this.log(`  초과된 SELECT 컬럼: ${selectColumns.slice(insertColumnNames.length).join(', ')}`);
+                                alignedInsertColumns = insertColumnNames; // 모든 컬럼 사용
+                            }
+                        }
+                        
+                        const alignedInsertColumnsPart = alignedInsertColumns.join(', ');
+                        const result = `INSERT INTO ${insertTableName} (${alignedInsertColumnsPart}) SELECT ${selectColumnsPart}${fromPart}`;
+                        
+                        processedScript = processedScript.replace(fullMatch, result);
+                        
+                        this.log(`✅ INSERT SELECT 컬럼 맞춤 완료: ${insertTableName} 테이블`);
+                        this.log(`  변경된 INSERT 컬럼: ${insertColumnsPart} → ${alignedInsertColumnsPart}`);
+                        this.log(`  최종 INSERT 컬럼 수: ${alignedInsertColumns.length}, SELECT 컬럼 수: ${selectColumns.length}`);
+                    } else {
+                        this.log(`✅ INSERT SELECT 컬럼 수가 일치합니다. 변경 없음.`);
+                    }
+                    
+                } catch (error) {
+                    this.log(`⚠️ INSERT SELECT 컬럼 맞춤 처리 실패: ${error.message}`);
+                    this.log(`원본 쿼리를 유지합니다: ${fullMatch}`);
+                }
+            }
+            
+            return processedScript;
+            
+        } catch (error) {
+            this.log(`INSERT SELECT 컬럼 맞춤 처리 중 오류: ${error.message}`);
+            this.log('원본 스크립트를 그대로 사용합니다.');
+            return script;
         }
     }
 }
