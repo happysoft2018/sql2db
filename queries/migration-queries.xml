@@ -750,30 +750,17 @@
     <query id="migrate_with_select_star_in_process"
            description="전/후처리에서 SELECT * 사용 예시"
            targetTable="example_table"
-           targetColumns="id,name,email,created_date"
-           identityColumns="id"
-           enabled="false">
+           targetColumns=""
+           identityColumns="unique_code"
+           enabled="true">
       
       <!-- 전처리에서 SELECT * 사용 -->
       <preProcess description="SELECT * 를 사용한 백업 및 준비 작업">
         <![CDATA[
           -- 기존 데이터 전체 백업 (SELECT * 사용)
-          INSERT INTO example_table_backup 
+          INSERT INTO example_table_backup (*)
           SELECT * FROM example_table 
           WHERE created_date >= '${startDate}';
-          
-          -- 별칭을 사용한 SELECT * 예시
-          INSERT INTO temp_analysis 
-          SELECT t.* FROM example_table t 
-          WHERE t.status = 'ACTIVE';
-          
-          -- 복잡한 JOIN과 함께 SELECT * 사용
-          INSERT INTO detailed_backup
-          SELECT u.* FROM users u
-          LEFT JOIN departments d ON u.dept_id = d.id
-          WHERE u.created_date >= '${startDate}' 
-            AND d.is_active = 1;
-
           
           -- 로그 기록
           INSERT INTO migration_log (query_id, phase, message, created_date)
@@ -783,7 +770,7 @@
       
       <sourceQuery applyGlobalColumns="all">
         <![CDATA[
-          SELECT id, name, email, created_date 
+          SELECT *
           FROM example_table 
           WHERE created_date >= '${startDate}' 
             AND created_date <= '${endDate}' 
@@ -794,19 +781,6 @@
       <!-- 후처리에서도 SELECT * 사용 -->
       <postProcess description="SELECT * 를 사용한 검증 및 정리 작업">
         <![CDATA[
-          -- 데이터 검증을 위한 전체 컬럼 비교
-          DECLARE @backup_count INT, @target_count INT;
-          
-          SELECT @backup_count = COUNT(*) FROM (
-            SELECT * FROM example_table_backup 
-            WHERE created_date >= '${startDate}'
-          ) backup_data;
-          
-          SELECT @target_count = COUNT(*) FROM (
-            SELECT * FROM example_table 
-            WHERE migration_date = '${migrationTimestamp}'
-          ) target_data;
-          
           -- 샘플 데이터 검증 (SELECT * 로 전체 컬럼 검사)
           IF EXISTS (
             SELECT * FROM example_table 
@@ -816,14 +790,11 @@
           BEGIN
             INSERT INTO migration_errors (query_id, error_message, created_date)
             VALUES ('migrate_with_select_star_in_process', 'Data validation failed: NULL values found', GETDATE());
-          END
-          
-          -- 임시 테이블 정리
-          DELETE FROM temp_analysis WHERE created_date < DATEADD(DAY, -1, GETDATE());
+          END;
           
           -- 완료 로그
           INSERT INTO migration_log (query_id, phase, message, rows_processed, created_date)
-          VALUES ('migrate_with_select_star_in_process', 'POST_PROCESS', 'Validation completed with SELECT *', @target_count, GETDATE());
+          VALUES ('migrate_with_select_star_in_process', 'POST_PROCESS', 'Validation completed with SELECT *', 0, GETDATE());
         ]]>
       </postProcess>
       

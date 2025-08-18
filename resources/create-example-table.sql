@@ -350,3 +350,74 @@ GROUP BY i.name, i.type_desc
 ORDER BY i.name;
 
 PRINT 'Example Table 생성 스크립트가 완료되었습니다.';
+
+
+
+
+-- Example Table Backup 생성
+CREATE TABLE example_table_backup (
+    -- 기본 식별자
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    unique_code NVARCHAR(20) NOT NULL UNIQUE,
+    
+    -- 문자열 타입들
+    name NVARCHAR(100) NOT NULL,
+    description NVARCHAR(500) NULL,
+    email NVARCHAR(150) NULL,
+    phone NVARCHAR(20) NULL,
+    address NVARCHAR(300) NULL,
+    city NVARCHAR(50) NULL,
+    country NVARCHAR(50) NULL,
+    postal_code NVARCHAR(10) NULL,
+    
+    -- 숫자 타입들
+    age INT NULL,
+    salary DECIMAL(10,2) NULL,
+    rating DECIMAL(3,2) NULL,
+    quantity INT NOT NULL DEFAULT 0,
+    price DECIMAL(12,2) NULL,
+    discount_percent DECIMAL(5,2) NULL,
+    
+    -- 날짜/시간 타입들
+    birth_date DATE NULL,
+    hire_date DATE NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    updated_date DATETIME2 NULL,
+    last_login DATETIME2 NULL,
+    expiry_date DATETIME2 NULL,
+    
+    -- 불린 타입
+    is_active BIT NOT NULL DEFAULT 1,
+    is_verified BIT NOT NULL DEFAULT 0,
+    is_premium BIT NOT NULL DEFAULT 0,
+    
+    -- 열거형 스타일 (문자열로 구현)
+    status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    category NVARCHAR(30) NULL,
+    priority NVARCHAR(10) NULL,
+    gender NVARCHAR(10) NULL,
+    
+    -- JSON 데이터
+    metadata NVARCHAR(MAX) NULL,
+    preferences NVARCHAR(MAX) NULL,
+    
+    -- 바이너리 데이터 (이미지, 파일 등)
+    profile_image VARBINARY(MAX) NULL,
+    document_file VARBINARY(MAX) NULL,
+    
+    -- 계산된 컬럼
+    full_name AS (name + ' (' + unique_code + ')') PERSISTED,
+    age_group AS (
+        CASE 
+            WHEN age < 18 THEN 'Under 18'
+            WHEN age BETWEEN 18 AND 25 THEN '18-25'
+            WHEN age BETWEEN 26 AND 35 THEN '26-35'
+            WHEN age BETWEEN 36 AND 50 THEN '36-50'
+            WHEN age > 50 THEN 'Over 50'
+            ELSE 'Unknown'
+        END
+    ) PERSISTED
+);
+
+-- 백업 테이블 생성 완료 메시지
+PRINT 'Example Table Backup 생성 스크립트가 완료되었습니다.';
