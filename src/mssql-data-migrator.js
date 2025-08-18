@@ -165,10 +165,13 @@ class MSSQLDataMigrator {
     async getTableColumns(tableName, database = 'target') {
         try {
             const query = `
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_NAME = '${tableName}' 
-                ORDER BY ORDINAL_POSITION
+                SELECT c.COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS c
+                INNER JOIN sys.columns sc ON c.COLUMN_NAME = sc.name 
+                    AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
+                WHERE c.TABLE_NAME = '${tableName}'
+                    AND sc.is_computed = 0  -- Computed Column 제외
+                ORDER BY c.ORDINAL_POSITION
             `;
             
             let result;

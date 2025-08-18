@@ -169,10 +169,18 @@ class MSSQLConnectionManager {
 
             const request = (isSource ? this.sourcePool : this.targetPool).request();
             const query = `
-                SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_NAME = '${tableName}'
-                ORDER BY ORDINAL_POSITION
+                SELECT 
+                    c.COLUMN_NAME, 
+                    c.DATA_TYPE, 
+                    c.IS_NULLABLE, 
+                    c.COLUMN_DEFAULT,
+                    c.ORDINAL_POSITION
+                FROM INFORMATION_SCHEMA.COLUMNS c
+                INNER JOIN sys.columns sc ON c.COLUMN_NAME = sc.name 
+                    AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
+                WHERE c.TABLE_NAME = '${tableName}'
+                    AND sc.is_computed = 0  -- Computed Column 제외
+                ORDER BY c.ORDINAL_POSITION
             `;
             
             console.log(`${connectionType} 테이블 컬럼 정보 조회: ${tableName}`);
@@ -185,7 +193,7 @@ class MSSQLConnectionManager {
                 defaultValue: row.COLUMN_DEFAULT
             }));
             
-            console.log(`${connectionType} 테이블 ${tableName}의 컬럼 수: ${columns.length}`);
+            console.log(`${connectionType} 테이블 ${tableName}의 컬럼 수: ${columns.length} (Computed Column 제외)`);
             return columns;
         } catch (error) {
             console.error(`테이블 컬럼 정보 조회 실패 (${tableName}):`, error.message);
