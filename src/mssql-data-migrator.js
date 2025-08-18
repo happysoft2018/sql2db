@@ -171,6 +171,7 @@ class MSSQLDataMigrator {
                     AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
                 WHERE c.TABLE_NAME = '${tableName}'
                     AND sc.is_computed = 0  -- Computed Column 제외
+                    AND c.DATA_TYPE NOT IN ('varbinary', 'binary', 'image')  -- VARBINARY 컬럼 제외
                 ORDER BY c.ORDINAL_POSITION
             `;
             
