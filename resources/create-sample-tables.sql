@@ -321,7 +321,7 @@ CREATE TABLE migration_log (
 IF OBJECT_ID('validation_errors', 'U') IS NOT NULL
     DROP TABLE validation_errors;
 
--- Validation Errors 테이블 생성
+-- 18. Validation Errors 테이블 생성
 CREATE TABLE validation_errors (
     error_id INT IDENTITY(1,1) PRIMARY KEY,
     migration_id NVARCHAR(50) NULL,                    -- 마이그레이션 식별자
@@ -350,7 +350,7 @@ CREATE TABLE validation_errors (
 IF OBJECT_ID('migration_stats', 'U') IS NOT NULL
     DROP TABLE migration_stats;
 
--- Migration Stats 테이블 생성
+-- 19. Migration Stats 테이블 생성
 CREATE TABLE migration_stats (
     stat_id INT IDENTITY(1,1) PRIMARY KEY,
     migration_id NVARCHAR(50) NOT NULL,                 -- 마이그레이션 식별자
@@ -372,6 +372,27 @@ CREATE TABLE migration_stats (
     created_date DATETIME2 NOT NULL DEFAULT GETDATE(),  -- 생성 시간
     updated_date DATETIME2 NULL                         -- 마지막 업데이트 시간
 );
+
+
+
+-- 20. 감사 테이블 (Audit_Table)
+IF OBJECT_ID('audit_table', 'U') IS NOT NULL
+    DROP TABLE audit_table;
+
+CREATE TABLE audit_table (
+    log_id INT IDENTITY(1,1) PRIMARY KEY,
+    migration_id NVARCHAR(50) NULL,
+    action_type NVARCHAR(100) NULL,
+    table_name NVARCHAR(100) NULL,
+    user_id INT ,
+    message NVARCHAR(1000) NULL,
+    start_time DATETIME2 NULL,
+    end_time DATETIME2 NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'RUNNING',
+    error_message NVARCHAR(MAX) NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+);
+
 
 -- ===============================================
 -- 외래키 제약조건 추가
