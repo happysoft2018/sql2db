@@ -1437,10 +1437,28 @@ class MSSQLDataMigrator {
                     break;
                     
                 default:
-                    // 기본값: 단일 컬럼 추출
-                    const defaultColumn = Object.keys(data[0])[0];
-                    extractedValue = data.map(row => row[defaultColumn]).filter(val => val !== null && val !== undefined);
-                    this.log(`기본 추출 (${defaultColumn}): ${extractedValue.length}개 값`);
+                    // 기본값: column_identified 타입으로 추출
+                    const defaultColumns = Object.keys(data[0]);
+                    extractedValue = {};
+                    defaultColumns.forEach(col => {
+                        extractedValue[col] = [];
+                    });
+                    
+                    data.forEach(row => {
+                        defaultColumns.forEach(col => {
+                            if (row[col] !== null && row[col] !== undefined) {
+                                extractedValue[col].push(row[col]);
+                            }
+                        });
+                    });
+                    
+                    // 중복 제거
+                    Object.keys(extractedValue).forEach(col => {
+                        extractedValue[col] = [...new Set(extractedValue[col])];
+                    });
+                    
+                    const defaultTotalValues = Object.values(extractedValue).reduce((sum, arr) => sum + arr.length, 0);
+                    this.log(`기본 추출 (column_identified): ${defaultTotalValues}개 값 (${Object.keys(extractedValue).length}개 컬럼)`);
                     break;
             }
             

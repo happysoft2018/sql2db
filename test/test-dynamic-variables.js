@@ -42,6 +42,13 @@ const testConfig = {
             query: "SELECT 'key1' as key, 'value1' as value UNION SELECT 'key2', 'value2'",
             extractType: "key_value_pairs",
             enabled: true
+        },
+        {
+            id: "test_default_type",
+            description: "기본 타입 (column_identified) 추출 테스트",
+            variableName: "testDefaultType",
+            query: "SELECT 'A' as col1, 'B' as col2 UNION SELECT 'C', 'D'",
+            enabled: true
         }
     ]
 };
@@ -100,6 +107,12 @@ async function testDynamicVariables() {
                 case 'key_value_pairs':
                     mockData = [{ key: 'key1', value: 'value1' }, { key: 'key2', value: 'value2' }];
                     extractedValue = { key1: 'value1', key2: 'value2' };
+                    break;
+                    
+                default:
+                    // 기본 타입 (column_identified)
+                    mockData = [{ col1: 'A', col2: 'B' }, { col1: 'C', col2: 'D' }];
+                    extractedValue = { col1: ['A', 'C'], col2: ['B', 'D'] };
                     break;
             }
             
@@ -164,6 +177,12 @@ async function testExtractionLogic() {
             data: [{ code: 'IT', name: 'Information Technology' }, { code: 'HR', name: 'Human queries' }],
             config: { extractType: 'key_value_pairs' },
             expected: { IT: 'Information Technology', HR: 'Human queries' }
+        },
+        {
+            name: 'default_type',
+            data: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }],
+            config: { extractType: 'default' },
+            expected: { id: [1, 2], name: ['A', 'B'] }
         }
     ];
     
@@ -186,17 +205,39 @@ async function testExtractionLogic() {
                 result = data.map(row => row[columnName]).filter(val => val !== null && val !== undefined);
                 break;
                 
-            case 'multiple_columns':
-                const columns = testCase.config.columns || Object.keys(data[0]);
-                result = [];
-                data.forEach(row => {
-                    columns.forEach(col => {
-                        if (row[col] !== null && row[col] !== undefined) {
-                            result.push(row[col]);
-                        }
+                            case 'multiple_columns':
+                    const columns = testCase.config.columns || Object.keys(data[0]);
+                    result = [];
+                    data.forEach(row => {
+                        columns.forEach(col => {
+                            if (row[col] !== null && row[col] !== undefined) {
+                                result.push(row[col]);
+                            }
+                        });
                     });
-                });
-                break;
+                    break;
+                    
+                default:
+                    // 기본 타입 (column_identified)
+                    const defaultColumns = Object.keys(data[0]);
+                    result = {};
+                    defaultColumns.forEach(col => {
+                        result[col] = [];
+                    });
+                    
+                    data.forEach(row => {
+                        defaultColumns.forEach(col => {
+                            if (row[col] !== null && row[col] !== undefined) {
+                                result[col].push(row[col]);
+                            }
+                        });
+                    });
+                    
+                    // 중복 제거
+                    Object.keys(result).forEach(col => {
+                        result[col] = [...new Set(result[col])];
+                    });
+                    break;
                 
             case 'key_value_pairs':
                 const keys = Object.keys(data[0]);
