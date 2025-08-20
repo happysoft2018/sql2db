@@ -584,7 +584,7 @@ class MSSQLDataMigrator {
                     } else if (q.sourceQuery) {
                         // sourceQuery에서 applyGlobalColumns, deleteBeforeInsert, targetTable, targetColumns, identityColumns, sourceQueryFile 속성 파싱
                         if (typeof q.sourceQuery === 'object') {
-                            query.sourceQueryApplyGlobalColumns = q.sourceQuery.applyGlobalColumns || 'all';
+                            query.sourceQueryApplyGlobalColumns = q.sourceQuery.applyGlobalColumns || undefined;
                             query.sourceQueryDeleteBeforeInsert = q.sourceQuery.deleteBeforeInsert !== undefined ? (q.sourceQuery.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert;
                             query.targetTable = q.sourceQuery.targetTable;
                             query.targetColumns = q.sourceQuery.targetColumns ? q.sourceQuery.targetColumns.split(',').map(c => c.trim()) : [];
@@ -592,7 +592,7 @@ class MSSQLDataMigrator {
                             query.sourceQueryFile = q.sourceQuery.sourceQueryFile;
                             query.sourceQuery = q.sourceQuery._ ? q.sourceQuery._.trim() : '';
                         } else {
-                            query.sourceQueryApplyGlobalColumns = 'all'; // 기본값
+                            query.sourceQueryApplyGlobalColumns = undefined; // applyGlobalColumns가 명시되지 않았으면 적용하지 않음
                             query.sourceQueryDeleteBeforeInsert = q.deleteBeforeInsert !== undefined ? (q.deleteBeforeInsert === 'true') : config.settings.deleteBeforeInsert; // 개별 설정이 없으면 글로벌 설정 사용
                             // 문자열 sourceQuery의 경우 기존 query 레벨 속성 사용 (하위 호환성)
                             query.targetTable = q.targetTable;
@@ -1059,7 +1059,7 @@ class MSSQLDataMigrator {
     }
 
     // 전/후처리 스크립트에서 globalColumnOverrides 처리
-    processGlobalColumnOverridesInScript(script, globalColumnOverrides, database = 'target') {
+    processGlobalColumnOverridesInScript(script, globalColumnOverrides, database = 'target', targetTableName = null) {
         // globalColumnOverrides가 없으면 원본 반환
         if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
             return script;
@@ -1067,11 +1067,14 @@ class MSSQLDataMigrator {
 
         try {
             this.log(`전/후처리 스크립트에서 globalColumnOverrides 처리 중: ${Object.keys(globalColumnOverrides).join(', ')}`);
+            if (targetTableName) {
+                this.log(`대상 테이블: ${targetTableName}`);
+            }
             
             let processedScript = script;
             
             // INSERT 문에서 globalColumnOverrides 적용
-            processedScript = this.applyGlobalColumnOverridesToInsertStatements(processedScript, globalColumnOverrides);
+            processedScript = this.applyGlobalColumnOverridesToInsertStatements(processedScript, globalColumnOverrides, targetTableName);
             
             // UPDATE 문에서 globalColumnOverrides 적용
             processedScript = this.applyGlobalColumnOverridesToUpdateStatements(processedScript, globalColumnOverrides);
@@ -1086,27 +1089,35 @@ class MSSQLDataMigrator {
     }
 
     // INSERT 문에서 globalColumnOverrides 적용
-    applyGlobalColumnOverridesToInsertStatements(script, globalColumnOverrides) {
-        // INSERT INTO table_name (columns) VALUES (...) 패턴
+    applyGlobalColumnOverridesToInsertStatements(script, globalColumnOverrides, targetTableName = null) {
+        // INSERT INTO table_name (columns) VALUES (...) 패턴 (columns는 * 또는 컬럼 목록)
         const insertPattern = /INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s+(VALUES\s*\([^)]+\)|SELECT\s+[^;]+)/gi;
         
         return script.replace(insertPattern, (match, tableName, columnsPart, valuesPart) => {
             try {
-                // 컬럼 목록 파싱
-                const columns = columnsPart.split(',').map(col => col.trim());
-                const originalColumns = [...columns];
+                // targetTableName이 지정된 경우, 해당 테이블에만 오버라이드 적용
+                if (targetTableName && tableName.toLowerCase() !== targetTableName.toLowerCase()) {
+                    this.log(`⏭️ ${tableName} 테이블은 대상 테이블(${targetTableName})이 아니므로 globalColumnOverrides 건너뜀`);
+                    return match;
+                }
                 
-                // globalColumnOverrides에서 추가할 컬럼들 확인
-                const overrideColumns = Object.keys(globalColumnOverrides);
-                const newColumns = overrideColumns.filter(col => !columns.includes(col));
+                // targetTableName이 null인 경우 (전처리/후처리), 모든 INSERT 문에 오버라이드 적용
+                if (!targetTableName) {
+                    this.log(`✅ 전처리/후처리 모드: ${tableName} 테이블에 globalColumnOverrides 적용`);
+                }
                 
-                if (newColumns.length === 0) {
-                    return match; // 추가할 컬럼이 없으면 원본 반환
+                // 컬럼 목록 파싱 (* 처리 포함)
+                let columns = [];
+                if (columnsPart.trim() === '*') {
+                    // * 인 경우, SELECT 문에서 컬럼을 추출하거나 모든 컬럼을 추가
+                    columns = [];
+                } else {
+                    columns = columnsPart.split(',').map(col => col.trim());
                 }
                 
                 // 새 컬럼들을 컬럼 목록에 추가
-                const updatedColumns = [...columns, ...newColumns];
-                const updatedColumnsPart = updatedColumns.join(', ');
+                const updatedColumns = [...columns];
+                const updatedColumnsPart = updatedColumns.length > 0 ? updatedColumns.join(', ') : '*';
                 
                 // VALUES 부분 처리
                 let updatedValuesPart;
@@ -1115,41 +1126,49 @@ class MSSQLDataMigrator {
                     updatedValuesPart = valuesPart.replace(/VALUES\s*\(([^)]+)\)/gi, (valuesMatch, valuesList) => {
                         const values = valuesList.split(',').map(val => val.trim());
                         
-                        // 새 컬럼들에 대한 값 추가
-                        const newValues = newColumns.map(col => {
-                            const overrideValue = globalColumnOverrides[col];
-                            // 변수 치환 적용
-                            const processedValue = this.replaceVariables(overrideValue);
-                            // SQL에서 문자열은 따옴표로 감싸야 함
-                            return this.formatSqlValue(processedValue);
-                        });
-                        
-                        const updatedValues = [...values, ...newValues];
+                        const updatedValues = [...values];
                         return `VALUES (${updatedValues.join(', ')})`;
                     });
-                } else {
+                                } else {
                     // SELECT 문 형태 처리
                     const selectPattern = /SELECT\s+(.+?)(\s+FROM\s+.+)/i;
                     updatedValuesPart = valuesPart.replace(selectPattern, (selectMatch, selectList, fromPart) => {
                         const selectColumns = selectList.split(',').map(col => col.trim());
                         
-                        // 새 컬럼들에 대한 값 추가
-                        const newSelectValues = newColumns.map(col => {
-                            const overrideValue = globalColumnOverrides[col];
-                            // 변수 치환 적용
-                            const processedValue = this.replaceVariables(overrideValue);
-                            return this.formatSqlValue(processedValue);
+                        // globalColumnOverrides 적용 (기존 컬럼도 오버라이드)
+                        const updatedSelectColumns = [];
+                        const processedColumns = new Set(); // 이미 처리된 컬럼을 추적
+                        
+                        // 기존 SELECT 컬럼들을 순회하며 처리
+                        selectColumns.forEach(col => {
+                            const parts = col.split(/\s+as\s+/i);
+                            let columnName = parts.length > 1 ? parts[1].trim() : col.trim();
+
+                            // 문자열 리터럴인 경우 컬럼명으로 간주하지 않음
+                            if (columnName.startsWith("'") && columnName.endsWith("'")) {
+                                updatedSelectColumns.push(col); // 그대로 유지
+                                return;
+                            }
+
+                            if (globalColumnOverrides.hasOwnProperty(columnName)) {
+                                // 오버라이드 대상 컬럼이면 새로운 값으로 대체
+                                const overrideValue = globalColumnOverrides[columnName];
+                                const processedValue = this.replaceVariables(overrideValue);
+                                updatedSelectColumns.push(`${this.formatSqlValue(processedValue)} as ${columnName}`);
+                                processedColumns.add(columnName);
+                            } else {
+                                // 오버라이드 대상이 아니면 기존 컬럼 유지
+                                updatedSelectColumns.push(col);
+                                processedColumns.add(columnName);
+                            }
                         });
                         
-                        const updatedSelectColumns = [...selectColumns, ...newSelectValues];
                         return `SELECT ${updatedSelectColumns.join(', ')}${fromPart}`;
                     });
                 }
                 
                 const result = `INSERT INTO ${tableName} (${updatedColumnsPart}) ${updatedValuesPart}`;
                 
-                this.log(`✅ INSERT 문에 globalColumnOverrides 적용: ${tableName} 테이블에 ${newColumns.length}개 컬럼 추가`);
-                this.log(`추가된 컬럼: ${newColumns.join(', ')}`);
                 this.log(`INSERT 컬럼: ${updatedColumnsPart}`);
                 this.log(`VALUES/SELECT 컬럼 수: ${valuesPart.toUpperCase().startsWith('VALUES') ? 
                     valuesPart.match(/VALUES\s*\(([^)]+)\)/i)?.[1]?.split(',').length || 0 :
@@ -1178,29 +1197,10 @@ class MSSQLDataMigrator {
                     return eqIndex > 0 ? assignment.substring(0, eqIndex).trim() : null;
                 }).filter(col => col !== null);
                 
-                // globalColumnOverrides에서 추가할 컬럼들 확인
-                const overrideColumns = Object.keys(globalColumnOverrides);
-                const newColumns = overrideColumns.filter(col => !existingColumns.includes(col));
-                
-                if (newColumns.length === 0) {
-                    return match; // 추가할 컬럼이 없으면 원본 반환
-                }
-                
-                // 새 컬럼 할당 생성
-                const newAssignments = newColumns.map(col => {
-                    const overrideValue = globalColumnOverrides[col];
-                    // 변수 치환 적용
-                    const processedValue = this.replaceVariables(overrideValue);
-                    return `${col} = ${this.formatSqlValue(processedValue)}`;
-                });
-                
                 // 기존 SET 절과 새 할당 결합
-                const updatedSetPart = [...setAssignments, ...newAssignments].join(', ');
+                const updatedSetPart = [...setAssignments].join(', ');
                 
                 const result = `UPDATE ${tableName} SET ${updatedSetPart}${wherePart}`;
-                
-                this.log(`✅ UPDATE 문에 globalColumnOverrides 적용: ${tableName} 테이블에 ${newColumns.length}개 컬럼 추가`);
-                this.log(`추가된 컬럼: ${newColumns.join(', ')}`);
                 
                 return result;
                 
@@ -1646,25 +1646,15 @@ class MSSQLDataMigrator {
             // 단계별 applyGlobalColumns 설정 사용
             let globalColumnOverridesProcessedScript;
             if (scriptConfig.applyGlobalColumns) {
-                // 현재 쿼리에서 테이블명 추출
-                let tableName = null;
-                
-                if (currentQuery && currentQuery.sql) {
-                    // INSERT 문에서 테이블명 추출
-                    const insertMatch = currentQuery.sql.match(/INSERT\s+INTO\s+(\w+)/i);
-                    if (insertMatch) {
-                        tableName = insertMatch[1];
-                    }
-                }
-                
+                // 전처리/후처리에서는 targetTableName을 null로 전달하여 각 INSERT 문에서 개별 처리
                 const stepColumnOverrides = await this.selectivelyApplyGlobalColumnOverrides(
                     this.config.globalColumnOverrides, 
                     scriptConfig.applyGlobalColumns,
-                    tableName,
+                    null, // 전처리/후처리에서는 null로 전달
                     database
                 );
                 globalColumnOverridesProcessedScript = stepColumnOverrides && Object.keys(stepColumnOverrides).length > 0
-                    ? this.processGlobalColumnOverridesInScript(deleteBeforeInsertProcessedScript, stepColumnOverrides, database)
+                    ? this.processGlobalColumnOverridesInScript(deleteBeforeInsertProcessedScript, stepColumnOverrides, database, null)
                     : deleteBeforeInsertProcessedScript;
             } else {
                 // applyGlobalColumns가 명시되지 않았으면 컬럼 오버라이드 적용 안함
