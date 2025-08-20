@@ -392,6 +392,3 @@ When using `SELECT *`, the tool automatically:
 - **Email**: sql2db.nodejs@gmail.com
 - **Website**: sql2db.com
 
----
-
-**Version**: v2.6 | **Last Updated**: 2024-08-14
