@@ -2,7 +2,7 @@
 chcp 65001 >nul
 setlocal enabledelayedexpansion
 
-:: Korean output setup
+:: English output setup
 color 0F
 
 :HEADER
@@ -27,14 +27,16 @@ if %errorlevel% neq 0 (
 echo =========================================
 echo   Menu Selection
 echo =========================================
-echo 1. Validate Configuration File
-echo 2. Test Database Connection
+echo 1. Validate Query Definition File Syntax
+
+echo 2. Test DB Connection (including connectivity)
+
 echo 3. Execute Data Migration
 echo 4. Show Help
 echo 0. Exit
 echo =========================================
 echo.
-set /p choice=Select (0-4): 
+set /p choice=Please select (0-4): 
 
 if "%choice%"=="1" goto VALIDATE
 if "%choice%"=="2" goto TEST
@@ -50,29 +52,39 @@ goto MENU
 :VALIDATE
 echo.
 echo =========================================
-echo   Validate Configuration File
+echo   Query Definition File Validation
 echo =========================================
 echo.
-echo Enter configuration file path (e.g., queries/my-config.xml):
+echo.
+echo Available query definition files:
+echo.
+if exist "queries\*.xml" (
+    for %%f in (queries\*.xml) do echo   - %%f
+)
+if exist "queries\*.json" (
+    for %%f in (queries\*.json) do echo   - %%f
+)
+echo.
+echo Please enter the query definition file path (e.g., queries/my-config.xml):
 set /p config_file=
 if "%config_file%"=="" (
-    echo Configuration file path is required.
+    echo Query definition file path was not entered.
     echo.
     pause
     goto MENU
 )
 
 echo.
-echo Validating configuration file...
+echo Validating query definition file...
 echo.
 node src/migrate-cli.js validate --query "%config_file%"
 
 if %errorlevel% equ 0 (
     echo.
-    echo Configuration validation completed successfully.
+    echo Query definition file validation completed successfully.
 ) else (
     echo.
-    echo Configuration file has errors.
+    echo There are errors in the query definition file.
 )
 
 echo.
@@ -82,7 +94,7 @@ goto MENU
 :TEST
 echo.
 echo =========================================
-echo   Test Database Connection
+echo   Database Connection Test
 echo =========================================
 echo.
 echo Testing database connection...
@@ -92,11 +104,11 @@ node src/migrate-cli.js list-dbs
 
 if %errorlevel% equ 0 (
     echo.
-    echo Database connection test successful.
+    echo Database connection test was successful.
 ) else (
     echo.
     echo Database connection failed.
-    echo Please check connection info in .env file.
+    echo Please check the connection information in the .env file.
 )
 
 echo.
@@ -109,22 +121,30 @@ echo =========================================
 echo   Execute Data Migration
 echo =========================================
 echo.
-echo Warning: Please backup target database before migration.
+echo Available query definition files:
 echo.
-echo Enter configuration file path (e.g., queries/my-config.xml):
+if exist "queries\*.xml" (
+    for %%f in (queries\*.xml) do echo   - %%f
+)
+if exist "queries\*.json" (
+    for %%f in (queries\*.json) do echo   - %%f
+)
+echo.
+echo.
+echo Please enter the query definition file path (e.g., queries/my-config.xml):
 set /p config_file=
 if "%config_file%"=="" (
-    echo Configuration file path is required.
+    echo Query definition file path was not entered.
     echo.
     pause
     goto MENU
 )
 
 echo.
-echo Are you sure you want to execute data migration? (Y/N)
+echo Do you really want to execute data migration? (Y/N)
 set /p confirm=
 if /i "!confirm!" neq "Y" (
-    echo Migration cancelled.
+    echo Migration was cancelled.
     echo.
     pause
     goto MENU
@@ -144,8 +164,8 @@ if %errorlevel% equ 0 (
     echo End time: %time%
 ) else (
     echo.
-    echo Error occurred during data migration.
-    echo Please check log files.
+    echo An error occurred during data migration.
+    echo Please check the log files.
 )
 
 echo.
@@ -191,7 +211,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Enter log filename to view (filename only, not full path):
+echo Please enter the log file name you want to view (filename only, not full path):
 set /p logfile=
 
 if exist "logs\%logfile%" (
@@ -200,7 +220,7 @@ if exist "logs\%logfile%" (
     echo.
     type "logs\%logfile%"
 ) else (
-    echo Log file not found.
+    echo The specified log file was not found.
 )
 
 echo.
@@ -210,39 +230,39 @@ goto MENU
 :EDIT
 echo.
 echo =========================================
-echo   Edit Configuration Files
+echo   Edit Query Definition File
 echo =========================================
 echo.
-echo Select file to edit:
+echo Please select a file to edit:
 echo.
 echo 1. .env (Database connection settings)
-echo 2. Custom configuration file
-echo 3. Back to menu
+echo 2. Custom query definition file 
+echo 3. Go back
 echo.
-set /p edit_choice=Select (1-3): 
+set /p edit_choice=Please select (1-3): 
 
 if "%edit_choice%"=="1" (
     if exist ".env" (
         notepad .env
     ) else (
-        echo .env file does not exist. Copy env.example to create .env file.
+        echo .env file does not exist. Please copy env.example to create .env file.
         echo.
-        echo Copy env.example? (Y/N)
+        echo Do you want to copy env.example? (Y/N)
         set /p copy_env=
         if /i "!copy_env!"=="Y" (
             copy "env.example" ".env"
-            echo .env file created. Now editing...
+            echo .env file has been created. You can now edit it.
             notepad .env
         )
     )
 ) else if "%edit_choice%"=="2" (
     echo.
-    echo Enter configuration file path to edit:
+    echo Please enter the path of the query definition file to edit:
     set /p edit_file=
     if exist "!edit_file!" (
         notepad "!edit_file!"
     ) else (
-        echo File not found: !edit_file!
+        echo The specified file was not found: !edit_file!
     )
 ) else if "%edit_choice%"=="3" (
     goto MENU
@@ -256,7 +276,7 @@ goto MENU
 
 :EXIT
 echo.
-echo Exiting program.
+echo Exiting the program.
 echo.
 pause
-exit /b 0 
+exit /b 0
