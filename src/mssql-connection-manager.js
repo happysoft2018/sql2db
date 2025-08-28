@@ -10,6 +10,11 @@ class MSSQLConnectionManager {
         this.customSourceConfig = null;
         this.customTargetConfig = null;
         this.tableColumnCache = {}; // 테이블 컬럼 정보 캐시
+        
+        // 세션 관리를 위한 속성 추가
+        this.sourceSession = null;
+        this.targetSession = null;
+        this.sessionTransaction = null;
     }
 
     // 커스텀 DB 설정 지정
@@ -96,6 +101,122 @@ class MSSQLConnectionManager {
             source: this.sourcePool,
             target: this.targetPool
         };
+    }
+
+    // 세션 시작 (temp 테이블 사용을 위한)
+    async beginSession(database = 'target') {
+        try {
+            const pool = database === 'source' ? this.sourcePool : this.targetPool;
+            const connectionType = database === 'source' ? '소스' : '대상';
+            
+            if (!pool) {
+                if (database === 'source') {
+                    await this.connectSource();
+                } else {
+                    await this.connectTarget();
+                }
+            }
+            
+            // 세션 시작
+            const session = pool.request();
+            if (database === 'source') {
+                this.sourceSession = session;
+            } else {
+                this.targetSession = session;
+            }
+            
+            console.log(`${connectionType} DB 세션 시작됨 (temp 테이블 사용 가능)`);
+            return session;
+            
+        } catch (error) {
+            console.error(`세션 시작 실패 (${database}):`, error.message);
+            throw new Error(`세션 시작 실패: ${error.message}`);
+        }
+    }
+
+    // 세션에서 쿼리 실행
+    async executeQueryInSession(query, database = 'target') {
+        try {
+            const session = database === 'source' ? this.sourceSession : this.targetSession;
+            const connectionType = database === 'source' ? '소스' : '대상';
+            
+            if (!session) {
+                throw new Error(`${connectionType} DB 세션이 시작되지 않았습니다. beginSession()을 먼저 호출하세요.`);
+            }
+            
+            const result = await session.query(query);
+            return result;
+            
+        } catch (error) {
+            console.error(`세션 쿼리 실행 실패 (${database}):`, error.message);
+            throw new Error(`세션 쿼리 실행 실패: ${error.message}`);
+        }
+    }
+
+    // 세션 종료
+    async endSession(database = 'target') {
+        try {
+            const connectionType = database === 'source' ? '소스' : '대상';
+            
+            if (database === 'source') {
+                this.sourceSession = null;
+            } else {
+                this.targetSession = null;
+            }
+            
+            console.log(`${connectionType} DB 세션 종료됨`);
+            
+        } catch (error) {
+            console.error(`세션 종료 실패 (${database}):`, error.message);
+            throw new Error(`세션 종료 실패: ${error.message}`);
+        }
+    }
+
+    // 트랜잭션 시작
+    async beginTransaction(database = 'target') {
+        try {
+            const session = database === 'source' ? this.sourceSession : this.targetSession;
+            const connectionType = database === 'source' ? '소스' : '대상';
+            
+            if (!session) {
+                throw new Error(`${connectionType} DB 세션이 시작되지 않았습니다. beginSession()을 먼저 호출하세요.`);
+            }
+            
+            this.sessionTransaction = await session.beginTransaction();
+            console.log(`${connectionType} DB 트랜잭션 시작됨`);
+            
+        } catch (error) {
+            console.error(`트랜잭션 시작 실패 (${database}):`, error.message);
+            throw new Error(`트랜잭션 시작 실패: ${error.message}`);
+        }
+    }
+
+    // 트랜잭션 커밋
+    async commitTransaction() {
+        try {
+            if (this.sessionTransaction) {
+                await this.sessionTransaction.commit();
+                this.sessionTransaction = null;
+                console.log('트랜잭션 커밋 완료');
+            }
+        } catch (error) {
+            console.error('트랜잭션 커밋 실패:', error.message);
+            throw new Error(`트랜잭션 커밋 실패: ${error.message}`);
+        }
+    }
+
+    // 트랜잭션 롤백
+    async rollbackTransaction() {
+        try {
+            if (this.sessionTransaction) {
+                await this.sessionTransaction.rollback();
+                this.sessionTransaction = null;
+                console.log('트랜잭션 롤백 완료');
+            }
+        } catch (error) {
+            console.error('트랜잭션 롤백 실패:', error.message);
+            throw new Error(`트랜잭션 롤백 실패: ${error.message}`);
+        }
     }
 
     // 소스 데이터베이스에서 데이터 조회

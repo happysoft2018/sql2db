@@ -1574,11 +1574,20 @@ class MSSQLDataMigrator {
     }
 
     // 쿼리 실행 및 데이터 조회
-    async executeSourceQuery(query) {
+    async executeSourceQuery(query, useSession = false) {
         try {
             this.log(`소스 쿼리 실행: ${query}`);
             
-            const data = await this.connectionManager.querySource(query);
+            let data;
+            if (useSession) {
+                // 세션 모드에서 실행
+                const result = await this.connectionManager.executeQueryInSession(query, 'source');
+                data = result.recordset || result;
+            } else {
+                // 기존 방식으로 실행
+                data = await this.connectionManager.querySource(query);
+            }
+            
             this.log(`조회된 행 수: ${data.length}`);
             
             return data;
@@ -1683,7 +1692,14 @@ class MSSQLDataMigrator {
                     script: group.script
                 };
                 
-                const result = await this.executeProcessScript(scriptConfig, 'target');
+                // 전역 처리 그룹에서 temp 테이블 사용 여부 확인
+                const hasTempTables = this.detectTempTableUsageInScript(group.script);
+                
+                if (hasTempTables) {
+                    this.log(`⚠️  전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}]에서 temp 테이블이 감지되어 세션 관리 모드로 실행합니다.`);
+                }
+                
+                const result = await this.executeProcessScript(scriptConfig, 'target', hasTempTables);
                 
                 if (!result.success) {
                     const errorMsg = `전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}] 실행 실패: ${result.error}`;
@@ -1730,7 +1746,9 @@ class MSSQLDataMigrator {
     }
 
     // 전처리/후처리 SQL 실행
-    async executeProcessScript(scriptConfig, database = 'target') {
+    async executeProcessScript(scriptConfig, database = 'target', useSession = false) {
+        let sessionStarted = false;
+        
         try {
             if (!scriptConfig || !scriptConfig.script) {
                 this.log('실행할 스크립트가 없습니다.');
@@ -1738,6 +1756,12 @@ class MSSQLDataMigrator {
             }
             
             this.log(`${scriptConfig.description} 실행 중...`);
+            
+            // 세션 시작 (temp 테이블 사용 시)
+            if (useSession) {
+                await this.connectionManager.beginSession(database);
+                sessionStarted = true;
+            }
             
             // 디버그 모드에서 원본 스크립트 로깅
             const debugScripts = process.env.DEBUG_SCRIPTS === 'true';
@@ -1843,10 +1867,16 @@ class MSSQLDataMigrator {
                     }
                     
                     let result;
-                    if (database === 'source') {
-                        result = await this.connectionManager.executeQueryOnSource(sql);
+                    if (useSession) {
+                        // 세션 모드에서 실행
+                        result = await this.connectionManager.executeQueryInSession(sql, database);
                     } else {
-                        result = await this.connectionManager.executeQueryOnTarget(sql);
+                        // 기존 방식으로 실행
+                        if (database === 'source') {
+                            result = await this.connectionManager.executeQueryOnSource(sql);
+                        } else {
+                            result = await this.connectionManager.executeQueryOnTarget(sql);
+                        }
                     }
                     executedCount++;
                     
@@ -1906,6 +1936,16 @@ class MSSQLDataMigrator {
         } catch (error) {
             this.log(`${scriptConfig.description} 실행 실패: ${error.message}`);
             return { success: false, error: error.message };
+        } finally {
+            // 세션 정리
+            if (sessionStarted) {
+                try {
+                    await this.connectionManager.endSession(database);
+                    this.log(`${scriptConfig.description} 세션 정리 완료`);
+                } catch (sessionError) {
+                    this.log(`${scriptConfig.description} 세션 정리 중 오류: ${sessionError.message}`);
+                }
+            }
         }
     }
 
@@ -2040,13 +2080,14 @@ class MSSQLDataMigrator {
                 throw new Error('sourceQuery 또는 sourceQueryFile 중 하나는 반드시 지정해야 합니다.');
             }
             
-            // SELECT * 패턴 감지 (대소문자 무관, 공백 허용)
-            const selectAllPattern = /SELECT\s+\*\s+FROM\s+(\w+)/i;
+            // SELECT * 패턴 감지 (테이블 alias 포함, 대소문자 무관, 공백 허용)
+            const selectAllPattern = /SELECT\s+\*\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?/i;
             const match = queryConfig.sourceQuery.match(selectAllPattern);
             
             if (match) {
                 const tableName = match[1];
-                this.log(`SELECT * 감지됨. 테이블 ${tableName}의 컬럼 정보를 자동으로 가져옵니다.`);
+                const tableAlias = match[2]; // 테이블 별칭 (있는 경우)
+                this.log(`SELECT * 감지됨. 테이블 ${tableName}${tableAlias ? ` (별칭: ${tableAlias})` : ''}의 컬럼 정보를 자동으로 가져옵니다.`);
                 
                 // 대상 테이블의 컬럼 정보 조회
                 const columns = await this.connectionManager.getTableColumns(queryConfig.targetTable, false);
@@ -2070,8 +2111,16 @@ class MSSQLDataMigrator {
                 
                 this.log(`자동 설정된 컬럼 목록 (${filteredColumnNames.length}개, IDENTITY 제외): ${filteredColumnNames.join(', ')}`);
                 
-                // sourceQuery도 컬럼명으로 변경 (IDENTITY 컬럼 제외)
-                const explicitColumns = filteredColumnNames.join(', ');
+                // sourceQuery도 컬럼명으로 변경 (IDENTITY 컬럼 제외, 별칭 고려)
+                let explicitColumns;
+                if (tableAlias) {
+                    // 별칭이 있으면 별칭.컬럼명 형식으로
+                    explicitColumns = filteredColumnNames.map(col => `${tableAlias}.${col}`).join(', ');
+                } else {
+                    // 별칭이 없으면 컬럼명만
+                    explicitColumns = filteredColumnNames.join(', ');
+                }
+                
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/SELECT\s+\*/i, `SELECT ${explicitColumns}`);
                 this.log(`변경된 소스 쿼리: ${queryConfig.sourceQuery}`);
             }
@@ -2085,14 +2134,23 @@ class MSSQLDataMigrator {
 
     // 개별 쿼리 이관 실행
     async executeQueryMigration(queryConfig) {
+        
         try {
             this.log(`\n=== 쿼리 이관 시작: ${queryConfig.id} ===`);
             this.log(`설명: ${queryConfig.description}`);
             
-            // 개별 쿼리 전처리 실행
+            // 개별 쿼리 전처리 실행 (전/후처리 단위에서만 세션 유지)
             if (queryConfig.preProcess) {
                 this.log(`--- ${queryConfig.id} 전처리 실행 ---`);
-                const preResult = await this.executeProcessScript(queryConfig.preProcess, 'target');
+                
+                // 전처리에서 temp 테이블 사용 여부 확인
+                const preProcessHasTempTables = this.detectTempTableUsageInScript(queryConfig.preProcess.script);
+                
+                if (preProcessHasTempTables) {
+                    this.log(`⚠️  전처리에서 temp 테이블이 감지되어 세션 관리 모드로 실행합니다.`);
+                }
+                
+                const preResult = await this.executeProcessScript(queryConfig.preProcess, 'target', preProcessHasTempTables);
                 if (!preResult.success) {
                     throw new Error(`${queryConfig.id} 전처리 실행 실패: ${preResult.error}`);
                 }
@@ -2104,6 +2162,8 @@ class MSSQLDataMigrator {
                         this.log(`  ⚠️  전처리 경고: ${preResult.errors.length}개 SQL 문에서 오류 발생`);
                     }
                 }
+                
+                // 전처리 세션은 executeProcessScript에서 자동 정리됨
             }
             
             // 배치 크기 결정
@@ -2113,8 +2173,15 @@ class MSSQLDataMigrator {
                 batchSize = parseInt(processedBatchSize) || batchSize;
             }
             
-            // 소스 데이터 조회
-            const sourceData = await this.executeSourceQuery(queryConfig.sourceQuery);
+            // sourceQuery 단일 SQL 문 검증
+            const validationResult = this.validateSingleSqlStatement(queryConfig.sourceQuery);
+            if (!validationResult.isValid) {
+                throw new Error(`sourceQuery 검증 실패: ${validationResult.message}`);
+            }
+            this.log(`✅ sourceQuery 검증 통과: ${validationResult.message}`);
+
+            // 소스 데이터 조회 (sourceQuery는 별도 세션에서 실행)
+            const sourceData = await this.executeSourceQuery(queryConfig.sourceQuery, false);
             
             // PK 기준 삭제 처리
             if (queryConfig.sourceQueryDeleteBeforeInsert) {
@@ -2147,10 +2214,18 @@ class MSSQLDataMigrator {
                 queryConfig.id
             );
             
-            // 개별 쿼리 후처리 실행
+            // 개별 쿼리 후처리 실행 (전/후처리 단위에서만 세션 유지)
             if (queryConfig.postProcess) {
                 this.log(`--- ${queryConfig.id} 후처리 실행 ---`);
-                const postResult = await this.executeProcessScript(queryConfig.postProcess, 'target');
+                
+                // 후처리에서 temp 테이블 사용 여부 확인
+                const postProcessHasTempTables = this.detectTempTableUsageInScript(queryConfig.postProcess.script);
+                
+                if (postProcessHasTempTables) {
+                    this.log(`⚠️  후처리에서 temp 테이블이 감지되어 세션 관리 모드로 실행합니다.`);
+                }
+                
+                const postResult = await this.executeProcessScript(queryConfig.postProcess, 'target', postProcessHasTempTables);
                 if (!postResult.success) {
                     this.log(`${queryConfig.id} 후처리 실행 실패: ${postResult.error}`);
                     // 후처리 실패는 경고로 처리하고 계속 진행
@@ -2163,6 +2238,8 @@ class MSSQLDataMigrator {
                         this.log(`  ⚠️  후처리 경고: ${postResult.errors.length}개 SQL 문에서 오류 발생`);
                     }
                 }
+                
+                // 후처리 세션은 executeProcessScript에서 자동 정리됨
             }
             
             this.log(`=== 쿼리 이관 완료: ${queryConfig.id} (${insertedRows}행 처리) ===\n`);
@@ -2171,6 +2248,8 @@ class MSSQLDataMigrator {
         } catch (error) {
             this.log(`=== 쿼리 이관 실패: ${queryConfig.id} - ${error.message} ===\n`);
             return { success: false, error: error.message, rowsProcessed: 0 };
+        } finally {
+            // 세션은 각 executeProcessScript에서 자동 정리됨
         }
     }
 
@@ -2784,6 +2863,120 @@ class MSSQLDataMigrator {
         }
     }
 
+    // temp 테이블 사용 여부 감지 (전체 쿼리 설정) - 비활성화됨
+    detectTempTableUsage(queryConfig) {
+        return false;
+    }
+
+    // 스크립트에서 temp 테이블 사용 여부 감지 (개별 스크립트) - 비활성화됨
+    detectTempTableUsageInScript(script) {
+        return false;
+    }
+
+    // sourceQuery에서 단일 SQL 문 검증
+    validateSingleSqlStatement(sourceQuery) {
+        if (!sourceQuery || typeof sourceQuery !== 'string') {
+            return { isValid: true, message: 'sourceQuery가 비어있거나 문자열이 아닙니다.' };
+        }
+
+        // SQL 문을 구분하는 패턴들
+        const sqlStatementPatterns = [
+            /;\s*(?=(?:[^']*'[^']*')*[^']*$)/g,  // 세미콜론 (문자열 내부 제외)
+            /GO\s*(?:\r?\n|$)/gi,                // GO 문
+            /BEGIN\s+TRANSACTION/gi,             // BEGIN TRANSACTION
+            /COMMIT\s+TRANSACTION/gi,            // COMMIT TRANSACTION
+            /ROLLBACK\s+TRANSACTION/gi,          // ROLLBACK TRANSACTION
+        ];
+
+        let statementCount = 0;
+        let foundStatements = [];
+
+        // 세미콜론으로 구분된 문장 수 확인
+        const semicolonMatches = sourceQuery.match(/;\s*(?=(?:[^']*'[^']*')*[^']*$)/g);
+        if (semicolonMatches) {
+            statementCount += semicolonMatches.length;
+            foundStatements.push(`${semicolonMatches.length}개의 세미콜론(;)`);
+        }
+
+        // GO 문 확인
+        const goMatches = sourceQuery.match(/GO\s*(?:\r?\n|$)/gi);
+        if (goMatches) {
+            statementCount += goMatches.length;
+            foundStatements.push(`${goMatches.length}개의 GO 문`);
+        }
+
+        // 트랜잭션 문 확인
+        const transactionMatches = sourceQuery.match(/(BEGIN|COMMIT|ROLLBACK)\s+TRANSACTION/gi);
+        if (transactionMatches) {
+            statementCount += transactionMatches.length;
+            foundStatements.push(`${transactionMatches.length}개의 트랜잭션 문`);
+        }
+
+        // 주석 제거 후 실제 SQL 문 확인
+        const cleanQuery = sourceQuery
+            .replace(/--.*$/gm, '')  // 한 줄 주석 제거
+            .replace(/\/\*[\s\S]*?\*\//g, '')  // 블록 주석 제거
+            .trim();
+
+        // SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER 등의 키워드 개수 확인
+        const sqlKeywords = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'EXEC', 'EXECUTE'];
+        let keywordCount = 0;
+        let foundKeywords = [];
+
+        sqlKeywords.forEach(keyword => {
+            const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+            const matches = cleanQuery.match(regex);
+            if (matches) {
+                keywordCount += matches.length;
+                foundKeywords.push(`${keyword}: ${matches.length}개`);
+            }
+        });
+
+        // 검증 결과
+        if (statementCount > 1 || keywordCount > 1) {
+            const details = [];
+            if (foundStatements.length > 0) {
+                details.push(`발견된 구분자: ${foundStatements.join(', ')}`);
+            }
+            if (foundKeywords.length > 0) {
+                details.push(`발견된 SQL 키워드: ${foundKeywords.join(', ')}`);
+            }
+
+            return {
+                isValid: false,
+                message: `sourceQuery에 여러 SQL 문이 감지되었습니다. 단일 SQL 문만 허용됩니다.\n${details.join('\n')}`,
+                statementCount,
+                keywordCount,
+                details
+            };
+        }
+
+        return { isValid: true, message: 'sourceQuery가 단일 SQL 문으로 검증되었습니다.' };
+    }
+
+    // 쿼리 실행 및 데이터 조회
+    async executeSourceQuery(query, useSession = false) {
+        try {
+            this.log(`소스 쿼리 실행: ${query}`);
+            
+            let data;
+            if (useSession) {
+                // 세션 모드에서 실행
+                const result = await this.connectionManager.executeQueryInSession(query, 'source');
+                data = result.recordset || result;
+            } else {
+                // 기존 방식으로 실행
+                data = await this.connectionManager.querySource(query);
+            }
+            
+            this.log(`조회된 행 수: ${data.length}`);
+            
+            return data;
+        } catch (error) {
+            this.log(`소스 쿼리 실행 실패: ${error.message}`);
+            throw error;
+        }
+    }
 
 }
 
