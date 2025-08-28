@@ -199,6 +199,89 @@ You can define JSON values that change based on specific conditions:
 </globalColumnOverrides>
 ```
 
+### JSON Type Usage Examples
+
+#### 1. Table-Specific Values
+```xml
+<globalColumnOverrides>
+  <!-- Different priority levels per table -->
+  <override column="priority_level">{"users": "HIGH", "orders": "MEDIUM", "products": "LOW", "default": "NORMAL"}</override>
+  
+  <!-- Different status codes per table -->
+  <override column="status_code">{"users": "ACTIVE", "orders": "PENDING", "products": "INACTIVE", "config": "SYSTEM", "default": "UNKNOWN"}</override>
+  
+  <!-- Different data sources per table -->
+  <override column="data_source">{"users": "LEGACY_SYSTEM", "orders": "NEW_SYSTEM", "products": "EXTERNAL_API", "default": "MIGRATION_TOOL"}</override>
+</globalColumnOverrides>
+```
+
+#### 2. Database-Specific Values
+```xml
+<globalColumnOverrides>
+  <!-- Different timestamps per database -->
+  <override column="created_at">{"sourceDB": "${CURRENT_TIMESTAMP}", "targetDB": "2024-12-31 23:59:59", "default": "${CURRENT_TIMESTAMP}"}</override>
+  
+  <!-- Different user IDs per database -->
+  <override column="created_by">{"sourceDB": "LEGACY_USER", "targetDB": "MIGRATION_USER", "default": "SYSTEM"}</override>
+  
+  <!-- Different environment flags per database -->
+  <override column="environment">{"sourceDB": "PRODUCTION", "targetDB": "STAGING", "default": "UNKNOWN"}</override>
+</globalColumnOverrides>
+```
+
+#### 3. Time-Based Values
+```xml
+<globalColumnOverrides>
+  <!-- Different batch IDs based on hour -->
+  <override column="batch_id">{"09": "BATCH_MORNING", "12": "BATCH_NOON", "18": "BATCH_EVENING", "00": "BATCH_NIGHT", "default": "BATCH_DEFAULT"}</override>
+  
+  <!-- Different processing flags based on time -->
+  <override column="processing_flag">{"06": "EARLY_BATCH", "14": "DAY_BATCH", "22": "LATE_BATCH", "default": "REGULAR_BATCH"}</override>
+  
+  <!-- Different time zones based on hour -->
+  <override column="timezone">{"00": "UTC", "09": "KST", "18": "EST", "default": "UTC"}</override>
+</globalColumnOverrides>
+```
+
+#### 4. Complex Conditional Values
+```xml
+<globalColumnOverrides>
+  <!-- Multi-level conditions: database + table -->
+  <override column="migration_type">{"sourceDB.users": "FULL_MIGRATION", "sourceDB.orders": "INCREMENTAL", "targetDB.users": "VALIDATION", "default": "STANDARD"}</override>
+  
+  <!-- Conditional values with dynamic variables -->
+  <override column="customer_segment">{"premium": "VIP", "standard": "REGULAR", "basic": "BASIC", "default": "UNKNOWN"}</override>
+  
+  <!-- Environment-specific configurations -->
+  <override column="config_version">{"dev": "1.0", "staging": "2.0", "prod": "3.0", "default": "1.0"}</override>
+</globalColumnOverrides>
+```
+
+#### 5. JSON with Dynamic Variables
+```xml
+<globalColumnOverrides>
+  <!-- Using dynamic variables in JSON values -->
+  <override column="department_code">{"${active_departments.DepartmentID}": "${active_departments.DepartmentCode}", "default": "UNKNOWN"}</override>
+  
+  <!-- Conditional values based on extracted data -->
+  <override column="region_code">{"${region_mapping.RegionID}": "${region_mapping.RegionCode}", "default": "GLOBAL"}</override>
+  
+  <!-- Status mapping using dynamic variables -->
+  <override column="status_id">{"${status_codes.StatusName}": "${status_codes.StatusID}", "default": "0"}</override>
+</globalColumnOverrides>
+```
+
+#### 6. Nested JSON Structures
+```xml
+<globalColumnOverrides>
+  <!-- Complex nested JSON for configuration -->
+  <override column="config_data">{"users": {"priority": "HIGH", "batch_size": 500, "retry_count": 3}, "orders": {"priority": "MEDIUM", "batch_size": 1000, "retry_count": 2}, "default": {"priority": "NORMAL", "batch_size": 2000, "retry_count": 1}}</override>
+  
+  <!-- Metadata with multiple properties -->
+  <override column="metadata">{"source": {"version": "1.0", "type": "legacy"}, "target": {"version": "2.0", "type": "modern"}, "default": {"version": "1.0", "type": "unknown"}}</override>
+</globalColumnOverrides>
+```
+
 ### JSON Value Resolution
 
 | Context | Key Priority | Example | Result |

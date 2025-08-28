@@ -416,7 +416,7 @@ class MSSQLDataMigrator {
                 variables: {},
                 dynamicVariables: [],
                 globalProcesses: {},
-                globalColumnOverrides: {}, // 전역 columnOverrides 추가
+                globalColumnOverrides: new Map(), // 전역 columnOverrides를 Map으로 초기화
                 queries: []
             };
             
@@ -660,18 +660,18 @@ class MSSQLDataMigrator {
                         }
                     }
                     
-                    // sourceQuery용 columnOverrides 적용 (비동기 처리 불가능하므로 기본값 사용)
-                    query.columnOverrides = {};
+                                        // sourceQuery용 columnOverrides 적용 (비동기 처리 불가능하므로 기본값 사용)
+                    query.columnOverrides = new Map();
                     if (query.sourceQueryApplyGlobalColumns && query.sourceQueryApplyGlobalColumns !== 'none') {
                         // 기본적으로 모든 컬럼 적용 (실제 테이블 검증은 나중에 수행)
-                        query.columnOverrides = Object.fromEntries(config.globalColumnOverrides);
+                        query.columnOverrides = new Map(config.globalColumnOverrides);
                     }
-                    
+
                     // 적용된 columnOverrides 로깅 (개발/디버그용)
-                    if (Object.keys(query.columnOverrides).length > 0) {
+                    if (query.columnOverrides.size > 0) {
                         logger.debug(`[${query.id}] sourceQuery용 globalColumnOverrides 적용됨`, {
                             sourceQueryApplyGlobalColumns: query.sourceQueryApplyGlobalColumns,
-                            appliedColumns: Object.keys(query.columnOverrides),
+                            appliedColumns: Array.from(query.columnOverrides.keys()),
                             availableGlobalColumns: Array.from(config.globalColumnOverrides.keys())
                         });
                     }
@@ -1119,12 +1119,12 @@ class MSSQLDataMigrator {
     // 전/후처리 스크립트에서 globalColumnOverrides 처리
     processGlobalColumnOverridesInScript(script, globalColumnOverrides, database = 'target', targetTableName = null) {
         // globalColumnOverrides가 없으면 원본 반환
-        if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
+        if (!globalColumnOverrides || globalColumnOverrides.size === 0) {
             return script;
         }
 
         try {
-            this.log(`전/후처리 스크립트에서 globalColumnOverrides 처리 중: ${Object.keys(globalColumnOverrides).join(', ')}`);
+            this.log(`전/후처리 스크립트에서 globalColumnOverrides 처리 중: ${Array.from(globalColumnOverrides.keys()).join(', ')}`);
             if (targetTableName) {
                 this.log(`대상 테이블: ${targetTableName}`);
             }
@@ -1208,10 +1208,29 @@ class MSSQLDataMigrator {
                                 return;
                             }
 
-                            if (globalColumnOverrides.hasOwnProperty(columnName)) {
+                            if (globalColumnOverrides.has(columnName)) {
                                 // 오버라이드 대상 컬럼이면 새로운 값으로 대체
-                                const overrideValue = globalColumnOverrides[columnName];
-                                const processedValue = this.replaceVariables(overrideValue);
+                                const overrideValue = globalColumnOverrides.get(columnName);
+                                let processedValue = this.replaceVariables(overrideValue);
+                                
+                                // JSON 파싱 시도 (JSON 문자열인 경우)
+                                if (typeof processedValue === 'string' && processedValue.trim().startsWith('{') && processedValue.trim().endsWith('}')) {
+                                    try {
+                                        const parsedJson = JSON.parse(processedValue);
+                                        
+                                        // JSON을 매핑 테이블로 사용하여 실제 값 추출
+                                        // 컬럼명을 키로 사용하여 매핑된 값 찾기 (전/후처리에서는 컬럼명 자체를 키로 사용)
+                                        if (parsedJson[columnName]) {
+                                            processedValue = parsedJson[columnName];
+                                        } else {
+                                            // 매핑되지 않은 경우 기본값 사용
+                                            processedValue = Object.values(parsedJson)[0] || '';
+                                        }
+                                    } catch (jsonError) {
+                                        // JSON 파싱 실패 시 원본 문자열 사용
+                                    }
+                                }
+                                
                                 updatedSelectColumns.push(`${this.formatSqlValue(processedValue)} as ${columnName}`);
                                 processedColumns.add(columnName);
                             } else {
@@ -1273,6 +1292,28 @@ class MSSQLDataMigrator {
     formatSqlValue(value) {
         if (value === null || value === undefined || value === 'NULL') {
             return 'NULL';
+        }
+        
+        // JSON 객체인 경우 JSON 문자열로 변환
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            try {
+                const jsonString = JSON.stringify(value);
+                return `'${jsonString.replace(/'/g, "''")}'`; // 작은따옴표 이스케이프
+            } catch (error) {
+                this.log(`JSON 객체 포맷팅 실패: ${error.message}`);
+                return 'NULL';
+            }
+        }
+        
+        // 배열인 경우
+        if (Array.isArray(value)) {
+            try {
+                const jsonString = JSON.stringify(value);
+                return `'${jsonString.replace(/'/g, "''")}'`; // 작은따옴표 이스케이프
+            } catch (error) {
+                this.log(`배열 포맷팅 실패: ${error.message}`);
+                return 'NULL';
+            }
         }
         
         // 이미 따옴표가 있거나 숫자인 경우
@@ -1550,20 +1591,49 @@ class MSSQLDataMigrator {
     // 전역 컬럼 오버라이드 적용
     applyGlobalColumnOverrides(sourceData, globalColumnOverrides) {
         try {
-            if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
+            if (!globalColumnOverrides || globalColumnOverrides === undefined || globalColumnOverrides.size === 0) {
                 this.log('전역 컬럼 오버라이드가 없습니다. 원본 데이터를 그대로 사용합니다.');
                 return sourceData;
             }
-            
-            this.log(`전역 컬럼 오버라이드 적용 중: ${Object.keys(globalColumnOverrides).join(', ')}`);
+           
+            this.log(`전역 컬럼 오버라이드 적용 중: ${Array.from(globalColumnOverrides.keys()).join(', ')}`);
             
             const processedData = sourceData.map(row => {
                 const newRow = { ...row }; // 원본 데이터 복사
                 
                 // 각 오버라이드 적용
-                Object.entries(globalColumnOverrides).forEach(([column, value]) => {
+                globalColumnOverrides.forEach((value, column) => {
                     // 변수 치환 적용
-                    const processedValue = this.replaceVariables(value);
+                    let processedValue = this.replaceVariables(value);
+                    
+                    // JSON 파싱 시도 (JSON 문자열인 경우)
+                    if (typeof processedValue === 'string' && processedValue.trim().startsWith('{') && processedValue.trim().endsWith('}')) {
+                        try {
+                            const parsedJson = JSON.parse(processedValue);
+                            
+                            // JSON을 매핑 테이블로 사용하여 실제 값 추출
+                            // 원본 데이터에서 해당 컬럼의 값을 키로 사용하여 매핑된 값 찾기
+                            const originalValue = row[column];
+                            if (originalValue && parsedJson[originalValue]) {
+                                processedValue = parsedJson[originalValue];
+                                if (sourceData.indexOf(row) === 0) {
+                                    this.log(`  ${column}: JSON 매핑 성공 - "${originalValue}" → "${processedValue}"`);
+                                }
+                            } else {
+                                // 매핑되지 않은 경우 기본값 또는 원본값 사용
+                                processedValue = originalValue || Object.values(parsedJson)[0] || '';
+                                if (sourceData.indexOf(row) === 0) {
+                                    this.log(`  ${column}: JSON 매핑 실패, 기본값 사용 - "${processedValue}"`);
+                                }
+                            }
+                        } catch (jsonError) {
+                            // JSON 파싱 실패 시 원본 문자열 사용
+                            if (sourceData.indexOf(row) === 0) {
+                                this.log(`  ${column}: JSON 파싱 실패, 원본 문자열 사용 - "${processedValue}"`);
+                            }
+                        }
+                    }
+                    
                     newRow[column] = processedValue;
                     
                     // 로그에서 자주 출력되는 것을 방지하기 위해 첫 번째 행에서만 로그 출력
@@ -1730,7 +1800,7 @@ class MSSQLDataMigrator {
                     database
                 );
                 globalColumnOverridesProcessedScript = stepColumnOverrides && Object.keys(stepColumnOverrides).length > 0
-                    ? this.processGlobalColumnOverridesInScript(deleteBeforeInsertProcessedScript, stepColumnOverrides, database, null)
+                    ? this.processGlobalColumnOverridesInScript(deleteBeforeInsertProcessedScript, new Map(Object.entries(stepColumnOverrides)), database, null)
                     : deleteBeforeInsertProcessedScript;
             } else {
                 // applyGlobalColumns가 명시되지 않았으면 컬럼 오버라이드 적용 안함

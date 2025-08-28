@@ -36,6 +36,8 @@
     <override column="processed_at">GETDATE()</override>
     <override column="data_version">2.1</override>
     <override column="address">분평주공777</override>
+    <override column="payment_method">{"신용카드":"[신용카드]현대카드", "계좌이체":"[계좌이체]카카오뱅크"}</override>
+    <override column="status">{"PROCESSING":"[PROCESSING]처리중", "PENDING":"[PENDING]결제중", "COMPLETED":"[COMPLETED]완료", "SHIPPED":"[SHIPPED]배송중", "CANCELLED":"[CANCELLED]취소"}</override>
   </globalColumnOverrides>
 
   <!-- 전역 전처리/후처리 그룹 -->
@@ -123,7 +125,7 @@
                 variableName="activeUserIds"
                 extractType="single_column"
                 columnName="user_id"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT user_id FROM users 
         WHERE status = 'ACTIVE' 
@@ -381,7 +383,7 @@
     <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->
     <query id="migrate_products_all"
            description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
@@ -458,10 +460,11 @@
     <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
     <query id="migrate_user_orders_dynamic"
            description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="orders" 
                   targetColumns="*" 
-                  identityColumns="order_number">
+                  identityColumns="order_number"
+                  applyGlobalColumns="all">
         <![CDATA[
           SELECT *
           FROM orders 
@@ -738,7 +741,7 @@
     <!-- SELECT * 사용 예시 (전/후처리에서) -->
     <query id="migrate_with_select_star_in_process"
            description="전/후처리에서 SELECT * 사용 예시"
-           enabled="true">
+           enabled="false">
       
       <!-- 전처리에서 SELECT * 사용 -->
       <preProcess description="SELECT * 를 사용한 백업 및 준비 작업">
