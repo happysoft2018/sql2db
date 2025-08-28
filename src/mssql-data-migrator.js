@@ -270,9 +270,48 @@ class MSSQLDataMigrator {
         }
     }
 
+    // JSON 값을 해석하는 메서드
+    resolveJsonValue(value, context = {}) {
+        if (!value || typeof value !== 'string') {
+            return value; // 문자열이 아니면 그대로 반환
+        }
+        
+        // JSON 형식인지 확인
+        if (value.trim().startsWith('{') && value.trim().endsWith('}')) {
+            try {
+                const jsonObj = JSON.parse(value);
+                
+                // context에 tableName이 있으면 해당 키의 값을 반환
+                if (context.tableName && jsonObj.hasOwnProperty(context.tableName)) {
+                    return jsonObj[context.tableName];
+                }
+                
+                // context에 database가 있으면 해당 키의 값을 반환
+                if (context.database && jsonObj.hasOwnProperty(context.database)) {
+                    return jsonObj[context.database];
+                }
+                
+                // default 키가 있으면 기본값으로 사용
+                if (jsonObj.hasOwnProperty('default')) {
+                    return jsonObj.default;
+                }
+                
+                // 매칭되는 키가 없으면 첫 번째 값을 반환
+                const firstKey = Object.keys(jsonObj)[0];
+                return firstKey ? jsonObj[firstKey] : value;
+                
+            } catch (error) {
+                this.log(`JSON 파싱 오류: ${error.message}`, 'ERROR');
+                return value; // 파싱 실패시 원본 값 반환
+            }
+        }
+        
+        return value; // JSON 형식이 아니면 그대로 반환
+    }
+
     // applyGlobalColumns 설정에 따라 선택적으로 globalColumnOverrides 적용
     async selectivelyApplyGlobalColumnOverrides(globalColumnOverrides, applyGlobalColumns, tableName = null, database = 'target') {
-        if (!globalColumnOverrides || Object.keys(globalColumnOverrides).length === 0) {
+        if (!globalColumnOverrides || globalColumnOverrides.size === 0) {
             return {};
         }
         
@@ -290,9 +329,14 @@ class MSSQLDataMigrator {
                     const tableColumns = await this.getTableColumns(tableName, database);
                     const existingOverrides = {};
                     
-                    Object.keys(globalColumnOverrides).forEach(column => {
+                    globalColumnOverrides.forEach((value, column) => {
                         if (tableColumns.includes(column)) {
-                            existingOverrides[column] = globalColumnOverrides[column];
+                            // JSON 값 해석
+                            const resolvedValue = this.resolveJsonValue(value, {
+                                tableName: tableName,
+                                database: database
+                            });
+                            existingOverrides[column] = resolvedValue;
                         } else {
                             this.log(`⚠️ 컬럼 '${column}'이 테이블 '${tableName}'에 존재하지 않아 globalColumnOverrides에서 제외됩니다.`);
                         }
@@ -301,7 +345,11 @@ class MSSQLDataMigrator {
                     return existingOverrides;
                 } else {
                     // 테이블명이 없으면 모든 컬럼 적용 (기존 동작)
-                    return { ...globalColumnOverrides };
+                    const allOverrides = {};
+                    globalColumnOverrides.forEach((value, column) => {
+                        allOverrides[column] = this.resolveJsonValue(value, {});
+                    });
+                    return allOverrides;
                 }
                 
             case 'none':
@@ -315,11 +363,15 @@ class MSSQLDataMigrator {
                     const selectedOverrides = {};
                     
                     selectedColumns.forEach(column => {
-                        if (globalColumnOverrides.hasOwnProperty(column)) {
-                            selectedOverrides[column] = globalColumnOverrides[column];
+                        if (globalColumnOverrides.has(column)) {
+                            const value = globalColumnOverrides.get(column);
+                            selectedOverrides[column] = this.resolveJsonValue(value, {
+                                tableName: tableName,
+                                database: database
+                            });
                         } else {
                             logger.warn(`지정된 컬럼 '${column}'이 globalColumnOverrides에 정의되지 않았습니다.`, {
-                                availableColumns: Object.keys(globalColumnOverrides)
+                                availableColumns: Array.from(globalColumnOverrides.keys())
                             });
                         }
                     });
@@ -328,11 +380,17 @@ class MSSQLDataMigrator {
                 } else {
                     // 단일 컬럼 지정
                     const column = applyGlobalColumns.trim();
-                    if (globalColumnOverrides.hasOwnProperty(column)) {
-                        return { [column]: globalColumnOverrides[column] };
+                    if (globalColumnOverrides.has(column)) {
+                        const value = globalColumnOverrides.get(column);
+                        return { 
+                            [column]: this.resolveJsonValue(value, {
+                                tableName: tableName,
+                                database: database
+                            })
+                        };
                     } else {
                         logger.warn(`지정된 컬럼 '${column}'이 globalColumnOverrides에 정의되지 않았습니다.`, {
-                            availableColumns: Object.keys(globalColumnOverrides)
+                            availableColumns: Array.from(globalColumnOverrides.keys())
                         });
                         return {};
                     }
@@ -522,13 +580,13 @@ class MSSQLDataMigrator {
                 
                 globalOverrides.forEach(override => {
                     if (override.column && override._) {
-                        config.globalColumnOverrides[override.column] = override._;
+                        config.globalColumnOverrides.set(override.column, override._);
                     }
                 });
                 
                 logger.info('전역 columnOverrides 로드됨', {
-                    count: Object.keys(config.globalColumnOverrides).length,
-                    columns: Object.keys(config.globalColumnOverrides)
+                    count: config.globalColumnOverrides.size,
+                    columns: Array.from(config.globalColumnOverrides.keys())
                 });
             }
             
@@ -606,7 +664,7 @@ class MSSQLDataMigrator {
                     query.columnOverrides = {};
                     if (query.sourceQueryApplyGlobalColumns && query.sourceQueryApplyGlobalColumns !== 'none') {
                         // 기본적으로 모든 컬럼 적용 (실제 테이블 검증은 나중에 수행)
-                        query.columnOverrides = { ...config.globalColumnOverrides };
+                        query.columnOverrides = Object.fromEntries(config.globalColumnOverrides);
                     }
                     
                     // 적용된 columnOverrides 로깅 (개발/디버그용)
@@ -614,7 +672,7 @@ class MSSQLDataMigrator {
                         logger.debug(`[${query.id}] sourceQuery용 globalColumnOverrides 적용됨`, {
                             sourceQueryApplyGlobalColumns: query.sourceQueryApplyGlobalColumns,
                             appliedColumns: Object.keys(query.columnOverrides),
-                            availableGlobalColumns: Object.keys(config.globalColumnOverrides)
+                            availableGlobalColumns: Array.from(config.globalColumnOverrides.keys())
                         });
                     }
                     

@@ -163,6 +163,78 @@ WHERE CustomerID IN (${customer_data.CustomerID})
   AND Status IN (${status_mapping.StatusCode})
 ```
 
+## Global Column Overrides
+
+The tool supports global column overrides that apply to all queries during migration. This feature supports both simple values and JSON values for dynamic configuration.
+
+### Basic Usage (Simple Values)
+
+```xml
+<globalColumnOverrides>
+  <override column="migration_date">${CURRENT_DATE}</override>
+  <override column="processed_at">GETDATE()</override>
+  <override column="data_version">2.1</override>
+  <override column="migration_flag">1</override>
+  <override column="updated_by">MIGRATION_TOOL</override>
+</globalColumnOverrides>
+```
+
+### JSON Values
+
+You can define JSON values that change based on specific conditions:
+
+```xml
+<globalColumnOverrides>
+  <!-- Simple value -->
+  <override column="migration_flag">1</override>
+  
+  <!-- JSON value: Different data_version per table -->
+  <override column="data_version">{"users": "2.1", "orders": "2.2", "products": "2.3", "default": "2.0"}</override>
+  
+  <!-- JSON value: Different values based on database -->
+  <override column="migration_date">{"sourceDB": "${CURRENT_DATE}", "targetDB": "2024-12-31", "default": "${CURRENT_DATE}"}</override>
+  
+  <!-- JSON value: Different values based on time -->
+  <override column="batch_id">{"09": "BATCH_MORNING", "18": "BATCH_EVENING", "00": "BATCH_NIGHT", "default": "BATCH_DEFAULT"}</override>
+</globalColumnOverrides>
+```
+
+### JSON Value Resolution
+
+| Context | Key Priority | Example | Result |
+|---------|-------------|---------|--------|
+| **Table Name** | `tableName` → `default` → first key | `{"users": "2.1", "default": "2.0"}` | `users` 테이블 → `"2.1"` |
+| **Database** | `database` → `default` → first key | `{"sourceDB": "DATE1", "default": "DATE2"}` | `sourceDB` → `"DATE1"` |
+| **No Match** | `default` → first key | `{"users": "2.1", "default": "2.0"}` | 알 수 없는 테이블 → `"2.0"` |
+
+### Advanced JSON Usage
+
+```xml
+<override column="priority_level">{"users": "HIGH", "orders": "MEDIUM", "products": "LOW", "default": "NORMAL"}</override>
+<override column="status_code">{"users": "ACTIVE", "orders": "PENDING", "products": "INACTIVE", "config": "SYSTEM", "default": "UNKNOWN"}</override>
+```
+
+### Selective Application
+
+Control which global overrides apply to specific queries:
+
+```xml
+<!-- Apply all global overrides -->
+<sourceQuery applyGlobalColumns="all">
+  <![CDATA[SELECT * FROM users WHERE status = 'ACTIVE']]>
+</sourceQuery>
+
+<!-- Apply only specific global overrides -->
+<sourceQuery applyGlobalColumns="migration_date,processed_at,updated_by">
+  <![CDATA[SELECT * FROM orders WHERE order_date >= '2024-01-01']]>
+</sourceQuery>
+
+<!-- Don't apply any global overrides -->
+<sourceQuery applyGlobalColumns="none">
+  <![CDATA[SELECT * FROM config WHERE is_active = 1]]>
+</sourceQuery>
+```
+
 ## Documentation
 
 - 📖 **[User Manual](USER_MANUAL.md)**: Complete usage guide

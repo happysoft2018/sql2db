@@ -274,10 +274,17 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
 
 #### Global Column Overrides
 ```xml
+<!-- Simple values -->
 <globalColumnOverrides>
   <override column="created_by">SYSTEM</override>
   <override column="created_date">${CURRENT_TIMESTAMP}</override>
   <override column="migration_source">LEGACY_SYSTEM</override>
+</globalColumnOverrides>
+
+<!-- JSON values -->
+<globalColumnOverrides>
+  <override column="data_version">{"users": "2.1", "orders": "2.2", "products": "2.3", "default": "2.0"}</override>
+  <override column="migration_date">{"sourceDB": "${CURRENT_DATE}", "targetDB": "2024-12-31", "default": "${CURRENT_DATE}"}</override>
 </globalColumnOverrides>
 ```
 

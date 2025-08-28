@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<migration>
+  <settings>
+    <sourceDatabase>sourceDB</sourceDatabase>
+    <targetDatabase>targetDB</targetDatabase>
+    <batchSize>1000</batchSize>
+  </settings>
+
+  <!-- JSON 타입을 사용하는 전역 컬럼 오버라이드 설정 -->
+  <globalColumnOverrides>
+    <!-- 단순 값 (기존 방식) -->
+    <override column="migration_flag">1</override>
+    <override column="updated_by">MIGRATION_TOOL</override>
+    
+    <!-- JSON 값: 테이블별로 다른 data_version 적용 -->
+    <override column="data_version">{"users": "2.1", "orders": "2.2", "products": "2.3", "default": "2.0"}</override>
+    
+    <!-- JSON 값: 데이터베이스별로 다른 migration_date 적용 -->
+    <override column="migration_date">{"sourceDB": "${CURRENT_DATE}", "targetDB": "2024-12-31", "default": "${CURRENT_DATE}"}</override>
+    
+    <!-- JSON 값: 시간별로 다른 batch_id 적용 -->
+    <override column="batch_id">{"09": "BATCH_MORNING", "18": "BATCH_EVENING", "00": "BATCH_NIGHT", "default": "BATCH_DEFAULT"}</override>
+    
+    <!-- JSON 값: 우선순위 레벨 적용 -->
+    <override column="priority_level">{"users": "HIGH", "orders": "MEDIUM", "products": "LOW", "default": "NORMAL"}</override>
+    
+    <!-- JSON 값: 복잡한 조건 적용 -->
+    <override column="status_code">{"users": "ACTIVE", "orders": "PENDING", "products": "INACTIVE", "config": "SYSTEM", "default": "UNKNOWN"}</override>
+  </globalColumnOverrides>
+
+  <queries>
+    <!-- 사용자 테이블 이관 (data_version=2.1, priority_level=HIGH 적용) -->
+    <query id="migrate_users" 
+           description="사용자 테이블 이관"
+           enabled="true">
+      <sourceQuery targetTable="users" 
+                  applyGlobalColumns="all">
+        <![CDATA[
+          SELECT * FROM users WHERE status = 'ACTIVE'
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 주문 테이블 이관 (data_version=2.2, priority_level=MEDIUM 적용) -->
+    <query id="migrate_orders" 
+           description="주문 테이블 이관"
+           enabled="true">
+      <sourceQuery targetTable="orders" 
+                  applyGlobalColumns="all">
+        <![CDATA[
+          SELECT * FROM orders WHERE order_date >= '2024-01-01'
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 상품 테이블 이관 (data_version=2.3, priority_level=LOW 적용) -->
+    <query id="migrate_products" 
+           description="상품 테이블 이관"
+           enabled="true">
+      <sourceQuery targetTable="products" 
+                  applyGlobalColumns="all">
+        <![CDATA[
+          SELECT * FROM products WHERE is_active = 1
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 설정 테이블 이관 (조건부 값 적용 안함) -->
+    <query id="migrate_config" 
+           description="설정 테이블 이관"
+           enabled="true">
+      <sourceQuery targetTable="config" 
+                  applyGlobalColumns="none">
+        <![CDATA[
+          SELECT * FROM config WHERE is_active = 1
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 선택적 컬럼 적용 예시 -->
+    <query id="migrate_selective" 
+           description="선택적 컬럼 적용 예시"
+           enabled="true">
+      <sourceQuery targetTable="audit_log" 
+                  applyGlobalColumns="migration_date,batch_id">
+        <![CDATA[
+          SELECT * FROM audit_log WHERE created_date >= '2024-01-01'
+        ]]>
+      </sourceQuery>
+    </query>
+  </queries>
+</migration>
