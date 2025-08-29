@@ -2052,6 +2052,16 @@ class MSSQLDataMigrator {
                 throw new Error('sourceQuery 또는 sourceQueryFile 중 하나는 반드시 지정해야 합니다.');
             }
             
+            // 동적 변수가 아직 추출되지 않은 경우 안전하게 처리
+            const dynamicVarPattern = /\$\{(\w+)\}/g;
+            const dynamicVars = [...sourceQuery.matchAll(dynamicVarPattern)].map(match => match[1]);
+            const missingDynamicVars = dynamicVars.filter(varName => !this.dynamicVariables.hasOwnProperty(varName));
+            
+            if (missingDynamicVars.length > 0) {
+                this.log(`동적 변수가 아직 추출되지 않음: ${missingDynamicVars.join(', ')}. 행 수 추정을 건너뜁니다.`);
+                return 0; // 동적 변수가 아직 추출되지 않은 경우 0 반환
+            }
+            
             // 행 수만 조회하기 위한 COUNT 쿼리로 변환 시도
             try {
                 // 원본 쿼리를 서브쿼리로 감싸서 COUNT 쿼리 생성
@@ -2092,7 +2102,8 @@ class MSSQLDataMigrator {
             }
             
             // SELECT * 패턴 감지 (테이블 alias 포함, 대소문자 무관, 공백 허용)
-            const selectAllPattern = /SELECT\s+\*\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?/i;
+            // SQL 키워드를 alias로 잘못 인식하지 않도록 개선된 패턴
+            const selectAllPattern = /SELECT\s+\*\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?(?:\s+(?:WHERE|GROUP|HAVING|ORDER|LIMIT|OFFSET|UNION|INTERSECT|EXCEPT|FOR|OPTION|WITH)|\s*$)/i;
             const match = queryConfig.sourceQuery.match(selectAllPattern);
             
             if (match) {
@@ -2656,7 +2667,7 @@ class MSSQLDataMigrator {
             console.log('📡 소스 데이터베이스 연결 중...');
             await this.connectionManager.connectSource();
             
-            // 동적 변수 추출 시뮬레이션
+            // 동적 변수 추출 (실제 추출하여 쿼리 시뮬레이션에서 사용)
             if (this.config.dynamicVariables && this.config.dynamicVariables.length > 0) {
                 console.log(`\n🔍 동적 변수 추출 시뮬레이션: ${this.config.dynamicVariables.length}개`);
                 
@@ -2681,7 +2692,95 @@ class MSSQLDataMigrator {
                                 throw new Error(`알 수 없는 데이터베이스: ${database}`);
                             }
                             
-                            console.log(`    ✅ ${data.length}개 값 추출 예정 → 변수: ${extractConfig.variableName}`);
+                            // 실제 동적 변수 추출 및 저장 (시뮬레이션용)
+                            let extractedValue;
+                            
+                            switch (extractConfig.extractType) {
+                                case 'single_value':
+                                    const firstRow = data[0];
+                                    const firstColumn = Object.keys(firstRow)[0];
+                                    extractedValue = firstRow[firstColumn];
+                                    break;
+                                    
+                                case 'single_column':
+                                    const columnName = extractConfig.columnName || Object.keys(data[0])[0];
+                                    extractedValue = data.map(row => row[columnName]).filter(val => val !== null && val !== undefined);
+                                    break;
+                                    
+                                case 'multiple_columns':
+                                    const columns = extractConfig.columns || Object.keys(data[0]);
+                                    extractedValue = [];
+                                    data.forEach(row => {
+                                        columns.forEach(col => {
+                                            if (row[col] !== null && row[col] !== undefined) {
+                                                extractedValue.push(row[col]);
+                                            }
+                                        });
+                                    });
+                                    break;
+                                    
+                                case 'column_identified':
+                                    const identifiedColumns = extractConfig.columns || Object.keys(data[0]);
+                                    extractedValue = {};
+                                    identifiedColumns.forEach(col => {
+                                        extractedValue[col] = [];
+                                    });
+                                    
+                                    data.forEach(row => {
+                                        identifiedColumns.forEach(col => {
+                                            if (row[col] !== null && row[col] !== undefined) {
+                                                extractedValue[col].push(row[col]);
+                                            }
+                                        });
+                                    });
+                                    
+                                    // 중복 제거
+                                    Object.keys(extractedValue).forEach(col => {
+                                        extractedValue[col] = [...new Set(extractedValue[col])];
+                                    });
+                                    break;
+                                    
+                                case 'key_value_pairs':
+                                    const keys = Object.keys(data[0]);
+                                    if (keys.length < 2) {
+                                        throw new Error('key_value_pairs 타입은 최소 2개의 컬럼이 필요합니다.');
+                                    }
+                                    extractedValue = {};
+                                    data.forEach(row => {
+                                        const key = row[keys[0]];
+                                        const value = row[keys[1]];
+                                        if (key !== null && key !== undefined) {
+                                            extractedValue[key] = value;
+                                        }
+                                    });
+                                    break;
+                                    
+                                default:
+                                    // 기본값: column_identified 타입으로 추출
+                                    const defaultColumns = Object.keys(data[0]);
+                                    extractedValue = {};
+                                    defaultColumns.forEach(col => {
+                                        extractedValue[col] = [];
+                                    });
+                                    
+                                    data.forEach(row => {
+                                        defaultColumns.forEach(col => {
+                                            if (row[col] !== null && row[col] !== undefined) {
+                                                extractedValue[col].push(row[col]);
+                                            }
+                                        });
+                                    });
+                                    
+                                    // 중복 제거
+                                    Object.keys(extractedValue).forEach(col => {
+                                        extractedValue[col] = [...new Set(extractedValue[col])];
+                                    });
+                                    break;
+                            }
+                            
+                            this.setDynamicVariable(extractConfig.variableName, extractedValue);
+                            
+                            console.log(`    ✅ ${data.length}개 값 추출 완료 → 변수: ${extractConfig.variableName}`);
                         } catch (error) {
                             console.log(`    ❌ 추출 실패: ${error.message}`);
                         }

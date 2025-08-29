@@ -242,6 +242,7 @@
                 variableName="approverCodes"
                 extractType="single_column"
                 columnName="approver_code"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT ar.approver_code
@@ -257,6 +258,7 @@
                 variableName="requesterCodes"
                 extractType="single_column"
                 columnName="requester_code"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT ar.requester_code
@@ -272,6 +274,7 @@
                 variableName="productCodes"
                 extractType="single_column"
                 columnName="product_code"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT ar.product_code
@@ -288,6 +291,7 @@
                 variableName="allApprovalCodes"
                 extractType="multiple_columns"
                 columns="approver_code,requester_code,product_code"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT 
@@ -309,6 +313,7 @@
                 variableName="approvalCodesById"
                 extractType="column_identified"
                 columns="approver_code,requester_code,product_code"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT 
