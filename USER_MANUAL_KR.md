@@ -998,6 +998,381 @@ ETA: 18s
 </query>
 ```
 
+## 🔧 최근 개선사항 (v2.6 이후)
+
+### 1. 동적 변수 데이터베이스 지정 기능
+
+동적 변수에서 데이터를 추출할 데이터베이스를 명시적으로 지정할 수 있습니다.
+
+#### 주요 개선사항
+- **데이터베이스 선택**: `database` 속성으로 소스/타겟 DB 선택 가능
+- **기본값 제공**: 속성 미지정 시 `sourceDB`를 기본값으로 사용
+- **교차 DB 활용**: 소스에서 조건 추출 후 타겟에서 관련 데이터 조회 가능
+
+#### 사용 예시
+```xml
+<!-- 소스 DB에서 사용자 ID 추출 -->
+<dynamicVar id="extract_source_users"
+            variableName="sourceUserIds"
+            extractType="single_column"
+            columnName="user_id"
+            database="sourceDB">
+  <![CDATA[SELECT user_id FROM users WHERE status = 'ACTIVE']]>
+</dynamicVar>
+
+<!-- 타겟 DB에서 매핑 정보 추출 -->
+<dynamicVar id="extract_target_mapping"
+            variableName="targetMapping"
+            extractType="key_value_pairs"
+            database="targetDB">
+  <![CDATA[SELECT old_id, new_id FROM id_mapping]]>
+</dynamicVar>
+```
+
+### 2. SELECT * 패턴 개선
+
+SQL 키워드를 테이블 별칭으로 잘못 인식하는 문제를 해결했습니다.
+
+#### 개선된 기능
+- **정확한 별칭 감지**: SQL 키워드(WHERE, GROUP, HAVING 등)를 별칭으로 오인하지 않음
+- **안전한 패턴 매칭**: 더 정확한 정규식 패턴으로 테이블 별칭 추출
+- **오류 방지**: 잘못된 컬럼명 생성으로 인한 SQL 오류 방지
+
+#### 개선 전후 비교
+**개선 전 (문제 상황):**
+```sql
+-- 원본 쿼리
+SELECT * FROM products WHERE status = 'ACTIVE'
+
+-- 잘못된 변환 결과
+SELECT WHERE.product_name, WHERE.product_code, WHERE.category_id FROM products WHERE status = 'ACTIVE'
+```
+
+**개선 후 (정상 동작):**
+```sql
+-- 원본 쿼리
+SELECT * FROM products WHERE status = 'ACTIVE'
+
+-- 정상 변환 결과
+SELECT product_name, product_code, category_id, price, cost FROM products WHERE status = 'ACTIVE'
+```
+
+### 3. DRY RUN 모드 강화
+
+DRY RUN 모드에서 동적 변수를 실제로 추출하여 더 정확한 시뮬레이션을 제공합니다.
+
+#### 개선된 기능
+- **실제 동적 변수 추출**: DRY RUN에서도 동적 변수를 실제로 추출하여 저장
+- **정확한 쿼리 시뮬레이션**: 추출된 동적 변수 값을 사용한 정확한 쿼리 검증
+- **오류 사전 감지**: 동적 변수 관련 오류를 DRY RUN 단계에서 미리 발견
+
+#### 사용 예시
+```bash
+# DRY RUN으로 동적 변수 포함 쿼리 검증
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
+```
+
+**출력 예시:**
+```
+🧪 DRY RUN 모드: 데이터 마이그레이션 시뮬레이션
+
+🔍 동적 변수 추출 시뮬레이션: 3개
+  • extract_active_users: 활성 사용자 ID 추출
+    쿼리: SELECT user_id FROM users WHERE status = 'ACTIVE'
+    데이터베이스: sourceDB
+    추출된 값: [1001, 1002, 1003, 1005, 1008] (5개)
+  
+  • extract_company_mapping: 회사 코드 매핑
+    쿼리: SELECT company_code, company_name FROM companies
+    데이터베이스: targetDB
+    추출된 값: {"COMP01": "Samsung", "COMP02": "LG"} (2개 쌍)
+
+📊 쿼리 시뮬레이션 결과:
+  ✅ migrate_users: 예상 처리 행 수 5개
+  ✅ migrate_orders: 예상 처리 행 수 25개
+  ✅ migrate_products: 예상 처리 행 수 150개
+```
+
+### 4. 오류 처리 및 안정성 개선
+
+#### 주요 개선사항
+- **안전한 변수 치환**: 동적 변수가 아직 추출되지 않은 상태에서도 안전하게 처리
+- **Graceful Fallback**: 기능 실패 시 원본 데이터로 안전하게 복구
+- **상세한 오류 메시지**: 문제 발생 시 더 명확한 오류 정보 제공
+
+#### 디버깅 지원
+```bash
+# 동적 변수 처리 과정 상세 로그
+DEBUG_VARIABLES=true node src/migrate-cli.js migrate queries.xml
+
+# SELECT * 처리 과정 확인
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
+## 📝 예시
+
+### 1. 기본 이관 예시
+
+```xml
+<query id="migrate_users"
+       description="사용자 데이터 이관"
+       targetTable="users"
+       targetColumns="user_id,username,email,status,created_date"
+                  identityColumns="user_id"
+       enabled="true">
+  <sourceQuery>
+    <![CDATA[
+      SELECT user_id, username, email, created_date
+      FROM users 
+      WHERE created_date >= '2024-01-01'
+      ORDER BY user_id
+    ]]>
+  </sourceQuery>
+  
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
+  
+  <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 PK 기준으로 자동 삭제됨 -->
+</query>
+```
+
+### 2. SELECT * 사용 예시
+
+```xml
+<query id="migrate_products"
+       description="상품 전체 데이터 이관"
+       targetTable="products"
+       targetColumns=""
+                  identityColumns="product_id"
+       enabled="true">
+  <sourceQuery>
+    <![CDATA[
+      SELECT * FROM products WHERE status = 'ACTIVE'
+    ]]>
+  </sourceQuery>
+  
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
+</query>
+```
+
+### 3. 현재 시각 함수 활용 예시
+
+```xml
+<query id="migrate_audit_log"
+       description="감사 로그 데이터 이관 (현재 시각 추가)"
+       targetTable="audit_log"
+                  identityColumns="log_id"
+       enabled="true">
+  <sourceQuery>
+    <![CDATA[
+      SELECT log_id, user_id, action, description
+      FROM audit_log
+      WHERE created_date >= '2024-01-01'
+    ]]>
+  </sourceQuery>
+  
+  <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
+</query>
+```
+
+## 📈 진행 상황 관리
+
+v2.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다.
+
+### 1. 자동 진행 상황 추적
+
+모든 마이그레이션은 자동으로 진행 상황이 추적되며, 다음 정보가 기록됩니다:
+
+- **마이그레이션 기본 정보**: ID, 시작/종료 시간, 상태
+- **페이즈별 진행 상황**: 연결, 전처리, 마이그레이션, 후처리 등
+- **쿼리별 상세 정보**: 각 쿼리의 실행 상태 및 처리 행 수
+- **배치별 진행률**: 실시간 배치 처리 상황
+- **성능 메트릭**: 처리 속도, 예상 완료 시간 등
+- **오류 정보**: 발생한 오류의 상세 내역
+
+### 2. 진행 상황 파일
+
+진행 상황은 `logs/progress-{migration-id}.json` 파일에 자동 저장됩니다:
+
+```json
+{
+  "migrationId": "migration-2024-12-01-15-30-00",
+  "status": "RUNNING",
+  "totalQueries": 5,
+  "completedQueries": 2,
+  "totalRows": 10000,
+  "processedRows": 4500,
+  "performance": {
+    "avgRowsPerSecond": 850,
+    "estimatedTimeRemaining": 6.47
+  }
+}
+```
+
+### 3. 진행 상황 조회 명령어
+
+#### 진행 상황 목록 조회
+```bash
+node src/progress-cli.js list
+```
+
+#### 특정 마이그레이션 상세 조회
+```bash
+node src/progress-cli.js show migration-2024-12-01-15-30-00
+```
+
+#### 실시간 모니터링
+```bash
+node src/progress-cli.js monitor migration-2024-12-01-15-30-00
+```
+
+#### 재시작 정보 조회
+```bash
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+```
+
+#### 전체 요약
+```bash
+node src/progress-cli.js summary
+```
+
+#### 오래된 진행 상황 파일 정리
+```bash
+node src/progress-cli.js cleanup 7  # 7일 이전 완료 파일 삭제
+```
+
+### 4. 진행 상황 상태
+
+| 상태 | 설명 | 아이콘 |
+|------|------|-------|
+| `INITIALIZING` | 초기화 중 | ⚡ |
+| `RUNNING` | 실행 중 | 🔄 |
+| `COMPLETED` | 완료 | ✅ |
+| `FAILED` | 실패 | ❌ |
+| `PAUSED` | 일시정지 | ⏸️ |
+
+### 5. 실시간 모니터링 화면
+
+```
+================================================================================
+📊 Migration Progress: migration-2024-12-01-15-30-00
+================================================================================
+Status: RUNNING | Phase: MIGRATING
+Current Query: migrate_users
+
+Queries: [████████████████████          ] 65.0% (13/20)
+Rows:    [██████████████████████████    ] 87.3% (87,300/100,000)
+
+Duration: 2m 15s
+Speed: 647 rows/sec
+ETA: 18s
+================================================================================
+```
+
+### 6. 배치 처리 추적
+
+각 쿼리의 배치 처리 상황도 실시간으로 추적됩니다:
+
+```
+배치 진행 상황:
+  현재 배치: 15/25 (60.0%)
+  배치 크기: 1000행
+  처리된 행: 15,000/25,000
+```
+
+### 7. 성능 메트릭
+
+- **평균 처리 속도**: 초당 처리 행 수
+- **예상 완료 시간**: 현재 속도 기준 남은 시간
+- **전체 실행 시간**: 마이그레이션 시작부터 경과 시간
+- **페이즈별 소요 시간**: 각 단계별 처리 시간
+
+### 8. 오류 추적
+
+오류 발생 시 상세 정보가 기록됩니다:
+
+```json
+{
+  "errors": [
+    {
+      "timestamp": 1701434445000,
+      "queryId": "migrate_orders",
+      "error": "Connection timeout",
+      "phase": "MIGRATING"
+    }
+  ]
+}
+```
+
+### 9. 활용 팁
+
+- **장시간 실행 마이그레이션**: `monitor` 명령으로 실시간 추적
+- **배치 실행**: `list` 명령으로 전체 상황 한눈에 파악
+- **오류 분석**: `show` 명령으로 상세 오류 정보 확인
+- **성능 튜닝**: 처리 속도 메트릭을 통한 최적화 지점 파악
+- **재시작 판단**: 실패한 마이그레이션의 상세 정보로 재시작 여부 결정
+
+### 3. 동적 변수 활용 예시
+
+```xml
+<!-- 활성 사용자 추출 -->
+<dynamicVar id="get_active_users"
+            variableName="activeUsers"
+            extractType="single_column"
+            columnName="user_id">
+  <![CDATA[
+    SELECT user_id FROM users WHERE status = 'ACTIVE'
+  ]]>
+</dynamicVar>
+
+<!-- 추출된 변수 사용 -->
+<query id="migrate_orders" ...>
+  <sourceQuery>
+    <![CDATA[
+      SELECT order_id, user_id, order_date, amount
+      FROM orders 
+      WHERE user_id IN (${activeUsers})
+    ]]>
+  </sourceQuery>
+</query>
+```
+
+### 4. 전처리/후처리 활용 예시
+
+```xml
+<query id="migrate_large_table" ...>
+  <preProcess description="성능 최적화">
+    <![CDATA[
+      -- 인덱스 비활성화
+      ALTER INDEX ALL ON large_table DISABLE;
+      
+      -- 백업 생성
+      SELECT * INTO large_table_backup FROM large_table WHERE 1=0;
+    ]]>
+  </preProcess>
+  
+  <sourceQuery>
+    <![CDATA[
+      SELECT * FROM large_table
+    ]]>
+  </sourceQuery>
+  
+  <postProcess description="후처리 작업">
+    <![CDATA[
+      -- 인덱스 재구성
+      ALTER INDEX ALL ON large_table REBUILD;
+      
+      -- 통계 업데이트
+      UPDATE STATISTICS large_table;
+      
+      -- 검증
+      DECLARE @count INT;
+      SELECT @count = COUNT(*) FROM large_table;
+      INSERT INTO migration_log VALUES ('large_table', @count, GETDATE());
+    ]]>
+  </postProcess>
+</query>
+```
+
 ## 🔍 문제 해결
 
 ### 1. 일반적인 오류
@@ -1258,7 +1633,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
       AND created_date >= '${startDate}';
     
     -- 회사별 통계 생성 (key_value_pairs 동적변수)
-    INSERT INTO company_stats (company_code, company_name, user_count)
+    INSERT INTO company_stats (company_code, company_name)
     SELECT company_code, 
            CASE company_code 
              WHEN 'COMP01' THEN ${companyMapping.COMP01}
@@ -1444,9 +1819,11 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
   </preProcess>
   
   <!-- 소스쿼리에서는 모든 전역 컬럼 적용 -->
-  <sourceQuery applyGlobalColumns="all">
+  <sourceQuery applyGlobalColumns="created_by,updated_by,migration_date,processed_at">
     <![CDATA[
-      SELECT user_id, username, email FROM users_source
+      SELECT user_id, username, email, status 
+      FROM users_source 
+      WHERE created_date >= '${startDate}'
     ]]>
   </sourceQuery>
   

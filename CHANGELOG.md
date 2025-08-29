@@ -1,5 +1,78 @@
 # SQL2DB Migration Tool Update Log
 
+## 🔧 v2.7 - Dynamic Variable and SQL Processing Improvements (2025-08-29)
+
+### ✨ New Features
+
+#### Dynamic Variable Database Specification
+- **Database Selection**: Use `database` attribute in dynamic variables to select source/target DB
+- **Default Value**: Uses `sourceDB` as default when attribute is not specified
+- **Cross-DB Utilization**: Extract conditions from source then query related data from target
+
+#### Usage Examples
+```xml
+<!-- Extract user IDs from source DB -->
+<dynamicVar id="extract_source_users"
+            variableName="sourceUserIds"
+            extractType="single_column"
+            columnName="user_id"
+            database="sourceDB">
+  <![CDATA[SELECT user_id FROM users WHERE status = 'ACTIVE']]>
+</dynamicVar>
+
+<!-- Extract mapping info from target DB -->
+<dynamicVar id="extract_target_mapping"
+            variableName="targetMapping"
+            extractType="key_value_pairs"
+            database="targetDB">
+  <![CDATA[SELECT old_id, new_id FROM id_mapping]]>
+</dynamicVar>
+```
+
+### 🔄 Improvements
+
+#### SELECT * Pattern Improvements
+- **Accurate Alias Detection**: SQL keywords (WHERE, GROUP, HAVING, etc.) are not mistaken for aliases
+- **Safe Pattern Matching**: More accurate regex pattern for table alias extraction
+- **Error Prevention**: Prevents SQL errors caused by incorrect column name generation
+
+**Before and After Comparison:**
+```sql
+-- Before (Problematic)
+SELECT * FROM products WHERE status = 'ACTIVE'
+-- Incorrect transformation: SELECT WHERE.product_name, WHERE.product_code FROM products WHERE status = 'ACTIVE'
+
+-- After (Normal Operation)
+SELECT * FROM products WHERE status = 'ACTIVE'
+-- Correct transformation: SELECT product_name, product_code, category_id FROM products WHERE status = 'ACTIVE'
+```
+
+#### DRY RUN Mode Enhancement
+- **Actual Dynamic Variable Extraction**: Dynamic variables are actually extracted and stored during DRY RUN
+- **Accurate Query Simulation**: Precise query validation using extracted dynamic variable values
+- **Error Pre-detection**: Dynamic variable related errors are discovered during DRY RUN phase
+
+#### Error Handling and Stability Improvements
+- **Safe Variable Substitution**: Safely handles dynamic variables that haven't been extracted yet
+- **Graceful Fallback**: Safely recovers to original data when features fail
+- **Detailed Error Messages**: Provides clearer error information when problems occur
+
+### 🛠️ Debugging Support
+```bash
+# Detailed dynamic variable processing logs
+DEBUG_VARIABLES=true node src/migrate-cli.js migrate queries.xml
+
+# SELECT * processing verification
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
+### 📊 Use Cases
+- **Source DB Extraction**: Identify migration target data
+- **Target DB Extraction**: Query existing mapping information or reference data
+- **Cross-DB Utilization**: Extract conditions from source then query related data from target
+
+---
+
 ## 🔧 v2.6 - Processing Stage Column Override Control (2024-08-14)
 
 ### ✨ New Features

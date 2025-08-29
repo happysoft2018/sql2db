@@ -283,6 +283,152 @@ When using `SELECT *`, the tool automatically:
 </query>
 ```
 
+### 11. Advanced SQL Parsing and Comment Processing
+
+Accurately processes complex SQL syntax and comments.
+
+#### Supported Comment Types
+```sql
+-- Line comments
+/* Block comments */
+/* 
+   Multi-line
+   block comments
+*/
+
+-- Comments in strings are protected
+INSERT INTO log VALUES ('-- This is not a comment');
+INSERT INTO log VALUES ('/* This is also not a comment */');
+```
+
+#### Variable Processing Improvements
+- **Processing Order**: Dynamic variables → Static variables → Timestamp functions → Environment variables
+- **Conflict Prevention**: Higher priority variables are not overwritten by lower priority ones
+- **Debugging**: Detailed variable substitution process tracking
+
+#### Debugging Options
+```bash
+# Detailed variable substitution process logs
+DEBUG_VARIABLES=true node src/migrate-cli.js migrate queries.xml
+
+# Comment removal process verification
+DEBUG_COMMENTS=true node src/migrate-cli.js migrate queries.xml
+
+# Complete script processing verification
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
+## 🔧 Recent Improvements (Post v2.6)
+
+### 1. Dynamic Variable Database Specification
+
+You can now specify which database to extract data from in dynamic variables.
+
+#### Key Improvements
+- **Database Selection**: Use the `database` attribute to select source/target DB
+- **Default Value**: Uses `sourceDB` as default when attribute is not specified
+- **Cross-DB Utilization**: Extract conditions from source then query related data from target
+
+#### Usage Examples
+```xml
+<!-- Extract user IDs from source DB -->
+<dynamicVar id="extract_source_users"
+            variableName="sourceUserIds"
+            extractType="single_column"
+            columnName="user_id"
+            database="sourceDB">
+  <![CDATA[SELECT user_id FROM users WHERE status = 'ACTIVE']]>
+</dynamicVar>
+
+<!-- Extract mapping info from target DB -->
+<dynamicVar id="extract_target_mapping"
+            variableName="targetMapping"
+            extractType="key_value_pairs"
+            database="targetDB">
+  <![CDATA[SELECT old_id, new_id FROM id_mapping]]>
+</dynamicVar>
+```
+
+### 2. SELECT * Pattern Improvements
+
+Fixed the issue where SQL keywords were incorrectly recognized as table aliases.
+
+#### Improved Features
+- **Accurate Alias Detection**: SQL keywords (WHERE, GROUP, HAVING, etc.) are not mistaken for aliases
+- **Safe Pattern Matching**: More accurate regex pattern for table alias extraction
+- **Error Prevention**: Prevents SQL errors caused by incorrect column name generation
+
+#### Before and After Comparison
+**Before (Problematic):**
+```sql
+-- Original query
+SELECT * FROM products WHERE status = 'ACTIVE'
+
+-- Incorrect transformation result
+SELECT WHERE.product_name, WHERE.product_code, WHERE.category_id FROM products WHERE status = 'ACTIVE'
+```
+
+**After (Normal Operation):**
+```sql
+-- Original query
+SELECT * FROM products WHERE status = 'ACTIVE'
+
+-- Correct transformation result
+SELECT product_name, product_code, category_id, price, cost FROM products WHERE status = 'ACTIVE'
+```
+
+### 3. DRY RUN Mode Enhancement
+
+DRY RUN mode now actually extracts dynamic variables to provide more accurate simulation.
+
+#### Enhanced Features
+- **Actual Dynamic Variable Extraction**: Dynamic variables are actually extracted and stored during DRY RUN
+- **Accurate Query Simulation**: Precise query validation using extracted dynamic variable values
+- **Error Pre-detection**: Dynamic variable related errors are discovered during DRY RUN phase
+
+#### Usage Example
+```bash
+# Validate queries with dynamic variables using DRY RUN
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
+```
+
+**Output Example:**
+```
+🧪 DRY RUN Mode: Data Migration Simulation
+
+🔍 Dynamic Variable Extraction Simulation: 3 items
+  • extract_active_users: Active user ID extraction
+    Query: SELECT user_id FROM users WHERE status = 'ACTIVE'
+    Database: sourceDB
+    Extracted values: [1001, 1002, 1003, 1005, 1008] (5 items)
+  
+  • extract_company_mapping: Company code mapping
+    Query: SELECT company_code, company_name FROM companies
+    Database: targetDB
+    Extracted values: {"COMP01": "Samsung", "COMP02": "LG"} (2 pairs)
+
+📊 Query Simulation Results:
+  ✅ migrate_users: Expected 5 rows to process
+  ✅ migrate_orders: Expected 25 rows to process
+  ✅ migrate_products: Expected 150 rows to process
+```
+
+### 4. Error Handling and Stability Improvements
+
+#### Key Improvements
+- **Safe Variable Substitution**: Safely handles dynamic variables that haven't been extracted yet
+- **Graceful Fallback**: Safely recovers to original data when features fail
+- **Detailed Error Messages**: Provides clearer error information when problems occur
+
+#### Debugging Support
+```bash
+# Detailed dynamic variable processing logs
+DEBUG_VARIABLES=true node src/migrate-cli.js migrate queries.xml
+
+# SELECT * processing verification
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
 ## 📝 Examples
 
 ### Complete Migration Example

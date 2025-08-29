@@ -1,5 +1,78 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🔧 v2.7 - 동적 변수 및 SQL 처리 개선 (2025-08-29)
+
+### ✨ 새로운 기능
+
+#### 동적 변수 데이터베이스 지정 기능
+- **데이터베이스 선택**: 동적 변수에서 `database` 속성으로 소스/타겟 DB 선택 가능
+- **기본값 제공**: 속성 미지정 시 `sourceDB`를 기본값으로 사용
+- **교차 DB 활용**: 소스에서 조건 추출 후 타겟에서 관련 데이터 조회 가능
+
+#### 사용 예시
+```xml
+<!-- 소스 DB에서 사용자 ID 추출 -->
+<dynamicVar id="extract_source_users"
+            variableName="sourceUserIds"
+            extractType="single_column"
+            columnName="user_id"
+            database="sourceDB">
+  <![CDATA[SELECT user_id FROM users WHERE status = 'ACTIVE']]>
+</dynamicVar>
+
+<!-- 타겟 DB에서 매핑 정보 추출 -->
+<dynamicVar id="extract_target_mapping"
+            variableName="targetMapping"
+            extractType="key_value_pairs"
+            database="targetDB">
+  <![CDATA[SELECT old_id, new_id FROM id_mapping]]>
+</dynamicVar>
+```
+
+### 🔄 개선 사항
+
+#### SELECT * 패턴 개선
+- **정확한 별칭 감지**: SQL 키워드(WHERE, GROUP, HAVING 등)를 별칭으로 오인하지 않음
+- **안전한 패턴 매칭**: 더 정확한 정규식 패턴으로 테이블 별칭 추출
+- **오류 방지**: 잘못된 컬럼명 생성으로 인한 SQL 오류 방지
+
+**개선 전후 비교:**
+```sql
+-- 개선 전 (문제 상황)
+SELECT * FROM products WHERE status = 'ACTIVE'
+-- 잘못된 변환: SELECT WHERE.product_name, WHERE.product_code FROM products WHERE status = 'ACTIVE'
+
+-- 개선 후 (정상 동작)
+SELECT * FROM products WHERE status = 'ACTIVE'
+-- 정상 변환: SELECT product_name, product_code, category_id FROM products WHERE status = 'ACTIVE'
+```
+
+#### DRY RUN 모드 강화
+- **실제 동적 변수 추출**: DRY RUN에서도 동적 변수를 실제로 추출하여 저장
+- **정확한 쿼리 시뮬레이션**: 추출된 동적 변수 값을 사용한 정확한 쿼리 검증
+- **오류 사전 감지**: 동적 변수 관련 오류를 DRY RUN 단계에서 미리 발견
+
+#### 오류 처리 및 안정성 개선
+- **안전한 변수 치환**: 동적 변수가 아직 추출되지 않은 상태에서도 안전하게 처리
+- **Graceful Fallback**: 기능 실패 시 원본 데이터로 안전하게 복구
+- **상세한 오류 메시지**: 문제 발생 시 더 명확한 오류 정보 제공
+
+### 🛠️ 디버깅 지원
+```bash
+# 동적 변수 처리 과정 상세 로그
+DEBUG_VARIABLES=true node src/migrate-cli.js migrate queries.xml
+
+# SELECT * 처리 과정 확인
+DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
+```
+
+### 📊 활용 사례
+- **소스 DB 추출**: 마이그레이션 대상 데이터 식별
+- **타겟 DB 추출**: 기존 매핑 정보나 참조 데이터 조회
+- **교차 DB 활용**: 소스에서 조건 추출 후 타겟에서 관련 데이터 조회
+
+---
+
 ## 🔧 v2.6 - 처리 단계별 컬럼 오버라이드 제어 (2024-08-14)
 
 ### ✨ 새로운 기능
