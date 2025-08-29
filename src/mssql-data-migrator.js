@@ -603,6 +603,7 @@ class MSSQLDataMigrator {
                         variableName: dv.variableName,
                         query: dv._?.trim() || '',
                         extractType: dv.extractType,
+                        database: dv.database || config.settings.sourceDatabase, // 기본값은 sourceDatabase
                         enabled: dv.enabled === 'true'
                     };
                     
@@ -1450,8 +1451,18 @@ class MSSQLDataMigrator {
             const processedQuery = this.replaceVariables(extractConfig.query);
             this.log(`변수 치환 후 쿼리: ${processedQuery}`);
             
-            // 소스 DB에서 데이터 조회
-            const data = await this.connectionManager.querySource(processedQuery);
+            // 지정된 데이터베이스에서 데이터 조회
+            const database = extractConfig.database || this.config.settings.sourceDatabase;
+            this.log(`데이터베이스: ${database}`);
+            
+            let data;
+            if (database === this.config.settings.sourceDatabase) {
+                data = await this.connectionManager.querySource(processedQuery);
+            } else if (database === this.config.settings.targetDatabase) {
+                data = await this.connectionManager.queryTarget(processedQuery);
+            } else {
+                throw new Error(`알 수 없는 데이터베이스: ${database}. sourceDB 또는 targetDB를 사용하세요.`);
+            }
             this.log(`추출된 행 수: ${data.length}`);
             
             if (data.length === 0) {
@@ -2657,7 +2668,19 @@ class MSSQLDataMigrator {
                             const processedQuery = this.replaceVariables(extractConfig.query);
                             console.log(`    쿼리: ${processedQuery.substring(0, 100)}${processedQuery.length > 100 ? '...' : ''}`);
                             
-                            const data = await this.connectionManager.querySource(processedQuery);
+                            // 지정된 데이터베이스에서 데이터 조회
+                            const database = extractConfig.database || this.config.settings.sourceDatabase;
+                            console.log(`    데이터베이스: ${database}`);
+                            
+                            let data;
+                            if (database === this.config.settings.sourceDatabase) {
+                                data = await this.connectionManager.querySource(processedQuery);
+                            } else if (database === this.config.settings.targetDatabase) {
+                                data = await this.connectionManager.queryTarget(processedQuery);
+                            } else {
+                                throw new Error(`알 수 없는 데이터베이스: ${database}`);
+                            }
+                            
                             console.log(`    ✅ ${data.length}개 값 추출 예정 → 변수: ${extractConfig.variableName}`);
                         } catch (error) {
                             console.log(`    ❌ 추출 실패: ${error.message}`);

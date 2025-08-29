@@ -308,6 +308,7 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
 - **Variable Types**: Support for `column_identified` and `key_value_pairs` types
 - **Query Integration**: Use dynamic variables in migration queries
 - **Error Handling**: Graceful handling of variable resolution failures
+- **Database Selection**: Support for `database` attribute to specify source or target database
 
 ### 📝 Usage Examples
 
@@ -317,11 +318,19 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
   <dynamicVariable id="active_customers" description="Active customer list">
     <query>SELECT CustomerID FROM Customers WHERE IsActive = 1</query>
     <extractType>column_identified</extractType>
+    <database>sourceDB</database>
   </dynamicVariable>
   
   <dynamicVariable id="status_mapping" description="Status mapping">
     <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
     <extractType>key_value_pairs</extractType>
+    <database>sourceDB</database>
+  </dynamicVariable>
+  
+  <dynamicVariable id="max_order_id" description="Maximum order ID">
+    <query>SELECT MAX(OrderID) as max_id FROM Orders</query>
+    <extractType>single_value</extractType>
+    <database>targetDB</database>
   </dynamicVariable>
 </dynamicVariables>
 ```

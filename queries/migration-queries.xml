@@ -125,6 +125,7 @@
                 variableName="activeUserIds"
                 extractType="single_column"
                 columnName="user_id"
+                database="sourceDB"
                 enabled="true">
       <![CDATA[
         SELECT user_id FROM users 
@@ -140,6 +141,7 @@
                 description="회사 코드-이름 매핑 추출" 
                 variableName="companyMapping"
                 extractType="key_value_pairs"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
@@ -150,6 +152,7 @@
                 description="부서 코드-이름 매핑 추출"
                 variableName="departmentMapping"
                 extractType="key_value_pairs"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT department_code, department_name 
@@ -163,6 +166,7 @@
                 description="상태 코드-설명 매핑 추출"
                 variableName="statusMapping"
                 extractType="key_value_pairs"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT status_code, status_description 
@@ -176,6 +180,7 @@
                 description="카테고리 ID-이름 매핑 추출"
                 variableName="categoryMapping"
                 extractType="key_value_pairs"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT category_id, category_name 
@@ -189,6 +194,7 @@
                 description="최대 주문 ID 추출"
                 variableName="maxOrderId"
                 extractType="single_value"
+                database="targetDB"
                 enabled="false">
       <![CDATA[
         SELECT MAX(order_id) as max_id FROM orders
@@ -200,6 +206,7 @@
                 variableName="categoryProductIds"
                 extractType="column_identified"
                 columns="product_id,category_id"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT product_id, category_id FROM products WHERE category_id IN (${categoryIds})
@@ -212,6 +219,7 @@
                 variableName="allEntityIds"
                 extractType="multiple_columns"
                 columns="user_id,department_id,manager_id"
+                database="sourceDB"
                 enabled="false">
       <![CDATA[
         SELECT DISTINCT

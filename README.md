@@ -143,16 +143,33 @@ The tool supports dynamic variables that can extract data at runtime and use it 
 ### Usage Examples
 
 ```xml
-<!-- Using column_identified (default) -->
+<!-- Using column_identified (default) from source database -->
 <dynamicVariable id="customer_data" description="Customer information">
   <query>SELECT CustomerID, CustomerName, Region FROM Customers</query>
   <!-- extractType omitted - defaults to column_identified -->
+  <!-- database omitted - defaults to sourceDB -->
 </dynamicVariable>
 
-<!-- Using key_value_pairs -->
+<!-- Using key_value_pairs from source database -->
 <dynamicVariable id="status_mapping" description="Status mapping">
   <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
   <extractType>key_value_pairs</extractType>
+  <database>sourceDB</database>
+</dynamicVariable>
+
+<!-- Using single_value from target database -->
+<dynamicVariable id="max_order_id" description="Maximum order ID">
+  <query>SELECT MAX(OrderID) as max_id FROM Orders</query>
+  <extractType>single_value</extractType>
+  <database>targetDB</database>
+</dynamicVariable>
+
+<!-- Using single_column from source database -->
+<dynamicVariable id="active_user_ids" description="Active user IDs">
+  <query>SELECT UserID FROM Users WHERE Status = 'ACTIVE'</query>
+  <extractType>single_column</extractType>
+  <columnName>UserID</columnName>
+  <database>sourceDB</database>
 </dynamicVariable>
 ```
 
