@@ -1,5 +1,7 @@
 const sql = require('mssql');
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 class MSSQLConnectionManager {
     constructor() {
@@ -15,6 +17,119 @@ class MSSQLConnectionManager {
         this.sourceSession = null;
         this.targetSession = null;
         this.sessionTransaction = null;
+        
+        // dbinfo.json의 모든 DB 연결을 위한 속성 추가
+        this.dbPools = {}; // 각 DB별 연결 풀 저장
+        this.dbConnections = {}; // 각 DB별 연결 상태 저장
+        this.dbConfigs = null; // dbinfo.json 설정
+    }
+
+    // dbinfo.json에서 DB 설정 로드
+    loadDBConfigs() {
+        try {
+            const configPath = path.join(__dirname, '..', 'config', 'dbinfo.json');
+            if (fs.existsSync(configPath)) {
+                const configData = fs.readFileSync(configPath, 'utf8');
+                this.dbConfigs = JSON.parse(configData);
+                console.log(`dbinfo.json 로드 완료: ${Object.keys(this.dbConfigs.dbs).length}개 DB 설정`);
+                return this.dbConfigs;
+            } else {
+                console.warn('dbinfo.json 파일을 찾을 수 없습니다.');
+                return null;
+            }
+        } catch (error) {
+            console.error('dbinfo.json 로드 실패:', error.message);
+            return null;
+        }
+    }
+
+    // 특정 DB에 연결
+    async connectToDB(dbKey) {
+        try {
+            if (!this.dbConfigs) {
+                this.loadDBConfigs();
+            }
+            
+            if (!this.dbConfigs || !this.dbConfigs.dbs[dbKey]) {
+                throw new Error(`DB 키 '${dbKey}'에 대한 설정을 찾을 수 없습니다.`);
+            }
+            
+            // 이미 연결된 경우 기존 연결 반환
+            if (this.dbPools[dbKey] && this.dbConnections[dbKey]) {
+                return this.dbPools[dbKey];
+            }
+            
+            const dbConfig = this.dbConfigs.dbs[dbKey];
+            const config = this.getDBConfig(dbConfig);
+            
+            console.log(`DB '${dbKey}'에 연결 중... (${config.server}:${config.port}/${config.database})`);
+            
+            const pool = new sql.ConnectionPool(config);
+            await pool.connect();
+            
+            this.dbPools[dbKey] = pool;
+            this.dbConnections[dbKey] = true;
+            
+            console.log(`DB '${dbKey}' 연결 성공!`);
+            return pool;
+            
+        } catch (error) {
+            console.error(`DB '${dbKey}' 연결 실패:`, error.message);
+            throw new Error(`DB '${dbKey}' 연결 실패: ${error.message}`);
+        }
+    }
+
+    // 특정 DB에서 쿼리 실행
+    async queryDB(dbKey, query) {
+        try {
+            const pool = await this.connectToDB(dbKey);
+            const request = pool.request();
+            const result = await request.query(query);
+            return result.recordset || result;
+        } catch (error) {
+            console.error(`DB '${dbKey}' 쿼리 실행 실패:`, error.message);
+            throw new Error(`DB '${dbKey}' 쿼리 실행 실패: ${error.message}`);
+        }
+    }
+
+    // 사용 가능한 모든 DB 키 목록 반환
+    getAvailableDBKeys() {
+        if (!this.dbConfigs) {
+            this.loadDBConfigs();
+        }
+        
+        if (!this.dbConfigs) {
+            return [];
+        }
+        
+        return Object.keys(this.dbConfigs.dbs);
+    }
+
+    // 특정 DB 연결 해제
+    async disconnectDB(dbKey) {
+        try {
+            if (this.dbPools[dbKey]) {
+                await this.dbPools[dbKey].close();
+                delete this.dbPools[dbKey];
+                this.dbConnections[dbKey] = false;
+                console.log(`DB '${dbKey}' 연결 해제 완료`);
+            }
+        } catch (error) {
+            console.error(`DB '${dbKey}' 연결 해제 실패:`, error.message);
+        }
+    }
+
+    // 모든 DB 연결 해제
+    async disconnectAllDBs() {
+        try {
+            const dbKeys = Object.keys(this.dbPools);
+            for (const dbKey of dbKeys) {
+                await this.disconnectDB(dbKey);
+            }
+            console.log('모든 DB 연결 해제 완료');
+        } catch (error) {
+            console.error('DB 연결 해제 실패:', error.message);
+        }
     }
 
     // 커스텀 DB 설정 지정

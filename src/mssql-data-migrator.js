@@ -1456,12 +1456,16 @@ class MSSQLDataMigrator {
             this.log(`데이터베이스: ${database}`);
             
             let data;
-            if (database === this.config.settings.sourceDatabase) {
-                data = await this.connectionManager.querySource(processedQuery);
-            } else if (database === this.config.settings.targetDatabase) {
-                data = await this.connectionManager.queryTarget(processedQuery);
+            
+            // dbinfo.json에 정의된 DB인지 확인
+            const availableDBs = this.connectionManager.getAvailableDBKeys();
+            if (availableDBs.includes(database)) {
+                this.log(`dbinfo.json에 정의된 DB '${database}'에서 데이터 조회 중...`);
+                data = await this.connectionManager.queryDB(database, processedQuery);
             } else {
-                throw new Error(`알 수 없는 데이터베이스: ${database}. sourceDB 또는 targetDB를 사용하세요.`);
+                // 사용 가능한 DB 목록 표시
+                this.log(`사용 가능한 DB 목록: ${availableDBs.join(', ')}`);
+                throw new Error(`알 수 없는 데이터베이스: ${database}. 사용 가능한 DB: ${availableDBs.join(', ')}`);
             }
             this.log(`추출된 행 수: ${data.length}`);
             

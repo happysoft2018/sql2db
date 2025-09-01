@@ -194,10 +194,10 @@
                 description="최대 주문 ID 추출"
                 variableName="maxOrderId"
                 extractType="single_value"
-                database="targetDB"
-                enabled="false">
+                database="sampleDB"
+                enabled="true">
       <![CDATA[
-        SELECT MAX(order_id) as max_id FROM orders
+        SELECT MAX(OrderID) as max_id FROM orders
       ]]>
     </dynamicVar>
 

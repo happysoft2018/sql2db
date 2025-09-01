@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<migration>
+    <settings>
+        <sourceDatabase>sourceDB</sourceDatabase>
+        <targetDatabase>targetDB</targetDatabase>
+        <enableTransaction>true</enableTransaction>
+        <batchSize>1000</batchSize>
+        <maxRetries>3</maxRetries>
+        <retryDelay>1000</retryDelay>
+    </settings>
+
+    <!-- 동적 변수 정의 - dbinfo.json의 모든 DB에서 데이터 추출 가능 -->
+    <dynamicVariables>
+        <!-- sampleDB에서 사용자 목록 추출 -->
+        <dynamicVar>
+            <variableName>sampleUsers</variableName>
+            <query>SELECT UserID, UserName, Email FROM Users WHERE IsActive = 1</query>
+            <database>sampleDB</database>
+            <extractType>multiple_columns</extractType>
+            <columns>UserID, UserName, Email</columns>
+            <enabled>true</enabled>
+        </dynamicVar>
+
+        <!-- targetDB에서 부서 정보 추출 -->
+        <dynamicVar>
+            <variableName>targetDepartments</variableName>
+            <query>SELECT DeptID, DeptName, ManagerID FROM Departments</query>
+            <database>targetDB</database>
+            <extractType>key_value_pairs</extractType>
+            <enabled>true</enabled>
+        </dynamicVar>
+
+        <!-- sourceDB에서 제품 카테고리 추출 -->
+        <dynamicVar>
+            <variableName>sourceCategories</variableName>
+            <query>SELECT CategoryID, CategoryName FROM ProductCategories WHERE IsActive = 1</query>
+            <database>sourceDB</database>
+            <extractType>single_column</extractType>
+            <columnName>CategoryName</columnName>
+            <enabled>true</enabled>
+        </dynamicVar>
+
+        <!-- sampleDB에서 회사 정보 추출 -->
+        <dynamicVar>
+            <variableName>companyInfo</variableName>
+            <query>SELECT CompanyID, CompanyName, Address, Phone FROM CompanyInfo</query>
+            <database>sampleDB</database>
+            <extractType>column_identified</extractType>
+            <columns>CompanyID, CompanyName, Address, Phone</columns>
+            <enabled>true</enabled>
+        </dynamicVar>
+
+        <!-- targetDB에서 단일 값 추출 -->
+        <dynamicVar>
+            <variableName>maxOrderID</variableName>
+            <query>SELECT MAX(OrderID) as MaxOrderID FROM Orders</query>
+            <database>targetDB</database>
+            <extractType>single_value</extractType>
+            <enabled>true</enabled>
+        </dynamicVar>
+    </dynamicVariables>
+
+    <!-- 실제 마이그레이션 쿼리들 -->
+    <queries>
+        <!-- 사용자 데이터 마이그레이션 -->
+        <query>
+            <id>migrate_users</id>
+            <description>사용자 데이터 마이그레이션</description>
+            <enabled>true</enabled>
+            <sourceQuery>
+                SELECT 
+                    u.UserID,
+                    u.UserName,
+                    u.Email,
+                    u.CreatedDate,
+                    d.DeptName
+                FROM Users u
+                LEFT JOIN Departments d ON u.DeptID = d.DeptID
+                WHERE u.UserID IN (${sampleUsers.UserID})
+            </sourceQuery>
+            <targetTable>Users</targetTable>
+            <columnMappings>
+                <mapping source="UserID" target="UserID" />
+                <mapping source="UserName" target="UserName" />
+                <mapping source="Email" target="Email" />
+                <mapping source="CreatedDate" target="CreatedDate" />
+                <mapping source="DeptName" target="DepartmentName" />
+            </columnMappings>
+        </query>
+
+        <!-- 제품 데이터 마이그레이션 -->
+        <query>
+            <id>migrate_products</id>
+            <description>제품 데이터 마이그레이션</description>
+            <enabled>true</enabled>
+            <sourceQuery>
+                SELECT 
+                    p.ProductID,
+                    p.ProductName,
+                    p.Price,
+                    c.CategoryName
+                FROM Products p
+                INNER JOIN ProductCategories c ON p.CategoryID = c.CategoryID
+                WHERE c.CategoryName IN (${sourceCategories})
+            </sourceQuery>
+            <targetTable>Products</targetTable>
+            <columnMappings>
+                <mapping source="ProductID" target="ProductID" />
+                <mapping source="ProductName" target="ProductName" />
+                <mapping source="Price" target="Price" />
+                <mapping source="CategoryName" target="Category" />
+            </columnMappings>
+        </query>
+
+        <!-- 주문 데이터 마이그레이션 -->
+        <query>
+            <id>migrate_orders</id>
+            <description>주문 데이터 마이그레이션</description>
+            <enabled>true</enabled>
+            <sourceQuery>
+                SELECT 
+                    o.OrderID,
+                    o.OrderDate,
+                    o.CustomerID,
+                    o.TotalAmount
+                FROM Orders o
+                WHERE o.OrderID > ${maxOrderID}
+            </sourceQuery>
+            <targetTable>Orders</targetTable>
+            <columnMappings>
+                <mapping source="OrderID" target="OrderID" />
+                <mapping source="OrderDate" target="OrderDate" />
+                <mapping source="CustomerID" target="CustomerID" />
+                <mapping source="TotalAmount" target="TotalAmount" />
+            </columnMappings>
+        </query>
+    </queries>
+
+    <!-- 전처리 그룹 -->
+    <globalProcesses>
+        <preProcessGroups>
+            <group>
+                <id>prepare_tables</id>
+                <description>테이블 준비</description>
+                <enabled>true</enabled>
+                <processes>
+                    <process>
+                        <id>create_temp_tables</id>
+                        <description>임시 테이블 생성</description>
+                        <enabled>true</enabled>
+                        <query>
+                            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='TempUsers' AND xtype='U')
+                            CREATE TABLE TempUsers (
+                                UserID INT PRIMARY KEY,
+                                UserName NVARCHAR(100),
+                                Email NVARCHAR(255),
+                                CreatedDate DATETIME,
+                                DepartmentName NVARCHAR(100)
+                            )
+                        </query>
+                        <database>targetDB</database>
+                    </process>
+                </processes>
+            </group>
+        </preProcessGroups>
+    </globalProcesses>
+</migration>
