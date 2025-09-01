@@ -1,5 +1,70 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🔧 v2.7.1 - 다중 데이터베이스 동적변수 지원 확장 (2025-09-01)
+
+### ✨ 새로운 기능
+
+#### dbinfo.json 모든 데이터베이스에서 동적변수 추출 지원
+- **전체 DB 지원**: dbinfo.json에 정의된 모든 데이터베이스에서 동적변수 추출 가능
+- **자동 연결 관리**: 각 DB별로 별도의 연결 풀 생성 및 관리
+- **에러 처리 강화**: 잘못된 DB 지정 시 사용 가능한 DB 목록 표시
+
+#### 지원하는 데이터베이스
+| 데이터베이스 | 설명 | 사용 예시 |
+|-------------|------|-----------|
+| `sourceDB` | 소스 데이터베이스 (읽기 전용) | 운영 환경에서 마스터 데이터 추출 |
+| `targetDB` | 타겟 데이터베이스 (읽기/쓰기) | 개발 환경에서 참조 데이터 추출 |
+| `sampleDB` | 샘플 데이터베이스 | 테스트 데이터 또는 메타데이터 추출 |
+| 기타 DB | dbinfo.json에 정의된 모든 DB | 사용자 정의 데이터베이스에서 데이터 추출 |
+
+#### 사용 예시
+```xml
+<!-- 여러 DB에서 동적변수 추출 -->
+<dynamicVariables>
+  <!-- 소스 DB에서 사용자 목록 -->
+  <dynamicVar variableName="sourceUsers" database="sourceDB">
+    SELECT user_id FROM users WHERE status = 'ACTIVE'
+  </dynamicVar>
+  
+  <!-- 타겟 DB에서 부서 정보 -->
+  <dynamicVar variableName="targetDepts" database="targetDB">
+    SELECT dept_id FROM departments WHERE is_active = 1
+  </dynamicVar>
+  
+  <!-- 샘플 DB에서 회사 정보 -->
+  <dynamicVar variableName="companyInfo" database="sampleDB">
+    SELECT company_code, company_name FROM companies
+  </dynamicVar>
+</dynamicVariables>
+```
+
+### 🔄 개선 사항
+
+#### Connection Manager 확장
+- **loadDBConfigs()**: dbinfo.json에서 DB 설정 자동 로드
+- **connectToDB(dbKey)**: 특정 DB에 연결
+- **queryDB(dbKey, query)**: 특정 DB에서 쿼리 실행
+- **getAvailableDBKeys()**: 사용 가능한 모든 DB 키 목록 반환
+- **disconnectDB(dbKey)**: 특정 DB 연결 해제
+- **disconnectAllDBs()**: 모든 DB 연결 해제
+
+#### 동적변수 추출 로직 개선
+- **데이터베이스 유효성 검사**: 지정된 DB가 dbinfo.json에 존재하는지 확인
+- **자동 연결**: 동적변수 추출 시 필요한 DB에 자동 연결
+- **에러 메시지 개선**: 사용 가능한 DB 목록과 함께 명확한 에러 정보 제공
+
+### 🛠️ 기술적 개선사항
+- **연결 풀 관리**: 각 DB별로 독립적인 연결 풀 생성 및 관리
+- **메모리 최적화**: 불필요한 연결은 자동으로 해제
+- **에러 복구**: DB 연결 실패 시 적절한 에러 처리 및 복구
+
+### 📊 활용 사례
+- **복잡한 마이그레이션**: 여러 DB에서 조건 데이터 추출 후 통합 마이그레이션
+- **교차 DB 참조**: 소스에서 마스터 데이터, 타겟에서 매핑 정보 추출
+- **테스트 환경**: 샘플 DB에서 테스트 데이터 추출하여 마이그레이션 검증
+
+---
+
 ## 🔧 v2.7 - 동적 변수 및 SQL 처리 개선 (2025-08-29)
 
 ### ✨ 새로운 기능

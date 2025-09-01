@@ -1,5 +1,70 @@
 # SQL2DB Migration Tool Update Log
 
+## 🔧 v2.7.1 - Multi-Database Dynamic Variable Support Extension (2025-09-01)
+
+### ✨ New Features
+
+#### Dynamic Variable Extraction Support from All Databases in dbinfo.json
+- **Full DB Support**: Extract dynamic variables from all databases defined in dbinfo.json
+- **Automatic Connection Management**: Create and manage separate connection pools for each database
+- **Enhanced Error Handling**: Display available database list when invalid DB is specified
+
+#### Supported Databases
+| Database | Description | Usage Example |
+|----------|-------------|---------------|
+| `sourceDB` | Source database (read-only) | Extract master data from production environment |
+| `targetDB` | Target database (read/write) | Extract reference data from development environment |
+| `sampleDB` | Sample database | Extract test data or metadata |
+| Other DBs | All databases defined in dbinfo.json | Extract data from user-defined databases |
+
+#### Usage Examples
+```xml
+<!-- Extract dynamic variables from multiple databases -->
+<dynamicVariables>
+  <!-- Extract user list from source DB -->
+  <dynamicVar variableName="sourceUsers" database="sourceDB">
+    SELECT user_id FROM users WHERE status = 'ACTIVE'
+  </dynamicVar>
+  
+  <!-- Extract department info from target DB -->
+  <dynamicVar variableName="targetDepts" database="targetDB">
+    SELECT dept_id FROM departments WHERE is_active = 1
+  </dynamicVar>
+  
+  <!-- Extract company info from sample DB -->
+  <dynamicVar variableName="companyInfo" database="sampleDB">
+    SELECT company_code, company_name FROM companies
+  </dynamicVar>
+</dynamicVariables>
+```
+
+### 🔄 Improvements
+
+#### Connection Manager Extension
+- **loadDBConfigs()**: Automatically load DB configurations from dbinfo.json
+- **connectToDB(dbKey)**: Connect to specific database
+- **queryDB(dbKey, query)**: Execute query on specific database
+- **getAvailableDBKeys()**: Return list of all available database keys
+- **disconnectDB(dbKey)**: Disconnect specific database
+- **disconnectAllDBs()**: Disconnect all databases
+
+#### Dynamic Variable Extraction Logic Improvements
+- **Database Validation**: Verify specified database exists in dbinfo.json
+- **Automatic Connection**: Automatically connect to required database during dynamic variable extraction
+- **Enhanced Error Messages**: Provide clear error information with available database list
+
+### 🛠️ Technical Improvements
+- **Connection Pool Management**: Create and manage independent connection pools for each database
+- **Memory Optimization**: Automatically release unnecessary connections
+- **Error Recovery**: Appropriate error handling and recovery for database connection failures
+
+### 📊 Use Cases
+- **Complex Migration**: Extract condition data from multiple databases for integrated migration
+- **Cross-DB Reference**: Extract master data from source and mapping information from target
+- **Test Environment**: Extract test data from sample database for migration validation
+
+---
+
 ## 🔧 v2.7 - Dynamic Variable and SQL Processing Improvements (2025-08-29)
 
 ### ✨ New Features
@@ -227,15 +292,15 @@ This enables optimized column override application tailored to each stage's purp
 ```xml
 <dynamicVariables>
   <!-- Using column_identified (default) - no extractType needed -->
-  <dynamicVariable id="customer_data" description="Customer information">
+  <dynamicVar id="customer_data" description="Customer information">
     <query>SELECT CustomerID, CustomerName, Region FROM Customers</query>
-  </dynamicVariable>
+  </dynamicVar>
   
   <!-- Using key_value_pairs - explicit specification required -->
-  <dynamicVariable id="status_mapping" description="Status mapping">
+  <dynamicVar id="status_mapping" description="Status mapping">
     <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
     <extractType>key_value_pairs</extractType>
-  </dynamicVariable>
+  </dynamicVar>
 </dynamicVariables>
 ```
 
@@ -388,23 +453,23 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
 #### Dynamic Variable Definition
 ```xml
 <dynamicVariables>
-  <dynamicVariable id="active_customers" description="Active customer list">
+  <dynamicVar id="active_customers" description="Active customer list">
     <query>SELECT CustomerID FROM Customers WHERE IsActive = 1</query>
     <extractType>column_identified</extractType>
     <database>sourceDB</database>
-  </dynamicVariable>
+  </dynamicVar>
   
-  <dynamicVariable id="status_mapping" description="Status mapping">
+  <dynamicVar id="status_mapping" description="Status mapping">
     <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
     <extractType>key_value_pairs</extractType>
     <database>sourceDB</database>
-  </dynamicVariable>
+  </dynamicVar>
   
-  <dynamicVariable id="max_order_id" description="Maximum order ID">
+  <dynamicVar id="max_order_id" description="Maximum order ID">
     <query>SELECT MAX(OrderID) as max_id FROM Orders</query>
     <extractType>single_value</extractType>
     <database>targetDB</database>
-  </dynamicVariable>
+  </dynamicVar>
 </dynamicVariables>
 ```
 

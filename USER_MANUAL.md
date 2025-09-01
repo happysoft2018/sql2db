@@ -19,6 +19,7 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - 🔧 **Column Overrides**: Modify/add specific column values during migration
 - ⚙️ **Pre/Post Processing**: Execute SQL scripts before/after migration
 - 📊 **Dynamic Variables**: Extract and utilize data at runtime
+- 🗄️ **Multi-DB Dynamic Variables**: Extract dynamic variables from all databases defined in dbinfo.json
 - 🚦 **Transaction Support**: Ensure data consistency
 - 📋 **Detailed Logging**: Track and debug migration processes
 - 📈 **Real-time Progress Management**: Track and monitor job progress
@@ -163,7 +164,17 @@ migrate-english.bat
 
 ## 🔄 Dynamic Variables System
 
-The tool supports dynamic variables that can extract data at runtime and use it in queries.
+The tool supports dynamic variables that can extract data at runtime and use it in queries. **You can now extract dynamic variables from all databases defined in dbinfo.json.**
+
+#### 🗄️ Database Selection Feature
+
+When extracting dynamic variables, you can use the `database` attribute to specify a particular database:
+
+- **If not specified**: Uses `sourceDatabase` as default
+- **`sourceDB`**: Extract from source database
+- **`targetDB`**: Extract from target database  
+- **`sampleDB`**: Extract from sample database defined in dbinfo.json
+- **Other DBs**: Use any database defined in dbinfo.json
 
 ### Variable Types
 
@@ -177,17 +188,23 @@ The tool supports dynamic variables that can extract data at runtime and use it 
 #### XML Configuration
 ```xml
 <dynamicVariables>
-  <!-- Using column_identified (default) -->
-  <dynamicVariable id="customer_data" description="Customer information">
+  <!-- Using column_identified (default) from source DB -->
+  <dynamicVar id="customer_data" description="Customer information" database="sourceDB">
     <query>SELECT CustomerID, CustomerName, Region FROM Customers</query>
     <!-- extractType omitted - defaults to column_identified -->
-  </dynamicVariable>
+  </dynamicVar>
   
-  <!-- Using key_value_pairs -->
-  <dynamicVariable id="status_mapping" description="Status mapping">
+  <!-- Using key_value_pairs from target DB -->
+  <dynamicVar id="status_mapping" description="Status mapping" database="targetDB">
     <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
     <extractType>key_value_pairs</extractType>
-  </dynamicVariable>
+  </dynamicVar>
+  
+  <!-- Extract from sample DB -->
+  <dynamicVar id="company_info" description="Company information" database="sampleDB">
+    <query>SELECT CompanyCode, CompanyName FROM Companies</query>
+    <extractType>key_value_pairs</extractType>
+  </dynamicVar>
 </dynamicVariables>
 ```
 
@@ -328,6 +345,38 @@ You can now specify which database to extract data from in dynamic variables.
 - **Database Selection**: Use the `database` attribute to select source/target DB
 - **Default Value**: Uses `sourceDB` as default when attribute is not specified
 - **Cross-DB Utilization**: Extract conditions from source then query related data from target
+- **All dbinfo.json DBs Supported**: Extract dynamic variables from all databases defined in dbinfo.json
+
+#### Supported Databases
+
+| Database | Description | Usage Example |
+|----------|-------------|---------------|
+| `sourceDB` | Source database (read-only) | Extract master data from production environment |
+| `targetDB` | Target database (read/write) | Extract reference data from development environment |
+| `sampleDB` | Sample database | Extract test data or metadata |
+| Other DBs | All databases defined in dbinfo.json | Extract data from user-defined databases |
+
+#### Usage Examples
+
+```xml
+<!-- Extract dynamic variables from multiple databases -->
+<dynamicVariables>
+  <!-- Extract user list from source DB -->
+  <dynamicVar variableName="sourceUsers" database="sourceDB">
+    SELECT user_id FROM users WHERE status = 'ACTIVE'
+  </dynamicVar>
+  
+  <!-- Extract department info from target DB -->
+  <dynamicVar variableName="targetDepts" database="targetDB">
+    SELECT dept_id FROM departments WHERE is_active = 1
+  </dynamicVar>
+  
+  <!-- Extract company info from sample DB -->
+  <dynamicVar variableName="companyInfo" database="sampleDB">
+    SELECT company_code, company_name FROM companies
+  </dynamicVar>
+</dynamicVariables>
+```
 
 #### Usage Examples
 ```xml
@@ -448,9 +497,9 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
   </globalColumnOverrides>
   
   <dynamicVariables>
-    <dynamicVariable id="active_customers" description="Active customer list">
+    <dynamicVar id="active_customers" description="Active customer list">
       <query>SELECT CustomerID FROM Customers WHERE IsActive = 1</query>
-    </dynamicVariable>
+    </dynamicVar>
   </dynamicVariables>
   
   <queries>
@@ -510,6 +559,13 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 - Check variable query syntax
 - Verify variable name in usage
 - Check database permissions for variable queries
+
+#### 4. Dynamic Variable Database Errors
+**Problem**: Unknown database specified in dynamic variable
+**Solution**:
+1. Verify the database exists in `config/dbinfo.json`
+2. Check the `database` attribute in the dynamic variable
+3. List available databases: `node src/migrate-cli.js list-dbs`
 
 #### 4. Performance Issues
 **Problem**: Slow migration performance

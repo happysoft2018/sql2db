@@ -93,12 +93,12 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
   
   <!-- Dynamic Variables -->
   <dynamicVariables>
-    <dynamicVariable id="active_customers" description="Active customer list">
+    <dynamicVar id="active_customers" description="Active customer list">
       <query>
         <![CDATA[SELECT CustomerID, CustomerName FROM Customers WHERE IsActive = 1]]>
       </query>
       <extractType>column_identified</extractType>
-    </dynamicVariable>
+    </dynamicVar>
   </dynamicVariables>
 </migration>
 ```
@@ -144,33 +144,33 @@ The tool supports dynamic variables that can extract data at runtime and use it 
 
 ```xml
 <!-- Using column_identified (default) from source database -->
-<dynamicVariable id="customer_data" description="Customer information">
+<dynamicVar id="customer_data" description="Customer information">
   <query>SELECT CustomerID, CustomerName, Region FROM Customers</query>
   <!-- extractType omitted - defaults to column_identified -->
   <!-- database omitted - defaults to sourceDB -->
-</dynamicVariable>
+</dynamicVar>
 
 <!-- Using key_value_pairs from source database -->
-<dynamicVariable id="status_mapping" description="Status mapping">
+<dynamicVar id="status_mapping" description="Status mapping">
   <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
   <extractType>key_value_pairs</extractType>
   <database>sourceDB</database>
-</dynamicVariable>
+</dynamicVar>
 
 <!-- Using single_value from target database -->
-<dynamicVariable id="max_order_id" description="Maximum order ID">
+<dynamicVar id="max_order_id" description="Maximum order ID">
   <query>SELECT MAX(OrderID) as max_id FROM Orders</query>
   <extractType>single_value</extractType>
   <database>targetDB</database>
-</dynamicVariable>
+</dynamicVar>
 
 <!-- Using single_column from source database -->
-<dynamicVariable id="active_user_ids" description="Active user IDs">
+<dynamicVar id="active_user_ids" description="Active user IDs">
   <query>SELECT UserID FROM Users WHERE Status = 'ACTIVE'</query>
   <extractType>single_column</extractType>
   <columnName>UserID</columnName>
   <database>sourceDB</database>
-</dynamicVariable>
+</dynamicVar>
 ```
 
 ```sql

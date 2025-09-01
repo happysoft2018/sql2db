@@ -19,6 +19,7 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - 🔧 **컬럼 오버라이드**: 이관 시 특정 컬럼값 변경/추가
 - ⚙️ **전처리/후처리**: 이관 전후 SQL 스크립트 실행
 - 📊 **동적 변수**: 실행 시점 데이터 추출 및 활용
+- 🗄️ **다중 DB 동적변수**: dbinfo.json의 모든 DB에서 동적변수 추출 가능
 - 🚦 **트랜잭션 지원**: 데이터 일관성 보장
 - 📋 **상세 로깅**: 이관 과정 추적 및 디버깅
 - 📈 **실시간 진행 관리**: 작업 진행 상태 추적 및 모니터링
@@ -417,36 +418,49 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
 
 ### 3. 동적 변수 (Dynamic Variables)
 
-실행 시점에 데이터베이스에서 값을 추출하여 변수로 사용합니다.
+실행 시점에 데이터베이스에서 값을 추출하여 변수로 사용합니다. **dbinfo.json에 정의된 모든 데이터베이스에서 동적변수를 추출할 수 있습니다.**
+
+#### 🗄️ 데이터베이스 선택 기능
+
+동적변수 추출 시 `database` 속성을 사용하여 특정 데이터베이스를 지정할 수 있습니다:
+
+- **지정하지 않은 경우**: 기본값으로 `sourceDatabase` 사용
+- **`sourceDB`**: 소스 데이터베이스에서 추출
+- **`targetDB`**: 타겟 데이터베이스에서 추출  
+- **`sampleDB`**: dbinfo.json에 정의된 샘플 데이터베이스에서 추출
+- **기타 DB**: dbinfo.json에 정의된 모든 데이터베이스 사용 가능
 
 ```xml
 <dynamicVariables>
-  <!-- 단일 컬럼 추출 -->
+  <!-- 단일 컬럼 추출 (소스 DB에서) -->
   <dynamicVar id="extract_active_users"
               variableName="activeUserIds" 
               extractType="single_column"
               columnName="user_id"
+              database="sourceDB"
               enabled="true">
     <![CDATA[
       SELECT user_id FROM users WHERE status = 'ACTIVE'
     ]]>
   </dynamicVar>
   
-  <!-- 키-값 쌍 추출 -->
+  <!-- 키-값 쌍 추출 (타겟 DB에서) -->
   <dynamicVar id="extract_company_mapping"
               variableName="companyMapping"
               extractType="key_value_pairs"
+              database="targetDB"
               enabled="true">
     <![CDATA[
       SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
     ]]>
   </dynamicVar>
   
-  <!-- 다중 컬럼 값 추출 (multiple_columns) -->
+  <!-- 다중 컬럼 값 추출 (샘플 DB에서) -->
   <dynamicVar id="extract_all_entity_ids"
               variableName="allEntityIds"
               extractType="multiple_columns"
               columns="user_id,department_id,manager_id"
+              database="sampleDB"
               enabled="true">
     <![CDATA[
       SELECT DISTINCT
@@ -462,10 +476,11 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
     ]]>
   </dynamicVar>
   
-  <!-- 단일 값 추출 -->
+  <!-- 단일 값 추출 (타겟 DB에서) -->
   <dynamicVar id="extract_max_id"
               variableName="maxOrderId"
               extractType="single_value"
+              database="targetDB"
               enabled="true">
     <![CDATA[
       SELECT MAX(order_id) FROM orders
@@ -473,6 +488,18 @@ v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
   </dynamicVar>
 </dynamicVariables>
 ```
+
+#### 동적 변수 속성
+
+| 속성명 | 필수 | 설명 | 기본값 |
+|--------|------|------|--------|
+| `id` | ✅ | 동적변수 고유 식별자 | - |
+| `variableName` | ✅ | 변수명 (쿼리에서 `${변수명}` 형태로 사용) | - |
+| `extractType` | ✅ | 데이터 추출 방식 | `column_identified` |
+| `database` | ❌ | 데이터 추출할 데이터베이스 (dbinfo.json의 DB 키) | `sourceDatabase` |
+| `enabled` | ❌ | 활성화 여부 | `true` |
+| `columnName` | ❌ | `single_column` 타입에서 사용할 컬럼명 | 첫 번째 컬럼 |
+| `columns` | ❌ | `multiple_columns`, `column_identified` 타입에서 사용할 컬럼 목록 | 모든 컬럼 |
 
 #### 동적 변수 extractType 종류
 
@@ -938,8 +965,10 @@ ETA: 18s
 
 ### 3. 동적 변수 활용 예시
 
+#### 기본 사용법 (소스 DB에서 추출)
+
 ```xml
-<!-- 활성 사용자 추출 -->
+<!-- 활성 사용자 추출 (소스 DB에서) -->
 <dynamicVar id="get_active_users"
             variableName="activeUsers"
             extractType="single_column"
@@ -956,6 +985,61 @@ ETA: 18s
       SELECT order_id, user_id, order_date, amount
       FROM orders 
       WHERE user_id IN (${activeUsers})
+    ]]>
+  </sourceQuery>
+</query>
+```
+
+#### 다중 데이터베이스 활용 예시
+
+```xml
+<!-- 1. 소스 DB에서 사용자 목록 추출 -->
+<dynamicVar id="extract_source_users"
+            variableName="sourceUserIds"
+            extractType="single_column"
+            columnName="user_id"
+            database="sourceDB">
+  <![CDATA[
+    SELECT user_id FROM users WHERE status = 'ACTIVE'
+  ]]>
+</dynamicVar>
+
+<!-- 2. 타겟 DB에서 부서 정보 추출 -->
+<dynamicVar id="extract_target_departments"
+            variableName="targetDeptIds"
+            extractType="single_column"
+            columnName="dept_id"
+            database="targetDB">
+  <![CDATA[
+    SELECT dept_id FROM departments WHERE is_active = 1
+  ]]>
+</dynamicVar>
+
+<!-- 3. 샘플 DB에서 회사 정보 추출 -->
+<dynamicVar id="extract_company_info"
+            variableName="companyCodes"
+            extractType="key_value_pairs"
+            database="sampleDB">
+  <![CDATA[
+    SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
+  ]]>
+</dynamicVar>
+
+<!-- 4. 여러 DB에서 추출한 변수들을 활용한 마이그레이션 -->
+<query id="migrate_user_departments" ...>
+  <sourceQuery>
+    <![CDATA[
+      SELECT 
+        u.user_id,
+        u.user_name,
+        d.dept_name,
+        c.company_name
+      FROM users u
+      LEFT JOIN departments d ON u.dept_id = d.dept_id
+      LEFT JOIN companies c ON u.company_code = c.company_code
+      WHERE u.user_id IN (${sourceUserIds})
+        AND d.dept_id IN (${targetDeptIds})
+        AND c.company_code IN (${companyCodes.company_code})
     ]]>
   </sourceQuery>
 </query>
@@ -1008,6 +1092,38 @@ ETA: 18s
 - **데이터베이스 선택**: `database` 속성으로 소스/타겟 DB 선택 가능
 - **기본값 제공**: 속성 미지정 시 `sourceDB`를 기본값으로 사용
 - **교차 DB 활용**: 소스에서 조건 추출 후 타겟에서 관련 데이터 조회 가능
+- **dbinfo.json 모든 DB 지원**: dbinfo.json에 정의된 모든 데이터베이스에서 동적변수 추출 가능
+
+#### 지원하는 데이터베이스
+
+| 데이터베이스 | 설명 | 사용 예시 |
+|-------------|------|-----------|
+| `sourceDB` | 소스 데이터베이스 (읽기 전용) | 운영 환경에서 마스터 데이터 추출 |
+| `targetDB` | 타겟 데이터베이스 (읽기/쓰기) | 개발 환경에서 참조 데이터 추출 |
+| `sampleDB` | 샘플 데이터베이스 | 테스트 데이터 또는 메타데이터 추출 |
+| 기타 DB | dbinfo.json에 정의된 모든 DB | 사용자 정의 데이터베이스에서 데이터 추출 |
+
+#### 사용 예시
+
+```xml
+<!-- 여러 DB에서 동적변수 추출 -->
+<dynamicVariables>
+  <!-- 소스 DB에서 사용자 목록 -->
+  <dynamicVar variableName="sourceUsers" database="sourceDB">
+    SELECT user_id FROM users WHERE status = 'ACTIVE'
+  </dynamicVar>
+  
+  <!-- 타겟 DB에서 부서 정보 -->
+  <dynamicVar variableName="targetDepts" database="targetDB">
+    SELECT dept_id FROM departments WHERE is_active = 1
+  </dynamicVar>
+  
+  <!-- 샘플 DB에서 회사 정보 -->
+  <dynamicVar variableName="companyInfo" database="sampleDB">
+    SELECT company_code, company_name FROM companies
+  </dynamicVar>
+</dynamicVariables>
+```
 
 #### 사용 예시
 ```xml
@@ -1382,6 +1498,15 @@ ETA: 18s
 ❌ 타겟 DB '...'는 읽기 전용 데이터베이스입니다.
 ```
 **해결방법**: `config/dbinfo.json`에서 타겟 DB의 `isWritable`을 `true`로 설정
+
+#### 동적변수 데이터베이스 오류
+```
+❌ 알 수 없는 데이터베이스: unknownDB. 사용 가능한 DB: sampleDB, targetDB, sourceDB
+```
+**해결방법**: 
+1. `config/dbinfo.json`에 해당 DB가 정의되어 있는지 확인
+2. 동적변수의 `database` 속성에 올바른 DB 키를 지정
+3. 사용 가능한 DB 목록 확인: `node src/migrate-cli.js list-dbs`
 
 #### 설정 파일 오류
 ```
