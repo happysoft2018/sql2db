@@ -806,17 +806,14 @@
       <!-- 전처리 스크립트 -->
       <preProcess applyGlobalColumns="all" description="감사 로그 생성">
         <![CDATA[
-          -- 마이그레이션 시작 로그
-          INSERT INTO migration_log (query_id, phase, created_date, table_name)
-          VALUES ('migrate_with_global_overrides_example', 'PRE_PROCESS', GETDATE(), 'users');
-          
+          delete from users;
         ]]>
       </preProcess>
       
       <sourceQuery targetTable="users" 
                   targetColumns="*" 
                   identityColumns="username" 
-                  applyGlobalColumns="all">
+                  applyGlobalColumns="none">
         <![CDATA[
           SELECT *
           FROM users 
@@ -825,11 +822,12 @@
       </sourceQuery>
       
       <!-- 후처리 스크립트 -->
-      <postProcess description="마이그레이션 완료 처리">
+      <postProcess applyGlobalColumns="all" description="마이그레이션 완료 처리">
         <![CDATA[
-          -- 완료 로그 삽입
-          INSERT INTO migration_log (operation_type, end_time, table_name, rows_processed)
-          VALUES ('DATA_MIGRATION', GETDATE(), 'audit_table', @@ROWCOUNT);
+          insert into users (*)
+          SELECT *
+          from users
+          where username in ('david.brown','emily.davis','robert.miller','lisa.garcia')
         ]]>
       </postProcess>
     </query>
