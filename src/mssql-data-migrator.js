@@ -3044,8 +3044,8 @@ class MSSQLDataMigrator {
             .replace(/\/\*[\s\S]*?\*\//g, '')  // 블록 주석 제거
             .trim();
 
-        // SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER 등의 키워드 개수 확인
-        const sqlKeywords = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'EXEC', 'EXECUTE'];
+        // INSERT, UPDATE, DELETE, CREATE, DROP, ALTER 등의 키워드 존재여부 확인
+        const sqlKeywords = ['INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'EXEC', 'EXECUTE'];
         let keywordCount = 0;
         let foundKeywords = [];
 
@@ -3070,7 +3070,7 @@ class MSSQLDataMigrator {
 
             return {
                 isValid: false,
-                message: `sourceQuery에 여러 SQL 문이 감지되었습니다. 단일 SQL 문만 허용됩니다.\n${details.join('\n')}`,
+                message: `sourceQuery에 SELECT 외 키워드는 허용되지 않습니다.\n${details.join('\n')}`,
                 statementCount,
                 keywordCount,
                 details
