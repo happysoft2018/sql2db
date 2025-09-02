@@ -2069,7 +2069,7 @@ class MSSQLDataMigrator {
             // 행 수만 조회하기 위한 COUNT 쿼리로 변환 시도
             try {
                 // 원본 쿼리를 서브쿼리로 감싸서 COUNT 쿼리 생성
-                const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery}) as sub_query`;
+                const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery.trim().replace(/;$/, '')}) as sub_query`;
                 const countData = await this.connectionManager.querySource(countQuery);
                 const rowCount = countData[0]?.row_count || 0;
                 this.log(`쿼리 ${queryConfig.id} 예상 행 수: ${rowCount.toLocaleString()}`);
@@ -3017,6 +3017,9 @@ class MSSQLDataMigrator {
         let statementCount = 0;
         let foundStatements = [];
 
+        // 맨 마지막 세미콜론(;) 기호를 제거한다.
+        sourceQuery = sourceQuery.trim().replace(/;$/, '');
+
         // 세미콜론으로 구분된 문장 수 확인
         const semicolonMatches = sourceQuery.match(/;\s*(?=(?:[^']*'[^']*')*[^']*$)/g);
         if (semicolonMatches) {
@@ -3059,8 +3062,10 @@ class MSSQLDataMigrator {
         });
 
         // 검증 결과
-        if (statementCount > 1 || keywordCount > 1) {
+        if (statementCount > 0 || keywordCount > 1) {
             const details = [];
+            let errorMsg = '';
+
             if (foundStatements.length > 0) {
                 details.push(`발견된 구분자: ${foundStatements.join(', ')}`);
             }
@@ -3068,9 +3073,15 @@ class MSSQLDataMigrator {
                 details.push(`발견된 SQL 키워드: ${foundKeywords.join(', ')}`);
             }
 
+            if(statementCount > 0)
+                errorMsg = `sourceQuery에는 세미콜론(;)이 허용되지 않습니다.(단 하나의 SELECT문만 허용)\n${details.join('\n')}`;
+            else 
+                errorMsg = `sourceQuery에 SELECT 외 키워드는 허용되지 않습니다.\n${details.join('\n')}`;
+            
+
             return {
                 isValid: false,
-                message: `sourceQuery에 SELECT 외 키워드는 허용되지 않습니다.\n${details.join('\n')}`,
+                message: errorMsg,
                 statementCount,
                 keywordCount,
                 details
