@@ -32,12 +32,12 @@
   <!-- 전역 컬럼 오버라이드 설정 -->
   <globalColumnOverrides>
     <!-- 모든 쿼리에 공통으로 적용될 컬럼 값들 -->
-    <override column="migration_date">${migrationTimestamp}</override>
     <override column="processed_at">GETDATE()</override>
     <override column="data_version">2.1</override>
-    <override column="address">분평주공777</override>
     <override column="payment_method">{"신용카드":"[신용카드]현대카드", "계좌이체":"[계좌이체]카카오뱅크"}</override>
-    <override column="status">{"PROCESSING":"[PROCESSING]처리중", "PENDING":"[PENDING]결제중", "COMPLETED":"[COMPLETED]완료", "SHIPPED":"[SHIPPED]배송중", "CANCELLED":"[CANCELLED]취소"}</override>
+    <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON", "COMPANY03":"GOOGLE", "COMPANY04":"TESLA"}</override>
+    <override column="username">{"david.brown":"david","emily.davis":"emily","robert.miller":"robert","lisa.garcia":"lisa"}</override>
+    <override column="email">{"david.brown@company.com":"david@gmail.com","emily.davis@company.com":"emily@gmail.com","robert.miller@company.com":"robert@gmail.com","lisa.garcia@company.com":"lisa@gmail.com"}</override>
   </globalColumnOverrides>
 
   <!-- 전역 전처리/후처리 그룹 -->
@@ -801,7 +801,7 @@
     <!-- 전/후처리 예시 쿼리 -->
     <query id="migrate_with_global_overrides_example"
            description="전역 columnOverrides 적용 예시"
-           enabled="false">
+           enabled="true">
 
       <!-- 전처리 스크립트 -->
       <preProcess applyGlobalColumns="all" description="감사 로그 생성">
@@ -810,26 +810,16 @@
           INSERT INTO migration_log (query_id, phase, created_date, table_name)
           VALUES ('migrate_with_global_overrides_example', 'PRE_PROCESS', GETDATE(), 'users');
           
-         
-          -- 회사별 통계 로그 (key_value_pairs 동적변수 사용)
-          INSERT INTO migration_stats (*)
-          SELECT '${migrationId}' migration_id, 'migrate_users' query_id, 'users' table_name, 'OVERALL' stat_type, 'DATA' stat_category, company_code stat_name, COUNT(*) stat_value 
-          FROM users 
-          WHERE created_date >= '${startDate}'
-          GROUP BY company_code;
         ]]>
       </preProcess>
       
-      <sourceQuery targetTable="audit_table" 
-                  targetColumns="user_id, action_type, start_time, message" 
-                  identityColumns="user_id" 
-                  applyGlobalColumns="none">
+      <sourceQuery targetTable="users" 
+                  targetColumns="*" 
+                  identityColumns="username" 
+                  applyGlobalColumns="all">
         <![CDATA[
-          SELECT user_id, 'DATA_PROCESSED' as action_type, GETDATE() as start_time, 'User data migrated' as message
+          SELECT *
           FROM users 
-          WHERE created_date >= '${startDate}' 
-            AND created_date <= '${endDate}' 
-            AND status = 'ACTIVE'
  
         ]]>
       </sourceQuery>
@@ -840,14 +830,6 @@
           -- 완료 로그 삽입
           INSERT INTO migration_log (operation_type, end_time, table_name, rows_processed)
           VALUES ('DATA_MIGRATION', GETDATE(), 'audit_table', @@ROWCOUNT);
-          
-          
-          -- 통계 업데이트
-          UPDATE migration_stats 
-          SET end_time = GETDATE(), 
-              status = 'COMPLETED'
-          WHERE migration_id = '${migrationId}';
-          
         ]]>
       </postProcess>
     </query>
