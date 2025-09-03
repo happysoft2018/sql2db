@@ -2068,8 +2068,8 @@ class MSSQLDataMigrator {
             
             // 행 수만 조회하기 위한 COUNT 쿼리로 변환 시도
             try {
-                // 원본 쿼리를 서브쿼리로 감싸서 COUNT 쿼리 생성
-                const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery.trim().replace(/;$/, '')}) as sub_query`;
+                // 원본 쿼리를 서브쿼리로 감싸서 COUNT 쿼리 생성 (맨 마지막 세미콜론 제거)
+                const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery.trim().replace(/[;]+$/, '')}) as sub_query`;
                 const countData = await this.connectionManager.querySource(countQuery);
                 const rowCount = countData[0]?.row_count || 0;
                 this.log(`쿼리 ${queryConfig.id} 예상 행 수: ${rowCount.toLocaleString()}`);
@@ -2147,6 +2147,8 @@ class MSSQLDataMigrator {
                     explicitColumns = filteredColumnNames.join(', ');
                 }
                 
+                // 맨 마지막 세미콜론 제거
+                queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/[;]+/, '');
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/SELECT\s+\*/i, `SELECT ${explicitColumns}`);
                 this.log(`변경된 소스 쿼리: ${queryConfig.sourceQuery}`);
             }
@@ -3018,7 +3020,7 @@ class MSSQLDataMigrator {
         let foundStatements = [];
 
         // 맨 마지막 세미콜론(;) 기호를 제거한다.
-        sourceQuery = sourceQuery.trim().replace(/;$/, '');
+        sourceQuery = sourceQuery.trim().replace(/[;]+$/, '');
 
         // 세미콜론으로 구분된 문장 수 확인
         const semicolonMatches = sourceQuery.match(/;\s*(?=(?:[^']*'[^']*')*[^']*$)/g);
@@ -3089,30 +3091,6 @@ class MSSQLDataMigrator {
         }
 
         return { isValid: true, message: 'sourceQuery가 단일 SQL 문으로 검증되었습니다.' };
-    }
-
-    // 쿼리 실행 및 데이터 조회
-    async executeSourceQuery(query, useSession = false) {
-        try {
-            this.log(`소스 쿼리 실행: ${query}`);
-            
-            let data;
-            if (useSession) {
-                // 세션 모드에서 실행
-                const result = await this.connectionManager.executeQueryInSession(query, 'source');
-                data = result.recordset || result;
-            } else {
-                // 기존 방식으로 실행
-                data = await this.connectionManager.querySource(query);
-            }
-            
-            this.log(`조회된 행 수: ${data.length}`);
-            
-            return data;
-        } catch (error) {
-            this.log(`소스 쿼리 실행 실패: ${error.message}`);
-            throw error;
-        }
     }
 
 }
