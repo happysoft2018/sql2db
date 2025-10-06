@@ -1,6 +1,6 @@
 # SQL2DB Migration Tool 업데이트 로그
 
-## 🔧 v2.7.1 - 다중 데이터베이스 동적변수 지원 확장 (2025-09-01)
+## 🔧 v0.7.1 - 다중 데이터베이스 동적변수 지원 확장 (2025-09-01)
 
 ### ✨ 새로운 기능
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 🔧 v2.7 - 동적 변수 및 SQL 처리 개선 (2025-08-29)
+## 🔧 v0.7 - 동적 변수 및 SQL 처리 개선 (2025-08-29)
 
 ### ✨ 새로운 기능
 
@@ -138,7 +138,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ---
 
-## 🔧 v2.6 - 처리 단계별 컬럼 오버라이드 제어 (2024-08-14)
+## 🔧 v0.6 - 처리 단계별 컬럼 오버라이드 제어 (2024-08-14)
 
 ### ✨ 새로운 기능
 
@@ -177,7 +177,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 이를 통해 각 단계의 목적에 맞는 최적화된 컬럼 오버라이드 적용이 가능합니다.
 
-## 🎯 v2.5 - 전역 전/후처리 그룹 관리 기능 (2024-08-14)
+## 🎯 v0.5 - 전역 전/후처리 그룹 관리 기능 (2024-08-14)
 
 ### ✨ 새로운 기능
 
@@ -251,7 +251,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 </globalProcesses>
 ```
 
-## 🔄 v2.4 - columnOverrides 기능 개선 (2024-08-14)
+## 🔄 v0.4 - columnOverrides 기능 개선 (2024-08-14)
 
 ### ✨ 새로운 기능
 
@@ -313,7 +313,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ---
 
-## 🌟 v2.3 - 고급 기능 대폭 강화 (2025-08-11)
+## 🌟 v0.3 - 고급 기능 대폭 강화 (2025-08-11)
 
 ### ✨ 새로운 기능
 
@@ -440,7 +440,7 @@ node src/progress-cli.js monitor migration-id --watch-only
 
 ---
 
-## 🆕 v2.2 - 전역 컬럼 오버라이드 기능 추가 (2025-08-07)
+## 🆕 v0.2 - 전역 컬럼 오버라이드 기능 추가 (2025-08-07)
 
 ### ✨ 새로운 기능
 
@@ -483,7 +483,7 @@ node src/progress-cli.js monitor migration-id --watch-only
 
 ---
 
-## 📋 v2.1 - 진행 상황 관리 및 재시작 기능 추가
+## 📋 v0.1 - 진행 상황 관리 및 재시작 기능 추가
 
 ## 🎯 개요
 

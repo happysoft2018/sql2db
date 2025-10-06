@@ -370,7 +370,7 @@ This table includes:
 
 ## 📈 Progress Management
 
-Starting from v2.1, real-time progress tracking and monitoring features have been added:
+Starting from v0.1, real-time progress tracking and monitoring features have been added:
 
 ```bash
 # List progress

@@ -211,7 +211,7 @@ ENABLE_TRANSACTION=true
 
 ### 4. 데이터 삭제 방식
 
-v2.0부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`일 때 자동으로 Primary Key 기준으로 삭제됩니다.
+v0.2부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`일 때 자동으로 Primary Key 기준으로 삭제됩니다.
 
 #### 삭제 동작 방식
 1. **FK 순서 고려 활성화된 경우** (`enableForeignKeyOrder: true`)
@@ -828,7 +828,7 @@ company_code | company_name
 
 ## 📈 진행 상황 관리
 
-v2.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다.
+v0.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다.
 
 ### 1. 자동 진행 상황 추적
 
@@ -1082,7 +1082,7 @@ ETA: 18s
 </query>
 ```
 
-## 🔧 최근 개선사항 (v2.6 이후)
+## 🔧 최근 개선사항 (v0.6 이후)
 
 ### 1. 동적 변수 데이터베이스 지정 기능
 
@@ -1292,7 +1292,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ## 📈 진행 상황 관리
 
-v2.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다.
+v0.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다.
 
 ### 1. 자동 진행 상황 추적
 
@@ -1564,7 +1564,7 @@ node src/migrate-cli.js migrate --query ./queries/test.xml --dry-run
 
 ## 🔄 마이그레이션 재시작
 
-v2.1부터 네트워크 오류나 시스템 장애로 인해 중단된 마이그레이션을 중단된 지점에서 재시작할 수 있습니다.
+v0.1부터 네트워크 오류나 시스템 장애로 인해 중단된 마이그레이션을 중단된 지점에서 재시작할 수 있습니다.
 
 ### 1. 재시작 가능 조건
 

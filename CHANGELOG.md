@@ -1,6 +1,6 @@
 # SQL2DB Migration Tool Update Log
 
-## 🔧 v2.7.1 - Multi-Database Dynamic Variable Support Extension (2025-09-01)
+## 🔧 v0.7.1 - Multi-Database Dynamic Variable Support Extension (2025-09-01)
 
 ### ✨ New Features
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 🔧 v2.7 - Dynamic Variable and SQL Processing Improvements (2025-08-29)
+## 🔧 v0.7 - Dynamic Variable and SQL Processing Improvements (2025-08-29)
 
 ### ✨ New Features
 
@@ -138,7 +138,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ---
 
-## 🔧 v2.6 - Processing Stage Column Override Control (2024-08-14)
+## 🔧 v0.6 - Processing Stage Column Override Control (2024-08-14)
 
 ### ✨ New Features
 
@@ -177,7 +177,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 This enables optimized column override application tailored to each stage's purpose.
 
-## 🎯 v2.5 - Global Pre/Post-processing Group Management (2024-08-14)
+## 🎯 v0.5 - Global Pre/Post-processing Group Management (2024-08-14)
 
 ### ✨ New Features
 
@@ -265,7 +265,7 @@ This enables optimized column override application tailored to each stage's purp
 </globalProcesses>
 ```
 
-## 🔄 v2.4 - Dynamic Variables System Enhancement (2024-08-13)
+## 🔄 v0.4 - Dynamic Variables System Enhancement (2024-08-13)
 
 ### ✨ New Features
 
@@ -309,7 +309,7 @@ This enables optimized column override application tailored to each stage's purp
 - **Consistency**: Aligned with sql2excel behavior for cross-tool consistency
 - **Documentation**: Updated all documentation to reflect new default behavior
 
-## 📈 v2.3 - Progress Management System (2024-08-12)
+## 📈 v0.3 - Progress Management System (2024-08-12)
 
 ### ✨ New Features
 
@@ -363,7 +363,7 @@ node src/progress-cli.js cleanup 7
 }
 ```
 
-## ⭐ v2.2 - SELECT * Auto Processing (2024-08-11)
+## ⭐ v0.2 - SELECT * Auto Processing (2024-08-11)
 
 ### ✨ New Features
 
@@ -398,7 +398,7 @@ Auto-set column list (15 columns, IDENTITY excluded): name, email, status, creat
 Modified source query: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
 ```
 
-## 🔧 v2.1 - Column Override Enhancements (2024-08-10)
+## 🔧 v0.1 - Column Override Enhancements (2024-08-10)
 
 ### ✨ New Features
 
@@ -437,7 +437,7 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
 </preProcess>
 ```
 
-## 🔄 v2.0 - Dynamic Variables System (2024-08-09)
+## 🔄 v0.0 - Dynamic Variables System (2024-08-09)
 
 ### ✨ New Features
 

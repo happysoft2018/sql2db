@@ -145,7 +145,7 @@ sqlcmd -S your-server -d your-database -i resources/create-example-table.sql
 
 ## 📈 진행 상황 관리
 
-v2.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다:
+v0.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다:
 
 ```bash
 # 진행 상황 목록 조회

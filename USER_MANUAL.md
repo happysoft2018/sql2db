@@ -335,7 +335,7 @@ DEBUG_COMMENTS=true node src/migrate-cli.js migrate queries.xml
 DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 ```
 
-## 🔧 Recent Improvements (Post v2.6)
+## 🔧 Recent Improvements (Post v0.6)
 
 ### 1. Dynamic Variable Database Specification
 
