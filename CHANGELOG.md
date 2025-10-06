@@ -309,7 +309,7 @@ This enables optimized column override application tailored to each stage's purp
 - **Consistency**: Aligned with sql2excel behavior for cross-tool consistency
 - **Documentation**: Updated all documentation to reflect new default behavior
 
-## 📈 v0.3 - Progress Management System (2024-08-12)
+## 📈 v0.3.0 - Progress Management System (2024-08-12)
 
 ### ✨ New Features
 
@@ -363,7 +363,7 @@ node src/progress-cli.js cleanup 7
 }
 ```
 
-## ⭐ v0.2 - SELECT * Auto Processing (2024-08-11)
+## ⭐ v0.2.3 - SELECT * Auto Processing (2024-08-11)
 
 ### ✨ New Features
 
@@ -398,7 +398,7 @@ Auto-set column list (15 columns, IDENTITY excluded): name, email, status, creat
 Modified source query: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
 ```
 
-## 🔧 v0.1 - Column Override Enhancements (2024-08-10)
+## 🔧 v0.2.1 - Column Override Enhancements (2024-08-10)
 
 ### ✨ New Features
 
@@ -437,7 +437,7 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
 </preProcess>
 ```
 
-## 🔄 v0.0 - Dynamic Variables System (2024-08-09)
+## 🔄 v0.2.0 - Dynamic Variables System (2024-08-09)
 
 ### ✨ New Features
 
@@ -480,7 +480,7 @@ WHERE CustomerID IN (${active_customers.CustomerID})
   AND Status IN (${status_mapping.StatusCode})
 ```
 
-## 📋 v1.9 - Logging and Monitoring (2024-08-08)
+## 📋 v0.1.9 - Logging and Monitoring (2024-08-08)
 
 ### ✨ New Features
 
@@ -502,7 +502,7 @@ WHERE CustomerID IN (${active_customers.CustomerID})
 - **ERROR**: Error messages (migration may continue)
 - **FATAL**: Critical errors (migration stops)
 
-## 🛠️ v1.8 - CLI and Batch Improvements (2024-08-07)
+## 🛠️ v0.1.8 - CLI and Batch Improvements (2024-08-07)
 
 ### ✨ New Features
 
@@ -527,7 +527,7 @@ node src/migrate-cli.js list-dbs
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
 ```
 
-## 🔄 v1.7 - Transaction and Error Handling (2024-08-06)
+## 🔄 v0.1.7 - Transaction and Error Handling (2024-08-06)
 
 ### ✨ New Features
 
@@ -543,7 +543,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - **Retry Logic**: Automatic retry for transient errors
 - **Error Logging**: Detailed error logging and reporting
 
-## 📊 v1.6 - Performance Optimizations (2024-08-05)
+## 📊 v0.1.6 - Performance Optimizations (2024-08-05)
 
 ### ✨ New Features
 
@@ -569,7 +569,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 </settings>
 ```
 
-## 🔧 v1.5 - Configuration Enhancements (2024-08-04)
+## 🔧 v0.1.5 - Configuration Enhancements (2024-08-04)
 
 ### ✨ New Features
 
@@ -601,7 +601,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 }
 ```
 
-## 📋 v1.4 - Documentation and Examples (2024-08-03)
+## 📋 v0.1.4 - Documentation and Examples (2024-08-03)
 
 ### ✨ New Features
 
@@ -617,7 +617,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - **Test Data**: Sample data for testing
 - **Migration Examples**: Real-world migration examples
 
-## 🔄 v1.3 - Core Migration Engine (2024-08-02)
+## 🔄 v0.1.3 - Core Migration Engine (2024-08-02)
 
 ### ✨ New Features
 
@@ -633,7 +633,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - Simple data transfer
 - Basic logging
 
-## 📊 v1.2 - Foundation (2024-08-01)
+## 📊 v0.1.2 - Foundation (2024-08-01)
 
 ### ✨ New Features
 
@@ -643,7 +643,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - **Basic Configuration**: Initial configuration system
 - **Documentation**: Basic project documentation
 
-## 🔧 v1.1 - Initial Release (2024-07-31)
+## 🔧 v0.1.1 - Initial Release (2024-07-31)
 
 ### ✨ New Features
 
