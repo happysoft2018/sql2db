@@ -9,14 +9,6 @@
 - **Automatic Connection Management**: Create and manage separate connection pools for each database
 - **Enhanced Error Handling**: Display available database list when invalid DB is specified
 
-#### Supported Databases
-| Database | Description | Usage Example |
-|----------|-------------|---------------|
-| `sourceDB` | Source database (read-only) | Extract master data from production environment |
-| `targetDB` | Target database (read/write) | Extract reference data from development environment |
-| `sampleDB` | Sample database | Extract test data or metadata |
-| Other DBs | All databases defined in dbinfo.json | Extract data from user-defined databases |
-
 #### Usage Examples
 ```xml
 <!-- Extract dynamic variables from multiple databases -->
