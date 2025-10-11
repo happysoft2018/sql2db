@@ -26,7 +26,21 @@ class ProgressManager {
                 totalDuration: 0
             }
         };
-        this.progressFile = path.join(__dirname, '../logs', `progress-${this.migrationId}.json`);
+        
+        // pkg 환경 고려
+        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+        const logsDir = path.join(appRoot, 'logs');
+        
+        // logs 디렉토리 확인 및 생성
+        try {
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir, { recursive: true });
+            }
+        } catch (error) {
+            console.warn(`Could not create logs directory: ${error.message}`);
+        }
+        
+        this.progressFile = path.join(logsDir, `progress-${this.migrationId}.json`);
         this.listeners = [];
         this.saveInterval = null;
         
@@ -471,7 +485,8 @@ class ProgressManager {
     // 모든 진행 상황 파일 목록 조회
     static listProgressFiles() {
         try {
-            const logsDir = path.join(__dirname, '../logs');
+            const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+            const logsDir = path.join(appRoot, 'logs');
             if (!fs.existsSync(logsDir)) return [];
             
             return fs.readdirSync(logsDir)

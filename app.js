@@ -435,9 +435,7 @@ async function executeMigration() {
         if (process.pkg) {
             // pkg 환경: 직접 모듈 사용
             const migrator = new MSSQLDataMigrator(filePath);
-            await migrator.initialize();
-            const result = await migrator.execute();
-            await migrator.cleanup();
+            const result = await migrator.executeMigration();
             
             const endTime = new Date();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
@@ -446,9 +444,15 @@ async function executeMigration() {
                 console.log();
                 console.log(colors.green + msg.migrationSuccess + colors.reset);
                 console.log(colors.dim + `${msg.executionTime} ${duration}s` + colors.reset);
+                if (result.migrationId) {
+                    console.log(`📊 Migration ID: ${result.migrationId}`);
+                }
             } else {
                 console.log();
                 console.log(colors.red + msg.migrationFailed + colors.reset);
+                if (result.migrationId) {
+                    console.log(`📊 Migration ID: ${result.migrationId}`);
+                }
             }
         } else {
             // Node.js 환경: CLI 실행

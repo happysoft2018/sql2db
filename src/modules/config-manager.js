@@ -8,7 +8,9 @@ const logger = require('../logger');
  */
 class ConfigManager {
     constructor() {
-        this.dbInfoPath = path.join(__dirname, '../../config/dbinfo.json');
+        // pkg 환경 고려
+        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '../..');
+        this.dbInfoPath = path.join(appRoot, 'config/dbinfo.json');
         this.dbInfo = null;
     }
 

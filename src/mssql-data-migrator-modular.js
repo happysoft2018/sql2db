@@ -72,13 +72,19 @@ class MSSQLDataMigrator {
     initializeLogging() {
         if (!this.enableLogging) return;
         
+        // pkg 환경 고려
+        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const logFileName = `migration-log-${timestamp}.txt`;
-        this.logFile = path.join(__dirname, '../logs', logFileName);
+        this.logFile = path.join(appRoot, 'logs', logFileName);
         
         const logsDir = path.dirname(this.logFile);
-        if (!fs.existsSync(logsDir)) {
-            fs.mkdirSync(logsDir, { recursive: true });
+        try {
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir, { recursive: true });
+            }
+        } catch (error) {
+            console.warn(`Could not create logs directory: ${error.message}`);
         }
         
         this.log(`데이터 이관 시작: ${new Date().toISOString()}`);
