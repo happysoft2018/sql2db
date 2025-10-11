@@ -339,7 +339,36 @@ class ConfigManager {
         const queries = [];
         const queryList = Array.isArray(queriesXml) ? queriesXml : [queriesXml];
         
-        queryList.forEach(q => {
+        // 허용되는 query 요소 속성
+        const validQueryXmlAttrs = [
+            'id', 'description', 'enabled', 'batchSize', 'deleteBeforeInsert',
+            'sourceQuery', 'sourceQueryFile', 'targetTable', 'targetColumns', 
+            'identityColumns', 'preProcess', 'postProcess'
+        ];
+        
+        // 허용되는 sourceQuery 요소 속성
+        const validSourceQueryXmlAttrs = [
+            'targetTable', 'targetColumns', 'identityColumns', 'sourceQueryFile',
+            'applyGlobalColumns', 'deleteBeforeInsert', '_' // _ 는 CDATA 내용
+        ];
+        
+        // 허용되는 preProcess/postProcess 요소 속성
+        const validProcessXmlAttrs = [
+            'description', 'runInTransaction', 'database', 'applyGlobalColumns', '_'
+        ];
+        
+        queryList.forEach((q, index) => {
+            // query 요소 속성명 검증
+            const queryAttrs = Object.keys(q);
+            const invalidQueryAttrs = queryAttrs.filter(attr => !validQueryXmlAttrs.includes(attr));
+            
+            if (invalidQueryAttrs.length > 0) {
+                const errorMsg = `❌ queries[${index}] (id: ${q.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidQueryAttrs.join(', ')}\n` +
+                                `   허용되는 속성: ${validQueryXmlAttrs.join(', ')}`;
+                logger.error(errorMsg);
+                throw new Error(`XML 파싱 오류: ${errorMsg}`);
+            }
+            
             const query = {
                 id: q.id,
                 description: q.description,
@@ -359,6 +388,17 @@ class ConfigManager {
                 query.identityColumns = q.identityColumns;
             } else if (q.sourceQuery) {
                 if (typeof q.sourceQuery === 'object') {
+                    // sourceQuery 요소 속성명 검증
+                    const sourceQueryAttrs = Object.keys(q.sourceQuery);
+                    const invalidSourceAttrs = sourceQueryAttrs.filter(attr => !validSourceQueryXmlAttrs.includes(attr));
+                    
+                    if (invalidSourceAttrs.length > 0) {
+                        const errorMsg = `❌ queries[${index}] (id: ${q.id || '미지정'})의 sourceQuery에 잘못된 속성이 있습니다: ${invalidSourceAttrs.join(', ')}\n` +
+                                        `   허용되는 속성: ${validSourceQueryXmlAttrs.filter(a => a !== '_').join(', ')}`;
+                        logger.error(errorMsg);
+                        throw new Error(`XML 파싱 오류: ${errorMsg}`);
+                    }
+                    
                     query.sourceQueryApplyGlobalColumns = q.sourceQuery.applyGlobalColumns || undefined;
                     query.sourceQueryDeleteBeforeInsert = q.sourceQuery.deleteBeforeInsert !== undefined
                         ? (q.sourceQuery.deleteBeforeInsert === 'true')
@@ -382,15 +422,41 @@ class ConfigManager {
                 }
             }
             
-            // 전처리/후처리 파싱
+            // 전처리 파싱 및 속성명 검증
             if (q.preProcess) {
+                if (typeof q.preProcess === 'object') {
+                    const preProcessAttrs = Object.keys(q.preProcess);
+                    const invalidPreAttrs = preProcessAttrs.filter(attr => !validProcessXmlAttrs.includes(attr));
+                    
+                    if (invalidPreAttrs.length > 0) {
+                        const errorMsg = `❌ queries[${index}] (id: ${q.id || '미지정'})의 preProcess에 잘못된 속성이 있습니다: ${invalidPreAttrs.join(', ')}\n` +
+                                        `   허용되는 속성: ${validProcessXmlAttrs.filter(a => a !== '_').join(', ')}`;
+                        logger.error(errorMsg);
+                        throw new Error(`XML 파싱 오류: ${errorMsg}`);
+                    }
+                }
+                
                 query.preProcess = {
                     description: q.preProcess.description || `${query.id} 전처리`,
                     script: q.preProcess._.trim(),
                     applyGlobalColumns: q.preProcess.applyGlobalColumns || undefined
                 };
             }
+            
+            // 후처리 파싱 및 속성명 검증
             if (q.postProcess) {
+                if (typeof q.postProcess === 'object') {
+                    const postProcessAttrs = Object.keys(q.postProcess);
+                    const invalidPostAttrs = postProcessAttrs.filter(attr => !validProcessXmlAttrs.includes(attr));
+                    
+                    if (invalidPostAttrs.length > 0) {
+                        const errorMsg = `❌ queries[${index}] (id: ${q.id || '미지정'})의 postProcess에 잘못된 속성이 있습니다: ${invalidPostAttrs.join(', ')}\n` +
+                                        `   허용되는 속성: ${validProcessXmlAttrs.filter(a => a !== '_').join(', ')}`;
+                        logger.error(errorMsg);
+                        throw new Error(`XML 파싱 오류: ${errorMsg}`);
+                    }
+                }
+                
                 query.postProcess = {
                     description: q.postProcess.description || `${query.id} 후처리`,
                     script: q.postProcess._.trim(),
@@ -399,6 +465,11 @@ class ConfigManager {
             }
             
             queries.push(query);
+        });
+        
+        logger.info('쿼리 파싱 완료', {
+            totalQueries: queries.length,
+            enabledQueries: queries.filter(q => q.enabled).length
         });
         
         return queries;

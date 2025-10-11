@@ -746,6 +746,32 @@ class MSSQLDataMigrator {
         try {
             await this.loadConfig();
             
+            // 허용되는 속성명 정의
+            const validQueryAttributes = [
+                'id', 'description', 'enabled', 'sourceQuery', 'sourceQueryFile', 
+                'targetTable', 'targetColumns', 'identityColumns', 'batchSize',
+                'deleteBeforeInsert', 'sourceQueryDeleteBeforeInsert', 
+                'sourceQueryApplyGlobalColumns', 'applyGlobalColumns',
+                'preProcess', 'postProcess', 'columnOverrides'
+            ];
+            
+            const validDynamicVarAttributes = [
+                'id', 'description', 'variableName', 'extractType', 'database',
+                'enabled', 'columns', 'columnName'
+            ];
+            
+            const validSettingsAttributes = [
+                'sourceDatabase', 'targetDatabase', 'batchSize', 'deleteBeforeInsert'
+            ];
+            
+            const validPrePostProcessAttributes = [
+                'script', 'runInTransaction', 'database', 'description', 'applyGlobalColumns'
+            ];
+            
+            const validGlobalProcessGroupAttributes = [
+                'id', 'description', 'enabled'
+            ];
+            
             if (!this.config.settings) {
                 const requiredEnvVars = [
                     'SOURCE_DB_SERVER', 'SOURCE_DB_DATABASE', 'SOURCE_DB_USER', 'SOURCE_DB_PASSWORD',
@@ -756,26 +782,136 @@ class MSSQLDataMigrator {
                 if (missingVars.length > 0) {
                     throw new Error(`필수 환경 변수가 설정되지 않았습니다: ${missingVars.join(', ')}`);
                 }
+            } else {
+                // settings 속성명 검증
+                const invalidSettingsAttrs = Object.keys(this.config.settings).filter(
+                    attr => !validSettingsAttributes.includes(attr)
+                );
+                if (invalidSettingsAttrs.length > 0) {
+                    console.warn(`⚠️ settings에 알 수 없는 속성이 있습니다: ${invalidSettingsAttrs.join(', ')}`);
+                    console.warn(`   허용되는 속성: ${validSettingsAttributes.join(', ')}`);
+                }
             }
             
-            const enabledQueries = this.config.queries ? this.config.queries.filter(q => q.enabled !== false) : [];
-            if (enabledQueries.length === 0) {
-                console.log('⚠️ 활성화된 쿼리가 없습니다. (쿼리문정의 파일 구조 검증은 성공)');
-            }
-            
-            if (enabledQueries.length > 0) {
-                for (const query of enabledQueries) {
-                    if (!query.id || (!query.sourceQuery && !query.sourceQueryFile) || !query.targetTable) {
-                        throw new Error(`쿼리 설정이 불완전합니다: ${query.id || '이름 없음'}`);
+            // dynamicVariables 속성명 검증
+            if (this.config.dynamicVariables && Array.isArray(this.config.dynamicVariables)) {
+                for (let i = 0; i < this.config.dynamicVariables.length; i++) {
+                    const dynVar = this.config.dynamicVariables[i];
+                    const invalidAttrs = Object.keys(dynVar).filter(
+                        attr => !validDynamicVarAttributes.includes(attr) && attr !== 'query'
+                    );
+                    
+                    if (invalidAttrs.length > 0) {
+                        console.error(`❌ dynamicVariables[${i}] (id: ${dynVar.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
+                        console.error(`   허용되는 속성: ${validDynamicVarAttributes.join(', ')}`);
+                        throw new Error(`dynamicVariables에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
                     }
                 }
             }
             
-            console.log('설정 검증 완료');
+            // queries 속성명 검증
+            const allQueries = this.config.queries || [];
+            const enabledQueries = allQueries.filter(q => q.enabled !== false);
+            
+            if (enabledQueries.length === 0) {
+                console.log('⚠️ 활성화된 쿼리가 없습니다. (쿼리문정의 파일 구조 검증은 성공)');
+            }
+            
+            for (let i = 0; i < allQueries.length; i++) {
+                const query = allQueries[i];
+                
+                // 속성명 검증
+                const invalidAttrs = Object.keys(query).filter(
+                    attr => !validQueryAttributes.includes(attr)
+                );
+                
+                if (invalidAttrs.length > 0) {
+                    console.error(`❌ queries[${i}] (id: ${query.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
+                    console.error(`   허용되는 속성: ${validQueryAttributes.join(', ')}`);
+                    throw new Error(`쿼리에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                }
+                
+                // 필수 속성 검증
+                if (!query.id) {
+                    throw new Error(`queries[${i}]에 id 속성이 없습니다.`);
+                }
+                
+                if (!query.sourceQuery && !query.sourceQueryFile) {
+                    throw new Error(`쿼리 '${query.id}'에 sourceQuery 또는 sourceQueryFile이 없습니다.`);
+                }
+                
+                if (!query.targetTable) {
+                    throw new Error(`쿼리 '${query.id}'에 targetTable 속성이 없습니다.`);
+                }
+                
+                // preProcess/postProcess 속성명 검증
+                if (query.preProcess) {
+                    const invalidPreAttrs = Object.keys(query.preProcess).filter(
+                        attr => !validPrePostProcessAttributes.includes(attr)
+                    );
+                    if (invalidPreAttrs.length > 0) {
+                        console.error(`❌ 쿼리 '${query.id}'의 preProcess에 잘못된 속성이 있습니다: ${invalidPreAttrs.join(', ')}`);
+                        console.error(`   허용되는 속성: ${validPrePostProcessAttributes.join(', ')}`);
+                        throw new Error(`preProcess에 잘못된 속성명이 있습니다: ${invalidPreAttrs.join(', ')}`);
+                    }
+                }
+                
+                if (query.postProcess) {
+                    const invalidPostAttrs = Object.keys(query.postProcess).filter(
+                        attr => !validPrePostProcessAttributes.includes(attr)
+                    );
+                    if (invalidPostAttrs.length > 0) {
+                        console.error(`❌ 쿼리 '${query.id}'의 postProcess에 잘못된 속성이 있습니다: ${invalidPostAttrs.join(', ')}`);
+                        console.error(`   허용되는 속성: ${validPrePostProcessAttributes.join(', ')}`);
+                        throw new Error(`postProcess에 잘못된 속성명이 있습니다: ${invalidPostAttrs.join(', ')}`);
+                    }
+                }
+            }
+            
+            // globalProcesses 속성명 검증
+            if (this.config.globalProcesses) {
+                if (this.config.globalProcesses.preProcessGroups) {
+                    for (let i = 0; i < this.config.globalProcesses.preProcessGroups.length; i++) {
+                        const group = this.config.globalProcesses.preProcessGroups[i];
+                        const invalidAttrs = Object.keys(group).filter(
+                            attr => !validGlobalProcessGroupAttributes.includes(attr) && attr !== 'script'
+                        );
+                        
+                        if (invalidAttrs.length > 0) {
+                            console.error(`❌ preProcessGroups[${i}] (id: ${group.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
+                            console.error(`   허용되는 속성: ${validGlobalProcessGroupAttributes.join(', ')}, script`);
+                            throw new Error(`preProcessGroups에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                        }
+                    }
+                }
+                
+                if (this.config.globalProcesses.postProcessGroups) {
+                    for (let i = 0; i < this.config.globalProcesses.postProcessGroups.length; i++) {
+                        const group = this.config.globalProcesses.postProcessGroups[i];
+                        const invalidAttrs = Object.keys(group).filter(
+                            attr => !validGlobalProcessGroupAttributes.includes(attr) && attr !== 'script'
+                        );
+                        
+                        if (invalidAttrs.length > 0) {
+                            console.error(`❌ postProcessGroups[${i}] (id: ${group.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
+                            console.error(`   허용되는 속성: ${validGlobalProcessGroupAttributes.join(', ')}, script`);
+                            throw new Error(`postProcessGroups에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                        }
+                    }
+                }
+            }
+            
+            console.log('✅ 설정 검증 완료');
+            console.log(`   - 전체 쿼리 수: ${allQueries.length}`);
+            console.log(`   - 활성화된 쿼리 수: ${enabledQueries.length}`);
+            if (this.config.dynamicVariables) {
+                console.log(`   - 동적 변수 수: ${this.config.dynamicVariables.length}`);
+            }
+            
             return true;
             
         } catch (error) {
-            console.error('설정 검증 실패:', error.message);
+            console.error('❌ 설정 검증 실패:', error.message);
             return false;
         }
     }
