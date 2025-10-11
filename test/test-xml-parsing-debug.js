@@ -1,4 +1,4 @@
-const MSSQLDataMigrator = require('../src/mssql-data-migrator.js');
+const MSSQLDataMigrator = require('../src/mssql-data-migrator-modular.js');
 const fs = require('fs');
 const xml2js = require('xml2js');
 

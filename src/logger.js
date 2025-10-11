@@ -29,10 +29,25 @@ class Logger {
             RESET: '\x1b[0m'   // 리셋
         };
         
-        // 로그 디렉토리 생성
-        this.logDir = path.join(__dirname, '../logs');
-        if (!fs.existsSync(this.logDir)) {
-            fs.mkdirSync(this.logDir, { recursive: true });
+        // 로그 디렉토리 생성 (pkg 환경 고려)
+        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+        this.logDir = path.join(appRoot, 'logs');
+        
+        try {
+            if (!fs.existsSync(this.logDir)) {
+                fs.mkdirSync(this.logDir, { recursive: true });
+            }
+        } catch (error) {
+            console.warn(`Could not create logs directory: ${error.message}`);
+            // Fallback to current working directory
+            this.logDir = path.join(process.cwd(), 'logs');
+            try {
+                if (!fs.existsSync(this.logDir)) {
+                    fs.mkdirSync(this.logDir, { recursive: true });
+                }
+            } catch (fallbackError) {
+                console.error(`Could not create logs directory even in fallback location: ${fallbackError.message}`);
+            }
         }
         
         // 현지 시각으로 로그 파일명 생성

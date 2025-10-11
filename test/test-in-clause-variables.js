@@ -1,4 +1,4 @@
-const MSSQLDataMigrator = require('./src/mssql-data-migrator');
+const MSSQLDataMigrator = require('./src/mssql-data-migrator-modular');
 const path = require('path');
 
 // 테스트용 설정

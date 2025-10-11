@@ -1,5 +1,143 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.0 - Interactive Interface & Standalone Executable (2025-10-11)
+
+### ✨ New Features
+
+#### Interactive Command-Line Interface (app.js)
+- **User-Friendly Menu**: Interactive menu system for easy operation
+- **File Selection by Number**: Select query definition files by number instead of typing full path
+- **Multilingual Support**: English and Korean interface support (--lang option)
+- **Integrated Operations**: All common operations accessible from single interface
+  - Query definition file validation
+  - Database connection testing
+  - Data migration execution
+  - Migration progress monitoring
+
+#### Migration Progress Monitoring
+- **Recent History View**: Display recent 3 migrations by default
+- **Full History Access**: Toggle to view all migration history with 'A' command
+- **Detailed Progress Info**: View comprehensive details for any migration
+  - Migration status and timestamps
+  - Query-level progress tracking
+  - Row counts and processing speed
+  - Error information and stack traces
+- **Interactive Navigation**: Easy navigation between list and detail views
+
+#### Standalone Executable Support
+- **PKG Integration**: Build standalone Windows executable with `npm run build`
+- **No Node.js Required**: Run migrations without Node.js installation
+- **Complete Package**: Includes all dependencies and assets
+- **Optimized Build**: GZip compression for smaller file size
+- **Path Resolution**: Automatic path handling for packaged environment
+
+#### Automated Release Process
+- **Release Script**: Comprehensive `release.bat` for automated packaging
+- **Package Structure**: Professional release package with organized directories
+- **Launcher Scripts**: Dedicated batch files for English and Korean versions
+- **Documentation**: Includes version info, release notes, and manuals
+- **ZIP Archive**: Automatic ZIP file creation for distribution
+
+### 🔄 Improvements
+
+#### Modular Architecture Refactoring
+- **Separated Concerns**: Split monolithic code into focused modules
+  - `config-manager.js`: Configuration loading and parsing
+  - `variable-manager.js`: Dynamic variable management
+  - `query-processor.js`: SQL query processing
+  - `script-processor.js`: Pre/Post script execution
+- **Improved Maintainability**: Easier to understand and modify code
+- **Better Testing**: Individual modules can be tested independently
+- **API Compatibility**: Maintains backward compatibility with existing configurations
+
+#### Enhanced Configuration Validation
+- **Attribute Name Validation**: Validates all XML/JSON attribute names
+- **Detailed Error Messages**: Shows allowed attributes when validation fails
+- **Comprehensive Checks**: Validates all configuration sections
+  - Settings attributes
+  - Query attributes
+  - Dynamic variable attributes
+  - Pre/Post process attributes
+  - Global process group attributes
+
+#### PKG Environment Support
+- **Path Resolution**: Correct `__dirname` handling in packaged executables
+- **Directory Creation**: Fallback mechanisms for log and output directories
+- **Module Loading**: Direct module require() instead of CLI execution
+- **Asset Inclusion**: Proper bundling of queries, configs, and resources
+
+### 🛠️ Usage Examples
+
+#### Interactive Interface
+```bash
+# English version
+npm start
+# or
+run.bat
+
+# Korean version
+npm run start:kr
+# or
+실행하기.bat
+
+# Standalone executable
+sql2db.exe --lang=en
+sql2db.exe --lang=kr
+```
+
+#### Progress Monitoring
+```
+Migration History (Recent 3):
+
+1. migration-2025-10-11-01-45-35
+   Status: COMPLETED
+   Started: 2025-10-11 1:45:35 AM
+   Progress: 25/25 queries
+   Completed: 2025-10-11 1:48:20 AM (165s)
+
+Showing 3 of 15 migration(s)
+
+Enter number to view details, 'A' for all, or '0' to go back:
+```
+
+#### Building Executable
+```bash
+# Build standalone executable
+npm run build
+
+# Create release package
+npm run release
+
+# Output: release/sql2db-v0.8.0-bin.zip
+```
+
+### 📦 Release Package Contents
+- `sql2db.exe`: Standalone executable
+- `run.bat`: English launcher
+- `실행하기.bat`: Korean launcher
+- `config/`: Database configuration files
+- `queries/`: Query definition files
+- `resources/`: SQL resource files
+- `user_manual/`: Complete documentation
+
+### 🔧 Technical Improvements
+- **Better Error Handling**: Comprehensive error messages in packaged environment
+- **Memory Management**: Optimized resource usage for CLI interface
+- **File System Operations**: Safe directory creation with fallback options
+- **Console Output**: Improved formatting and color-coded messages
+
+### 📊 Performance
+- **Fast Startup**: Quick initialization of interactive interface
+- **Efficient Progress Tracking**: Minimal overhead for monitoring
+- **Optimized Build**: ~50MB executable with all dependencies
+
+### 🎯 Migration Path
+- **Zero Configuration**: Existing query files work without changes
+- **API Compatible**: All CLI commands still functional
+- **Progressive Enhancement**: Choose between CLI and interactive interface
+
+---
+
 ## 🔧 v0.7.1 - Multi-Database Dynamic Variable Support Extension (2025-09-01)
 
 ### ✨ New Features

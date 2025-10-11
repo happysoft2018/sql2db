@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
-const MSSQLDataMigrator = require('./mssql-data-migrator');
+// 모듈화된 버전 사용 (권장)
+const MSSQLDataMigrator = require('./mssql-data-migrator-modular');
+// 레거시 버전: const MSSQLDataMigrator = require('./mssql-data-migrator');
+
 const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
