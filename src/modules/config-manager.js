@@ -79,18 +79,17 @@ class ConfigManager {
             }
 
             const configData = fs.readFileSync(queryFilePath, 'utf8');
-            const isXmlFile = queryFilePath.toLowerCase().endsWith('.xml');
             
-            let config;
-            if (isXmlFile) {
-                config = await this.parseXmlConfig(configData);
-            } else {
-                config = JSON.parse(configData);
+            // XML 파일만 지원
+            if (!queryFilePath.toLowerCase().endsWith('.xml')) {
+                throw new Error(`지원되지 않는 파일 형식입니다. XML 파일만 사용 가능합니다: ${queryFilePath}`);
             }
+            
+            const config = await this.parseXmlConfig(configData);
             
             logger.info('쿼리문정의 파일 로드 완료', {
                 path: queryFilePath,
-                format: isXmlFile ? 'XML' : 'JSON',
+                format: 'XML',
                 enabledQueries: config.queries.filter(q => q.enabled).length
             });
             
