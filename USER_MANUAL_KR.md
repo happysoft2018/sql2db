@@ -71,9 +71,6 @@ sql2db-v0.8.0/
 │   └── dbinfo.json         # 데이터베이스 설정
 ├── queries/                # 쿼리문정의 파일
 │   └── (사용자 XML/JSON 파일)
-├── examples/               # 예제 설정
-│   ├── migration-queries.xml
-│   └── sample-config.json
 ├── resources/              # SQL 리소스 파일
 │   ├── create_sample_tables.sql
 │   └── insert_sample_data.sql
@@ -151,7 +148,6 @@ sql2db/
 ├── config/
 │   └── dbinfo.json         # 데이터베이스 설정
 ├── queries/                # 쿼리문정의 파일
-├── examples/               # 예제 설정
 ├── resources/              # SQL 리소스 파일
 ├── test/                   # 테스트 파일
 ├── logs/                   # 로그 출력

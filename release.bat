@@ -78,12 +78,6 @@ if exist "queries" (
     echo ✅ Queries folder copied (with sample files)
 )
 
-REM Copy examples folder
-if exist "examples" (
-    xcopy "examples" "%RELEASE_DIR%\examples\" /e /i /h /y >nul
-    echo ✅ Examples folder copied
-)
-
 REM Copy resources folder
 if exist "resources" (
     xcopy "resources" "%RELEASE_DIR%\resources\" /e /i /h /y >nul
@@ -146,7 +140,6 @@ echo 📄 Creating version info...
     echo - sql2db.exe : Main executable
     echo - config/dbinfo.json : Database configuration
     echo - queries/ : Query definition files ^(XML/JSON^)
-    echo - examples/ : Example query files
     echo - resources/ : SQL resource files
     echo - logs/ : Log output directory
     echo - run.bat : Launcher script ^(English^)
@@ -278,7 +271,7 @@ echo.
 echo 📋 Package Contents:
 echo    • Executable ^(sql2db.exe^)
 echo    • Configuration files
-echo    • Query definition files and examples
+echo    • Query definition files
 echo    • SQL resource files
 echo    • Complete documentation ^(6 files^)
 echo    • Launcher scripts ^(English ^& Korean^)

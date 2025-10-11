@@ -117,7 +117,6 @@ npm run release
 - `실행하기.bat`: Korean launcher
 - `config/`: Database configuration files
 - `queries/`: Query definition files
-- `examples/`: Example configurations
 - `resources/`: SQL resource files
 - `user_manual/`: Complete documentation
 

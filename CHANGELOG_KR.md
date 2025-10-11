@@ -117,7 +117,6 @@ npm run release
 - `실행하기.bat`: 한글 실행 스크립트
 - `config/`: 데이터베이스 설정 파일
 - `queries/`: 쿼리문정의 파일
-- `examples/`: 예제 설정
 - `resources/`: SQL 리소스 파일
 - `user_manual/`: 완전한 문서
 

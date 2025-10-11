@@ -25,18 +25,9 @@
       "src/**/*.js"
     ],
     "assets": [
-      "config/**/*.json",
-      "queries/**/*.xml",
-      "queries/**/*.json",
-      "queries/**/*.sql",
-      "examples/**/*.xml",
-      "resources/**/*.sql",
-      "README.md",
-      "README_KR.md",
-      "USER_MANUAL.md",
-      "USER_MANUAL_KR.md",
-      "CHANGELOG.md",
-      "CHANGELOG_KR.md",
+      "config/**/*",
+      "queries/**/*",
+      "*.md",
       ".env"
     ],
     "targets": [

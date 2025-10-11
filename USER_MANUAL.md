@@ -71,9 +71,6 @@ sql2db-v0.8.0/
 │   └── dbinfo.json         # Database configuration
 ├── queries/                # Query definition files
 │   └── (your XML/JSON files)
-├── examples/               # Example configurations
-│   ├── migration-queries.xml
-│   └── sample-config.json
 ├── resources/              # SQL resource files
 │   ├── create_sample_tables.sql
 │   └── insert_sample_data.sql
@@ -123,9 +120,9 @@ sql2db-v0.8.0/
    ```
 
 3. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 4. **Verify Installation**
    ```bash
@@ -151,7 +148,6 @@ sql2db/
 ├── config/
 │   └── dbinfo.json         # Database configuration
 ├── queries/                # Query definition files
-├── examples/               # Example configurations
 ├── resources/              # SQL resource files
 ├── test/                   # Test files
 ├── logs/                   # Log output
