@@ -225,6 +225,44 @@ test-log-levels.bat        # 로그 레벨 테스트
 test-select-star-identity.bat  # SELECT * IDENTITY 제외 테스트
 ```
 
+## 독립 실행 파일 빌드
+
+### 사전 준비
+```bash
+npm install
+```
+
+### 빌드
+```bash
+npm run build
+```
+
+이 명령은 `dist/` 디렉토리에 독립 실행 파일을 생성합니다:
+- `dist/mssql-data-migrator-win-x64.exe` (Windows 64비트)
+
+### 빌드 설정
+빌드 프로세스는 `pkg`를 사용하여 Node.js 애플리케이션을 번들링합니다:
+- **타겟**: Windows x64 (Node.js 18)
+- **압축**: GZip
+- **포함된 에셋**:
+  - 모든 소스 파일 (`src/**/*.js`)
+  - 설정 파일 (`config/**/*.json`)
+  - 쿼리 정의 파일 (`queries/**/*.xml`, `queries/**/*.json`, `queries/**/*.sql`)
+  - 예제 파일 (`examples/**/*.xml`)
+  - 리소스 파일 (`resources/**/*.sql`)
+  - 문서 파일 (README, USER_MANUAL, CHANGELOG)
+
+### 실행 파일 실행
+```bash
+# 실행 파일 직접 실행
+dist\mssql-data-migrator-win-x64.exe
+
+# 또는 언어 옵션과 함께 실행
+dist\mssql-data-migrator-win-x64.exe --lang=kr
+```
+
+독립 실행 파일은 Node.js 설치 없이 애플리케이션을 실행하는 데 필요한 모든 것을 포함합니다.
+
 ## 기여하기
 
 1. 이 저장소를 포크합니다

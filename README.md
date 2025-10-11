@@ -451,6 +451,44 @@ test-select-star-identity.bat  # SELECT * IDENTITY exclusion test
 test-dynamic-variables.js  # Dynamic variables test
 ```
 
+## Building Standalone Executable
+
+### Prerequisites
+```bash
+npm install
+```
+
+### Build
+```bash
+npm run build
+```
+
+This will create a standalone executable in the `dist/` directory:
+- `dist/mssql-data-migrator-win-x64.exe` (Windows 64-bit)
+
+### Build Configuration
+The build process uses `pkg` to bundle the Node.js application:
+- **Target**: Windows x64 (Node.js 18)
+- **Compression**: GZip
+- **Assets Included**:
+  - All source files (`src/**/*.js`)
+  - Configuration files (`config/**/*.json`)
+  - Query definition files (`queries/**/*.xml`, `queries/**/*.json`, `queries/**/*.sql`)
+  - Example files (`examples/**/*.xml`)
+  - Resource files (`resources/**/*.sql`)
+  - Documentation files (README, USER_MANUAL, CHANGELOG)
+
+### Running the Executable
+```bash
+# Run the executable directly
+dist\mssql-data-migrator-win-x64.exe
+
+# Or use with language option
+dist\mssql-data-migrator-win-x64.exe --lang=kr
+```
+
+The standalone executable includes everything needed to run the application without requiring Node.js installation.
+
 ## Contributing
 
 1. Fork this repository

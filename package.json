@@ -2,7 +2,7 @@
   "name": "mssql-data-migrator",
   "version": "0.7.1",
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
-  "main": "src/migrate-cli.js",
+  "main": "app.js",
   "scripts": {
     "start": "node app.js --lang=en",
     "start:kr": "node app.js --lang=kr",
@@ -13,11 +13,45 @@
     "progress": "echo '사용법: npm run progress -- <command> [migration-id]' && node src/progress-cli.js",
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
-    "help": "node src/migrate-cli.js help"
+    "help": "node src/migrate-cli.js help",
+    "build": "pkg . --public --no-native-build --compress GZip"
+  },
+  "bin": {
+    "mssql-data-migrator": "app.js"
+  },
+  "pkg": {
+    "scripts": [
+      "src/**/*.js"
+    ],
+    "assets": [
+      "config/**/*.json",
+      "queries/**/*.xml",
+      "queries/**/*.json",
+      "queries/**/*.sql",
+      "examples/**/*.xml",
+      "resources/**/*.sql",
+      "README.md",
+      "README_KR.md",
+      "USER_MANUAL.md",
+      "USER_MANUAL_KR.md",
+      "CHANGELOG.md",
+      "CHANGELOG_KR.md",
+      ".env"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist",
+    "ignore": [
+      "node_modules/open/xdg-open"
+    ]
   },
   "dependencies": {
     "dotenv": "^16.5.0",
     "mssql": "^11.0.1",
     "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

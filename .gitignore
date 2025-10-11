@@ -7,3 +7,4 @@ result/
 output/
 dbinfo.json
 release/
+dist/
