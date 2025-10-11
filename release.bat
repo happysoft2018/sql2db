@@ -11,7 +11,7 @@ echo.
 
 set "VERSION=0.8.0"
 set "RELEASE_BASE=release"
-set "PACKAGE_NAME=sql2db-v%VERSION%"
+set "PACKAGE_NAME=sql2db-v%VERSION%-win-x64"
 set "RELEASE_DIR=%RELEASE_BASE%\%PACKAGE_NAME%"
 set "TIMESTAMP=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%"
 set "TIMESTAMP=%TIMESTAMP: =0%"
