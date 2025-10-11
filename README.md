@@ -9,7 +9,7 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 - ✅ **Multilingual Support**: English and Korean interfaces
 - ✅ **Progress Monitoring**: Real-time migration progress tracking with detailed history
 - ✅ **MSSQL Data Migration**: High-performance batch processing
-- ✅ **XML/JSON Configuration Support**: Flexible configuration format selection
+- ✅ **XML Configuration Support**: Flexible XML-based configuration
 - ✅ **Column Overrides**: Modify/add column values during migration
 - ✅ **Pre/Post Processing**: Execute SQL scripts before/after migration
 - ✅ **Dynamic Variables**: Extract and utilize data at runtime
@@ -113,7 +113,7 @@ Please select (0-5):
 
 ### Menu Options
 
-1. **Validate Query Definition File**: Check XML/JSON syntax and attribute names
+1. **Validate Query Definition File**: Check XML syntax and attribute names
 2. **Test Database Connection**: Verify database connectivity
 3. **Execute Data Migration**: Run data migration with selected query file
 4. **Check Migration Progress**: View migration history and detailed status
@@ -135,9 +135,9 @@ Please select (0-5):
 | `npm run build` | Build standalone executable |
 | `npm run release` | Create release package |
 
-## Configuration File Formats
+## Configuration File Format
 
-### XML Format (Recommended)
+### XML Format
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
@@ -172,32 +172,6 @@ Please select (0-5):
     </dynamicVar>
   </dynamicVariables>
 </migration>
-```
-
-### JSON Format
-```json
-{
-  "databases": {
-    "source": "sourceDB",
-    "target": "targetDB"
-  },
-  "queries": [
-    {
-      "id": "migrate_users",
-      "sourceQuery": "SELECT * FROM users WHERE status = 'ACTIVE'",
-      "targetTable": "users",
-      "enabled": true
-    }
-  ],
-  "dynamicVariables": [
-    {
-      "id": "active_customers",
-      "description": "Active customer list",
-      "query": "SELECT CustomerID, CustomerName FROM Customers WHERE IsActive = 1",
-      "extractType": "column_identified"
-    }
-  ]
-}
 ```
 
 ## Dynamic Variables

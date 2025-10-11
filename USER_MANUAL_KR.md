@@ -15,7 +15,7 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 
 ### 주요 기능
 - 🔄 **배치 단위 데이터 이관**: 대용량 데이터 처리 최적화
-- 🎛️ **유연한 설정**: XML 또는 JSON 기반 설정
+- 🎛️ **유연한 설정**: XML 기반 설정
 - 🔧 **컬럼 오버라이드**: 이관 시 특정 컬럼값 변경/추가
 - ⚙️ **전처리/후처리**: 이관 전후 SQL 스크립트 실행
 - 📊 **동적 변수**: 실행 시점 데이터 추출 및 활용
@@ -70,7 +70,7 @@ sql2db-v0.8.0/
 ├── config/
 │   └── dbinfo.json         # 데이터베이스 설정
 ├── queries/                # 쿼리문정의 파일
-│   └── (사용자 XML/JSON 파일)
+│   └── (사용자 XML 파일)
 ├── resources/              # SQL 리소스 파일
 │   ├── create_sample_tables.sql
 │   └── insert_sample_data.sql

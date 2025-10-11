@@ -15,7 +15,7 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 
 ### Key Features
 - 🔄 **Batch Data Migration**: Optimized for large-scale data processing
-- 🎛️ **Flexible Configuration**: XML or JSON-based configuration
+- 🎛️ **Flexible Configuration**: XML-based configuration
 - 🔧 **Column Overrides**: Modify/add specific column values during migration
 - ⚙️ **Pre/Post Processing**: Execute SQL scripts before/after migration
 - 📊 **Dynamic Variables**: Extract and utilize data at runtime
@@ -70,7 +70,7 @@ sql2db-v0.8.0/
 ├── config/
 │   └── dbinfo.json         # Database configuration
 ├── queries/                # Query definition files
-│   └── (your XML/JSON files)
+│   └── (your XML files)
 ├── resources/              # SQL resource files
 │   ├── create_sample_tables.sql
 │   └── insert_sample_data.sql

@@ -9,7 +9,7 @@
 - ✅ **다국어 지원**: 영어 및 한글 인터페이스
 - ✅ **진행 상황 모니터링**: 상세 이력이 포함된 실시간 이관 진행 상황 추적
 - ✅ **MSSQL 간 데이터 이관**: 고성능 배치 처리
-- ✅ **XML/JSON 설정 지원**: 유연한 설정 형식 선택
+- ✅ **XML 설정 지원**: 유연한 XML 기반 설정
 - ✅ **컬럼 오버라이드**: 이관 시 컬럼값 변경/추가
 - ✅ **전처리/후처리**: 이관 전후 SQL 스크립트 실행
 - ✅ **동적 변수**: 실행 시점 데이터 추출 및 활용
@@ -113,7 +113,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 
 ### 메뉴 옵션
 
-1. **쿼리문정의 파일 Syntax검증**: XML/JSON 구문 및 속성명 검사
+1. **쿼리문정의 파일 Syntax검증**: XML 구문 및 속성명 검사
 2. **DB연결 테스트**: 데이터베이스 연결 확인
 3. **데이터 이관 실행**: 선택한 쿼리 파일로 데이터 이관 실행
 4. **이관 진행 상황 조회**: 이관 이력 및 상세 상태 보기
@@ -137,7 +137,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 
 ## 설정 파일 형식
 
-### XML 형식 (권장)
+### XML 형식
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
@@ -162,24 +162,6 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
     </query>
   </queries>
 </migration>
-```
-
-### JSON 형식
-```json
-{
-  "databases": {
-    "source": "sourceDB",
-    "target": "targetDB"
-  },
-  "queries": [
-    {
-      "id": "migrate_users",
-      "sourceQuery": "SELECT * FROM users WHERE status = 'ACTIVE'",
-      "targetTable": "users",
-      "enabled": true
-    }
-  ]
-}
 ```
 
 ## 문서

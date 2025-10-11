@@ -51,7 +51,7 @@
 - **API Compatibility**: Maintains backward compatibility with existing configurations
 
 #### Enhanced Configuration Validation
-- **Attribute Name Validation**: Validates all XML/JSON attribute names
+- **Attribute Name Validation**: Validates all XML attribute names
 - **Detailed Error Messages**: Shows allowed attributes when validation fails
 - **Comprehensive Checks**: Validates all configuration sections
   - Settings attributes
