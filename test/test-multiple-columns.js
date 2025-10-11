@@ -3,7 +3,7 @@
  * 실제 DB 연결 없이 로직 검증
  */
 
-const MSSQLDataMigrator = require('../src/mssql-data-migrator');
+const MSSQLDataMigrator = require('../src/mssql-data-migrator-modular');
 
 async function testMultipleColumnsExtraction() {
     console.log('🧪 multiple_columns extractType 기능 테스트 시작\n');

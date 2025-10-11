@@ -4,7 +4,7 @@
  * 이 테스트는 동적변수 추출 시 dbinfo.json에 정의된 모든 DB에 접속할 수 있는지 확인합니다.
  */
 
-const MSSQLDataMigrator = require('../src/mssql-data-migrator');
+const MSSQLDataMigrator = require('../src/mssql-data-migrator-modular');
 const MSSQLConnectionManager = require('../src/mssql-connection-manager');
 
 // 테스트 설정

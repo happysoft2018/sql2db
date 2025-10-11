@@ -3,7 +3,7 @@
  * companyMapping 타입의 동적변수 사용법 검증
  */
 
-const MSSQLDataMigrator = require('../src/mssql-data-migrator');
+const MSSQLDataMigrator = require('../src/mssql-data-migrator-modular');
 
 async function testKeyValuePairsExtraction() {
     console.log('🧪 key_value_pairs extractType 기능 테스트 시작\n');

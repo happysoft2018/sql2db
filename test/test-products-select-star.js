@@ -1,4 +1,4 @@
-const MSSQLDataMigrator = require('../src/mssql-data-migrator');
+const MSSQLDataMigrator = require('../src/mssql-data-migrator-modular');
 const path = require('path');
 
 async function testProductsSelectStar() {

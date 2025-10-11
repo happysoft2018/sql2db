@@ -3,7 +3,7 @@
  * allApprovalCodes의 각 컬럼값을 식별할 수 있는 새로운 기능 검증
  */
 
-const MSSQLDataMigrator = require('../src/mssql-data-migrator');
+const MSSQLDataMigrator = require('../src/mssql-data-migrator-modular');
 
 async function testColumnIdentifiedExtraction() {
     console.log('🧪 column_identified extractType 기능 테스트 시작\n');
