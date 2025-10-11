@@ -17,6 +17,138 @@ const colors = {
     white: '\x1b[37m'
 };
 
+// 언어 설정 (명령줄 인수에서 가져오기)
+const args = process.argv.slice(2);
+const langArg = args.find(arg => arg.startsWith('--lang='));
+const LANGUAGE = langArg ? langArg.split('=')[1] : 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        title: 'MSSQL Data Migration Tool v1.0',
+        menuTitle: 'Menu Selection',
+        menu1: '1. Validate Query Definition File',
+        menu2: '2. Test Database Connection',
+        menu3: '3. Execute Data Migration',
+        menu4: '4. Show Help',
+        menu0: '0. Exit',
+        selectPrompt: 'Please select (0-4): ',
+        invalidSelection: 'Invalid selection. Please try again.',
+        
+        // File selection
+        selectFile: 'Select Query Definition File',
+        availableFiles: 'Available query definition files:',
+        selectFilePrompt: 'Select file number',
+        noFilesFound: '(No query definition files found)',
+        fileNotEntered: 'File number not entered.',
+        invalidFileNumber: 'Invalid file number. Please enter a number between',
+        selectedFile: 'Selected file:',
+        
+        // Validate
+        validateTitle: 'Validate Query Definition File',
+        validating: 'Validating query definition file...',
+        validationCompleted: '✅ Query definition file validation completed.',
+        validationFailed: '❌ Query definition file has errors.',
+        
+        // Test connection
+        testConnectionTitle: 'Database Connection Test',
+        testingConnection: 'Testing database connections...',
+        connectionSuccess: '✅ Database connection test successful.',
+        connectionFailed: '❌ Database connection failed.',
+        checkConfig: 'Please check connection information in config/dbinfo.json.',
+        
+        // Migration
+        migrationTitle: 'Execute Data Migration',
+        confirmMigration: 'Are you sure you want to execute data migration? (Y/N): ',
+        migrationCancelled: 'Migration cancelled.',
+        startingMigration: 'Starting data migration...',
+        migrationSuccess: '✅ Data migration completed successfully!',
+        migrationFailed: '❌ Error occurred during data migration.',
+        executionTime: 'Execution time:',
+        
+        // Help
+        helpTitle: 'Help',
+        additionalInfo: 'Additional Information:',
+        helpQueryFiles: '- Query Definition Files: Create XML or JSON files in queries/ folder',
+        helpDbConfig: '- Database Configuration: Configure in config/dbinfo.json',
+        helpProgress: '- Check Progress: node src/progress-cli.js list',
+        helpLogs: '- Detailed Logs: Check logs/ folder',
+        
+        // Common
+        pressEnter: 'Press Enter to continue...',
+        exiting: 'Exiting MSSQL Data Migration Tool.',
+        starting: 'Starting MSSQL Data Migration Tool...',
+        interrupted: 'Program interrupted by user.',
+        errorOccurred: 'Error occurred:',
+        nodeVersionError: 'Node.js 14.0 or higher is required.',
+        currentVersion: 'Current version:',
+        installNodeJs: 'Please install the latest version from https://nodejs.org'
+    },
+    kr: {
+        title: 'MSSQL 데이터 이관 도구 v1.0',
+        menuTitle: '메뉴 선택',
+        menu1: '1. 쿼리문정의 파일 Syntax검증',
+        menu2: '2. DB연결 테스트 (연결 가능 여부 포함)',
+        menu3: '3. 데이터 이관 실행',
+        menu4: '4. 도움말 보기',
+        menu0: '0. 종료',
+        selectPrompt: '선택하세요 (0-4): ',
+        invalidSelection: '잘못된 선택입니다. 다시 선택해주세요.',
+        
+        // File selection
+        selectFile: '쿼리문정의 파일 선택',
+        availableFiles: '사용 가능한 쿼리문정의 파일들:',
+        selectFilePrompt: '파일 번호를 선택하세요',
+        noFilesFound: '(쿼리문정의 파일을 찾을 수 없습니다)',
+        fileNotEntered: '파일 번호가 입력되지 않았습니다.',
+        invalidFileNumber: '잘못된 파일 번호입니다. 다음 범위의 숫자를 입력하세요',
+        selectedFile: '선택된 파일:',
+        
+        // Validate
+        validateTitle: '쿼리문정의 파일 검증',
+        validating: '쿼리문정의 파일을 검증하고 있습니다...',
+        validationCompleted: '✅ 쿼리문정의 파일 검증이 완료되었습니다.',
+        validationFailed: '❌ 쿼리문정의 파일에 오류가 있습니다.',
+        
+        // Test connection
+        testConnectionTitle: '데이터베이스 연결 테스트',
+        testingConnection: '데이터베이스 연결을 테스트하고 있습니다...',
+        connectionSuccess: '✅ 데이터베이스 연결 테스트가 성공했습니다.',
+        connectionFailed: '❌ 데이터베이스 연결에 실패했습니다.',
+        checkConfig: 'config/dbinfo.json 파일의 연결 정보를 확인해주세요.',
+        
+        // Migration
+        migrationTitle: '데이터 이관 실행',
+        confirmMigration: '정말로 데이터 이관을 실행하시겠습니까? (Y/N): ',
+        migrationCancelled: '이관이 취소되었습니다.',
+        startingMigration: '데이터 이관을 시작합니다...',
+        migrationSuccess: '✅ 데이터 이관이 성공적으로 완료되었습니다!',
+        migrationFailed: '❌ 데이터 이관 중 오류가 발생했습니다.',
+        executionTime: '실행 시간:',
+        
+        // Help
+        helpTitle: '도움말',
+        additionalInfo: '추가 정보:',
+        helpQueryFiles: '- 쿼리문정의 파일: queries/ 폴더에 XML 또는 JSON 형식으로 작성',
+        helpDbConfig: '- DB 연결 설정: config/dbinfo.json 파일에서 설정',
+        helpProgress: '- 진행 상황 확인: node src/progress-cli.js list',
+        helpLogs: '- 상세 로그: logs/ 폴더 확인',
+        
+        // Common
+        pressEnter: 'Enter를 눌러 계속...',
+        exiting: 'MSSQL 데이터 이관 도구를 종료합니다.',
+        starting: 'MSSQL 데이터 이관 도구를 시작합니다...',
+        interrupted: '프로그램이 사용자에 의해 중단되었습니다.',
+        errorOccurred: '오류 발생:',
+        nodeVersionError: 'Node.js 14.0 이상이 필요합니다.',
+        currentVersion: '현재 버전:',
+        installNodeJs: 'https://nodejs.org 에서 최신 버전을 설치해주세요.'
+    }
+};
+
+// 현재 언어의 메시지 가져오기
+const msg = messages[LANGUAGE] || messages.en;
+
 // 콘솔 인터페이스 생성
 const rl = readline.createInterface({
     input: process.stdin,
@@ -42,36 +174,36 @@ function clearScreen() {
 }
 
 /**
- * 타이틀 표시
+ * Show title
  */
 function showTitle() {
     console.log(colors.cyan + colors.bright);
     console.log('=========================================');
-    console.log('  MSSQL 데이터 이관 도구 v1.0');
+    console.log(`  ${msg.title}`);
     console.log('=========================================');
     console.log(colors.reset);
 }
 
 /**
- * 메뉴 표시
+ * Show menu
  */
 function showMenu() {
     console.log(colors.yellow);
     console.log('=========================================');
-    console.log('  메뉴 선택');
+    console.log(`  ${msg.menuTitle}`);
     console.log('=========================================');
     console.log(colors.reset);
-    console.log('1. 쿼리문정의 파일 Syntax검증');
-    console.log('2. DB연결 테스트 (연결 가능 여부 포함)');
-    console.log('3. 데이터 이관 실행');
-    console.log('4. 도움말 보기');
-    console.log('0. 종료');
+    console.log(msg.menu1);
+    console.log(msg.menu2);
+    console.log(msg.menu3);
+    console.log(msg.menu4);
+    console.log(msg.menu0);
     console.log(colors.yellow + '=========================================' + colors.reset);
     console.log();
 }
 
 /**
- * queries 폴더에서 XML/JSON 파일 목록 가져오기
+ * Get query files from queries folder
  */
 function getQueryFiles() {
     const queriesDir = path.join(__dirname, 'queries');
@@ -84,7 +216,7 @@ function getQueryFiles() {
         
         const allFiles = fs.readdirSync(queriesDir);
         
-        // XML 파일
+        // XML files
         allFiles.filter(f => f.endsWith('.xml')).forEach(f => {
             files.push({
                 path: path.join('queries', f),
@@ -93,7 +225,7 @@ function getQueryFiles() {
             });
         });
         
-        // JSON 파일
+        // JSON files
         allFiles.filter(f => f.endsWith('.json')).forEach(f => {
             files.push({
                 path: path.join('queries', f),
@@ -104,31 +236,33 @@ function getQueryFiles() {
         
         return files;
     } catch (error) {
-        console.error(colors.red + `파일 목록 조회 실패: ${error.message}` + colors.reset);
+        console.error(colors.red + `Failed to get file list: ${error.message}` + colors.reset);
         return files;
     }
 }
 
 /**
- * 파일 선택 메뉴 표시 및 선택
+ * Display file selection menu and get selection
  */
-async function selectQueryFile(title = '쿼리문정의 파일 선택') {
+async function selectQueryFile(title = null) {
+    const displayTitle = title || msg.selectFile;
+    
     console.log();
     console.log(colors.cyan + '=========================================' + colors.reset);
-    console.log(colors.bright + `  ${title}` + colors.reset);
+    console.log(colors.bright + `  ${displayTitle}` + colors.reset);
     console.log(colors.cyan + '=========================================' + colors.reset);
     console.log();
     
     const files = getQueryFiles();
     
     if (files.length === 0) {
-        console.log(colors.red + '  (쿼리문정의 파일을 찾을 수 없습니다)' + colors.reset);
+        console.log(colors.red + `  ${msg.noFilesFound}` + colors.reset);
         console.log();
-        await prompt('Enter를 눌러 계속...');
+        await prompt(msg.pressEnter);
         return null;
     }
     
-    console.log('사용 가능한 쿼리문정의 파일들:');
+    console.log(msg.availableFiles);
     console.log();
     
     files.forEach((file, index) => {
@@ -139,10 +273,10 @@ async function selectQueryFile(title = '쿼리문정의 파일 선택') {
     console.log();
     
     while (true) {
-        const answer = await prompt(`파일 번호를 선택하세요 (1-${files.length}): `);
+        const answer = await prompt(`${msg.selectFilePrompt} (1-${files.length}): `);
         
         if (answer === '') {
-            console.log(colors.red + '파일 번호가 입력되지 않았습니다.' + colors.reset);
+            console.log(colors.red + msg.fileNotEntered + colors.reset);
             console.log();
             continue;
         }
@@ -150,14 +284,14 @@ async function selectQueryFile(title = '쿼리문정의 파일 선택') {
         const num = parseInt(answer);
         
         if (isNaN(num) || num < 1 || num > files.length) {
-            console.log(colors.red + `잘못된 파일 번호입니다. 1-${files.length} 사이의 숫자를 입력하세요.` + colors.reset);
+            console.log(colors.red + `${msg.invalidFileNumber} 1-${files.length}.` + colors.reset);
             console.log();
             continue;
         }
         
         const selectedFile = files[num - 1];
         console.log();
-        console.log(colors.green + `선택된 파일: ${selectedFile.path}` + colors.reset);
+        console.log(colors.green + `${msg.selectedFile} ${selectedFile.path}` + colors.reset);
         console.log();
         
         return selectedFile.path;
@@ -165,16 +299,16 @@ async function selectQueryFile(title = '쿼리문정의 파일 선택') {
 }
 
 /**
- * 1. 쿼리문정의 파일 검증
+ * 1. Validate query definition file
  */
 async function validateQueryFile() {
-    const filePath = await selectQueryFile('쿼리문정의 파일 검증');
+    const filePath = await selectQueryFile(msg.validateTitle);
     
     if (!filePath) {
         return;
     }
     
-    console.log('쿼리문정의 파일을 검증하고 있습니다...');
+    console.log(msg.validating);
     console.log();
     
     try {
@@ -184,26 +318,26 @@ async function validateQueryFile() {
         });
         
         console.log();
-        console.log(colors.green + '✅ 쿼리문정의 파일 검증이 완료되었습니다.' + colors.reset);
+        console.log(colors.green + msg.validationCompleted + colors.reset);
     } catch (error) {
         console.log();
-        console.log(colors.red + '❌ 쿼리문정의 파일에 오류가 있습니다.' + colors.reset);
+        console.log(colors.red + msg.validationFailed + colors.reset);
     }
     
     console.log();
-    await prompt('Enter를 눌러 계속...');
+    await prompt(msg.pressEnter);
 }
 
 /**
- * 2. DB 연결 테스트
+ * 2. Test database connection
  */
 async function testDatabaseConnection() {
     console.log();
     console.log(colors.cyan + '=========================================' + colors.reset);
-    console.log(colors.bright + '  데이터베이스 연결 테스트' + colors.reset);
+    console.log(colors.bright + `  ${msg.testConnectionTitle}` + colors.reset);
     console.log(colors.cyan + '=========================================' + colors.reset);
     console.log();
-    console.log('데이터베이스 연결을 테스트하고 있습니다...');
+    console.log(msg.testingConnection);
     console.log();
     
     try {
@@ -213,39 +347,39 @@ async function testDatabaseConnection() {
         });
         
         console.log();
-        console.log(colors.green + '✅ 데이터베이스 연결 테스트가 성공했습니다.' + colors.reset);
+        console.log(colors.green + msg.connectionSuccess + colors.reset);
     } catch (error) {
         console.log();
-        console.log(colors.red + '❌ 데이터베이스 연결에 실패했습니다.' + colors.reset);
-        console.log(colors.yellow + 'config/dbinfo.json 파일의 연결 정보를 확인해주세요.' + colors.reset);
+        console.log(colors.red + msg.connectionFailed + colors.reset);
+        console.log(colors.yellow + msg.checkConfig + colors.reset);
     }
     
     console.log();
-    await prompt('Enter를 눌러 계속...');
+    await prompt(msg.pressEnter);
 }
 
 /**
- * 3. 데이터 이관 실행
+ * 3. Execute data migration
  */
 async function executeMigration() {
-    const filePath = await selectQueryFile('데이터 이관 실행');
+    const filePath = await selectQueryFile(msg.migrationTitle);
     
     if (!filePath) {
         return;
     }
     
-    // 확인
-    const confirm = await prompt(colors.yellow + '정말로 데이터 이관을 실행하시겠습니까? (Y/N): ' + colors.reset);
+    // Confirmation
+    const confirm = await prompt(colors.yellow + msg.confirmMigration + colors.reset);
     
     if (confirm.toUpperCase() !== 'Y') {
-        console.log(colors.yellow + '이관이 취소되었습니다.' + colors.reset);
+        console.log(colors.yellow + msg.migrationCancelled + colors.reset);
         console.log();
-        await prompt('Enter를 눌러 계속...');
+        await prompt(msg.pressEnter);
         return;
     }
     
     console.log();
-    console.log('데이터 이관을 시작합니다...');
+    console.log(msg.startingMigration);
     console.log();
     
     const startTime = new Date();
@@ -260,24 +394,24 @@ async function executeMigration() {
         const duration = ((endTime - startTime) / 1000).toFixed(2);
         
         console.log();
-        console.log(colors.green + '✅ 데이터 이관이 성공적으로 완료되었습니다!' + colors.reset);
-        console.log(colors.dim + `실행 시간: ${duration}초` + colors.reset);
+        console.log(colors.green + msg.migrationSuccess + colors.reset);
+        console.log(colors.dim + `${msg.executionTime} ${duration}s` + colors.reset);
     } catch (error) {
         console.log();
-        console.log(colors.red + '❌ 데이터 이관 중 오류가 발생했습니다.' + colors.reset);
+        console.log(colors.red + msg.migrationFailed + colors.reset);
     }
     
     console.log();
-    await prompt('Enter를 눌러 계속...');
+    await prompt(msg.pressEnter);
 }
 
 /**
- * 4. 도움말 표시
+ * 4. Show help
  */
 async function showHelp() {
     console.log();
     console.log(colors.cyan + '=========================================' + colors.reset);
-    console.log(colors.bright + '  도움말' + colors.reset);
+    console.log(colors.bright + `  ${msg.helpTitle}` + colors.reset);
     console.log(colors.cyan + '=========================================' + colors.reset);
     console.log();
     
@@ -287,22 +421,22 @@ async function showHelp() {
             cwd: __dirname
         });
     } catch (error) {
-        // 도움말은 오류가 발생해도 무시
+        // Ignore errors in help
     }
     
     console.log();
-    console.log(colors.bright + '추가 정보:' + colors.reset);
-    console.log('- 쿼리문정의 파일: queries/ 폴더에 XML 또는 JSON 형식으로 작성');
-    console.log('- DB 연결 설정: config/dbinfo.json 파일에서 설정');
-    console.log('- 진행 상황 확인: node src/progress-cli.js list');
-    console.log('- 상세 로그: logs/ 폴더 확인');
+    console.log(colors.bright + msg.additionalInfo + colors.reset);
+    console.log(msg.helpQueryFiles);
+    console.log(msg.helpDbConfig);
+    console.log(msg.helpProgress);
+    console.log(msg.helpLogs);
     console.log();
     
-    await prompt('Enter를 눌러 계속...');
+    await prompt(msg.pressEnter);
 }
 
 /**
- * 메인 루프
+ * Main loop
  */
 async function main() {
     console.log();
@@ -312,7 +446,7 @@ async function main() {
         showTitle();
         showMenu();
         
-        const choice = await prompt('선택하세요 (0-4): ');
+        const choice = await prompt(msg.selectPrompt);
         
         switch (choice) {
             case '1':
@@ -333,13 +467,13 @@ async function main() {
                 
             case '0':
                 console.log();
-                console.log(colors.cyan + 'MSSQL 데이터 이관 도구를 종료합니다.' + colors.reset);
+                console.log(colors.cyan + msg.exiting + colors.reset);
                 console.log();
                 rl.close();
                 process.exit(0);
                 
             default:
-                console.log(colors.red + '잘못된 선택입니다. 다시 선택해주세요.' + colors.reset);
+                console.log(colors.red + msg.invalidSelection + colors.reset);
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 break;
         }
@@ -351,26 +485,26 @@ const nodeVersion = process.version;
 const majorVersion = parseInt(nodeVersion.split('.')[0].substring(1));
 
 if (majorVersion < 14) {
-    console.error(colors.red + '❌ Node.js 14.0 이상이 필요합니다.' + colors.reset);
-    console.error(colors.yellow + `현재 버전: ${nodeVersion}` + colors.reset);
-    console.error(colors.cyan + 'https://nodejs.org 에서 최신 버전을 설치해주세요.' + colors.reset);
+    console.error(colors.red + `❌ ${msg.nodeVersionError}` + colors.reset);
+    console.error(colors.yellow + `${msg.currentVersion} ${nodeVersion}` + colors.reset);
+    console.error(colors.cyan + msg.installNodeJs + colors.reset);
     process.exit(1);
 }
 
-// 프로그램 시작
-console.log(colors.dim + 'MSSQL 데이터 이관 도구를 시작합니다...' + colors.reset);
+// Start program
+console.log(colors.dim + msg.starting + colors.reset);
 
-// 예외 처리
+// Exception handling
 process.on('SIGINT', () => {
     console.log();
-    console.log(colors.yellow + '\n프로그램이 사용자에 의해 중단되었습니다.' + colors.reset);
+    console.log(colors.yellow + `\n${msg.interrupted}` + colors.reset);
     rl.close();
     process.exit(0);
 });
 
-// 메인 함수 실행
+// Execute main function
 main().catch(error => {
-    console.error(colors.red + '\n오류 발생:', error.message + colors.reset);
+    console.error(colors.red + `\n${msg.errorOccurred}`, error.message + colors.reset);
     rl.close();
     process.exit(1);
 });
