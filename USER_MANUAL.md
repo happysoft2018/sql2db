@@ -57,13 +57,13 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - Users unfamiliar with Node.js
 
 **Installation Steps:**
-1. Download `sql2db-v0.8.0-bin.zip` from the release page
+1. Download `sql2db-v0.8.1-bin.zip` from the release page
 2. Extract to your desired location (e.g., `C:\Tools\sql2db\`)
 3. No additional installation required - ready to use!
 
 **Package Contents:**
 ```
-sql2db-v0.8.0/
+sql2db-v0.8.1/
 ├── sql2db.exe              # Main executable (no Node.js needed)
 ├── run.bat                 # English launcher
 ├── 실행하기.bat             # Korean launcher

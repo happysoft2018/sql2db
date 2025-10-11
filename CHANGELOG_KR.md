@@ -1,5 +1,71 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.1 - XML 전용 설정 지원 (2025-10-11)
+
+### 🔄 주요 변경 사항
+
+#### JSON 쿼리문정의 파일 지원 제거
+- **XML 전용**: 쿼리문정의 파일은 이제 XML 형식만 지원
+- **간소화된 아키텍처**: 더 깨끗한 코드베이스를 위해 JSON 파싱 로직 제거
+- **명확한 오류 메시지**: JSON 파일 사용 시도 시 명확한 오류 제공
+- **일관된 문서화**: 모든 문서가 XML 전용 지원을 반영하도록 업데이트
+
+### 📝 변경 내용
+
+#### 코드 업데이트
+- **migrate-cli.js**: XML 형식만 지정하도록 도움말 텍스트 업데이트
+- **config-manager.js**: XML이 아닌 파일을 거부하는 검증 추가
+- **삭제된 파일**: `queries/migration-queries.json` 샘플 파일 삭제
+
+#### 문서 업데이트
+- **README.md**: JSON 형식 섹션 및 예제 제거
+- **README_KR.md**: JSON 형식 섹션 및 예제 제거
+- **USER_MANUAL.md**: 설정 형식 설명 업데이트
+- **USER_MANUAL_KR.md**: 설정 형식 설명 업데이트
+- **CHANGELOG.md**: JSON 참조 제거
+- **CHANGELOG_KR.md**: JSON 참조 제거
+
+### 💡 마이그레이션 가이드
+
+JSON 쿼리문정의 파일을 사용하고 있었다면:
+
+1. **XML로 변환**: 문서에 표시된 XML 형식 구조 사용
+2. **파일 확장자 변경**: `.json`을 `.xml`로 변경
+3. **구문 조정**: 적절한 태그와 CDATA 섹션이 있는 XML 구조 따르기
+
+**변환 예시:**
+```json
+// 이전 JSON 형식 (더 이상 지원되지 않음)
+{
+  "queries": [{
+    "id": "migrate_users",
+    "sourceQuery": "SELECT * FROM users"
+  }]
+}
+```
+
+```xml
+<!-- 새로운 XML 형식 -->
+<migration>
+  <queries>
+    <query id="migrate_users">
+      <sourceQuery>
+        <![CDATA[SELECT * FROM users]]>
+      </sourceQuery>
+    </query>
+  </queries>
+</migration>
+```
+
+### 🎯 변경 이유
+
+- **단일 형식**: 하나의 설정 형식 유지로 복잡성 감소
+- **더 나은 구조**: XML은 복잡한 설정에 더 나은 구조 제공
+- **CDATA 지원**: XML CDATA 섹션은 SQL 쿼리를 더 자연스럽게 처리
+- **업계 표준**: XML은 데이터베이스 마이그레이션 도구에서 더 일반적
+
+---
+
 ## 🚀 v0.8.0 - 대화형 인터페이스 및 독립 실행 파일 지원 (2025-10-11)
 
 ### ✨ 새로운 기능

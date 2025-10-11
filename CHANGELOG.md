@@ -1,5 +1,71 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.1 - XML-Only Configuration Support (2025-10-11)
+
+### 🔄 Breaking Changes
+
+#### Removed JSON Query Definition File Support
+- **XML Only**: Query definition files now support XML format only
+- **Simplified Architecture**: Removed JSON parsing logic for cleaner codebase
+- **Clear Error Messages**: Provides clear error when attempting to use JSON files
+- **Consistent Documentation**: All documentation updated to reflect XML-only support
+
+### 📝 Changes
+
+#### Code Updates
+- **migrate-cli.js**: Updated help text to specify XML format only
+- **config-manager.js**: Added validation to reject non-XML files
+- **Removed Files**: Deleted `queries/migration-queries.json` sample file
+
+#### Documentation Updates
+- **README.md**: Removed JSON format section and examples
+- **README_KR.md**: Removed JSON format section and examples
+- **USER_MANUAL.md**: Updated configuration format description
+- **USER_MANUAL_KR.md**: Updated configuration format description
+- **CHANGELOG.md**: Removed JSON references
+- **CHANGELOG_KR.md**: Removed JSON references
+
+### 💡 Migration Guide
+
+If you were using JSON query definition files:
+
+1. **Convert to XML**: Use the XML format structure as shown in documentation
+2. **Update File Extension**: Change `.json` to `.xml`
+3. **Adjust Syntax**: Follow XML structure with proper tags and CDATA sections
+
+**Example Conversion:**
+```json
+// Old JSON format (no longer supported)
+{
+  "queries": [{
+    "id": "migrate_users",
+    "sourceQuery": "SELECT * FROM users"
+  }]
+}
+```
+
+```xml
+<!-- New XML format -->
+<migration>
+  <queries>
+    <query id="migrate_users">
+      <sourceQuery>
+        <![CDATA[SELECT * FROM users]]>
+      </sourceQuery>
+    </query>
+  </queries>
+</migration>
+```
+
+### 🎯 Rationale
+
+- **Single Format**: Maintaining one configuration format reduces complexity
+- **Better Structure**: XML provides better structure for complex configurations
+- **CDATA Support**: XML CDATA sections handle SQL queries more naturally
+- **Industry Standard**: XML is more common for database migration tools
+
+---
+
 ## 🚀 v0.8.0 - Interactive Interface & Standalone Executable (2025-10-11)
 
 ### ✨ New Features
