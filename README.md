@@ -1,9 +1,13 @@
 # MSSQL Data Migration Tool
 
-A Node.js-based solution for data migration between MSSQL databases.
+A Node.js-based solution for data migration between MSSQL databases with an interactive interface and standalone executable support.
 
 ## Key Features
 
+- ✅ **Interactive Interface**: User-friendly menu system for easy operation
+- ✅ **Standalone Executable**: Run without Node.js installation
+- ✅ **Multilingual Support**: English and Korean interfaces
+- ✅ **Progress Monitoring**: Real-time migration progress tracking with detailed history
 - ✅ **MSSQL Data Migration**: High-performance batch processing
 - ✅ **XML/JSON Configuration Support**: Flexible configuration format selection
 - ✅ **Column Overrides**: Modify/add column values during migration
@@ -13,9 +17,33 @@ A Node.js-based solution for data migration between MSSQL databases.
 - ✅ **Detailed Logging**: 5-level log system
 - ✅ **DRY RUN Mode**: Simulation without actual changes
 - ✅ **SELECT * Auto Processing**: Automatic IDENTITY column exclusion
-- ✅ **Progress Tracking**: Real-time migration progress monitoring
 
 ## Quick Start
+
+### Option 1: Using Standalone Executable (Recommended)
+
+1. **Download Release Package**
+   - Download `sql2db-v0.8.0-bin.zip`
+   - Extract to your desired location
+
+2. **Configure Database Connection**
+   - Edit `config/dbinfo.json` with your database settings
+   - Add query definition files to `queries/` folder
+
+3. **Run**
+   ```bash
+   # English version
+   run.bat
+   
+   # Korean version
+   실행하기.bat
+   
+   # Or directly
+   sql2db.exe --lang=en
+   sql2db.exe --lang=kr
+   ```
+
+### Option 2: Using Node.js
 
 ### 1. Installation
 ```bash
@@ -46,23 +74,66 @@ Create `config/dbinfo.json` file:
 ```
 
 ### 3. Basic Execution
-```bash
-# Windows users (recommended)
-migrate.bat
 
-# Command line users
+#### Interactive Interface (Recommended)
+```bash
+# English version
+npm start
+# or
+run.bat
+
+# Korean version
+npm run start:kr
+# or
+실행하기.bat
+```
+
+#### Command Line Interface
+```bash
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
+
+## Interactive Menu Features
+
+```
+=========================================
+  MSSQL Data Migration Tool
+  Version 0.8.0
+=========================================
+
+1. Validate Query Definition File
+2. Test Database Connection
+3. Execute Data Migration
+4. Check Migration Progress
+5. Show Help
+0. Exit
+
+Please select (0-5):
+```
+
+### Menu Options
+
+1. **Validate Query Definition File**: Check XML/JSON syntax and attribute names
+2. **Test Database Connection**: Verify database connectivity
+3. **Execute Data Migration**: Run data migration with selected query file
+4. **Check Migration Progress**: View migration history and detailed status
+   - Recent 3 migrations displayed by default
+   - Press 'A' to view all migrations
+   - Enter number to view detailed progress information
+5. **Show Help**: Display usage information
 
 ## Main Commands
 
 | Command | Description |
 |---------|-------------|
-| `migrate.bat` | Interactive menu interface |
+| `npm start` or `run.bat` | Interactive menu (English) |
+| `npm run start:kr` or `실행하기.bat` | Interactive menu (Korean) |
 | `node src/migrate-cli.js validate` | Configuration validation |
 | `node src/migrate-cli.js test` | Connection test |
 | `node src/migrate-cli.js migrate --dry-run` | Simulation execution |
 | `node src/migrate-cli.js list-dbs` | List databases |
+| `npm run build` | Build standalone executable |
+| `npm run release` | Create release package |
 
 ## Configuration File Formats
 
