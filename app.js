@@ -36,9 +36,10 @@ const messages = {
         menu1: '1. Validate Query Definition File',
         menu2: '2. Test Database Connection',
         menu3: '3. Execute Data Migration',
-        menu4: '4. Show Help',
+        menu4: '4. Check Migration Progress',
+        menu5: '5. Show Help',
         menu0: '0. Exit',
-        selectPrompt: 'Please select (0-4): ',
+        selectPrompt: 'Please select (0-5): ',
         invalidSelection: 'Invalid selection. Please try again.',
         
         // File selection
@@ -72,12 +73,36 @@ const messages = {
         migrationFailed: '❌ Error occurred during data migration.',
         executionTime: 'Execution time:',
         
+        // Progress
+        progressTitle: 'Migration Progress',
+        noProgressFiles: 'No migration progress files found.',
+        progressListHeaderRecent: 'Migration History (Recent 3):',
+        progressListHeaderAll: 'Migration History (All):',
+        selectMigration: "Enter number to view details, 'A' for all, or '0' to go back: ",
+        invalidNumber: 'Invalid number.',
+        invalidInput: 'Invalid input.',
+        progressDetails: 'Migration Details',
+        detailMigrationId: 'Migration ID:',
+        detailStatus: 'Status:',
+        detailStartTime: 'Start Time:',
+        detailEndTime: 'End Time:',
+        detailDuration: 'Duration:',
+        detailTotalQueries: 'Total Queries:',
+        detailCompletedQueries: 'Completed Queries:',
+        detailFailedQueries: 'Failed Queries:',
+        detailTotalRows: 'Total Rows:',
+        detailProcessedRows: 'Processed Rows:',
+        detailCurrentPhase: 'Current Phase:',
+        detailQueryList: 'Query Status:',
+        detailErrors: 'Errors:',
+        detailNoErrors: 'No errors',
+        
         // Help
         helpTitle: 'Help',
         additionalInfo: 'Additional Information:',
         helpQueryFiles: '- Query Definition Files: Create XML or JSON files in queries/ folder',
         helpDbConfig: '- Database Configuration: Configure in config/dbinfo.json',
-        helpProgress: '- Check Progress: node src/progress-cli.js list',
+        helpProgress: '- Check Progress: Use menu option 4',
         helpLogs: '- Detailed Logs: Check logs/ folder',
         
         // Common
@@ -96,9 +121,10 @@ const messages = {
         menu1: '1. 쿼리문정의 파일 Syntax검증',
         menu2: '2. DB연결 테스트 (연결 가능 여부 포함)',
         menu3: '3. 데이터 이관 실행',
-        menu4: '4. 도움말 보기',
+        menu4: '4. 이관 진행 상황 조회',
+        menu5: '5. 도움말 보기',
         menu0: '0. 종료',
-        selectPrompt: '선택하세요 (0-4): ',
+        selectPrompt: '선택하세요 (0-5): ',
         invalidSelection: '잘못된 선택입니다. 다시 선택해주세요.',
         
         // File selection
@@ -132,12 +158,36 @@ const messages = {
         migrationFailed: '❌ 데이터 이관 중 오류가 발생했습니다.',
         executionTime: '실행 시간:',
         
+        // Progress
+        progressTitle: '이관 진행 상황',
+        noProgressFiles: '진행 상황 파일이 없습니다.',
+        progressListHeaderRecent: '이관 작업 이력 (최근 3개):',
+        progressListHeaderAll: '이관 작업 이력 (전체):',
+        selectMigration: "상세 정보를 볼 번호를 입력하세요 ('A': 전체보기, '0': 뒤로가기): ",
+        invalidNumber: '잘못된 번호입니다.',
+        invalidInput: '잘못된 입력입니다.',
+        progressDetails: '이관 상세 정보',
+        detailMigrationId: 'Migration ID:',
+        detailStatus: '상태:',
+        detailStartTime: '시작 시간:',
+        detailEndTime: '종료 시간:',
+        detailDuration: '소요 시간:',
+        detailTotalQueries: '전체 쿼리:',
+        detailCompletedQueries: '완료된 쿼리:',
+        detailFailedQueries: '실패한 쿼리:',
+        detailTotalRows: '전체 행 수:',
+        detailProcessedRows: '처리된 행 수:',
+        detailCurrentPhase: '현재 단계:',
+        detailQueryList: '쿼리 상태:',
+        detailErrors: '오류:',
+        detailNoErrors: '오류 없음',
+        
         // Help
         helpTitle: '도움말',
         additionalInfo: '추가 정보:',
         helpQueryFiles: '- 쿼리문정의 파일: queries/ 폴더에 XML 또는 JSON 형식으로 작성',
         helpDbConfig: '- DB 연결 설정: config/dbinfo.json 파일에서 설정',
-        helpProgress: '- 진행 상황 확인: node src/progress-cli.js list',
+        helpProgress: '- 진행 상황 확인: 메뉴 4번 이용',
         helpLogs: '- 상세 로그: logs/ 폴더 확인',
         
         // Common
@@ -203,6 +253,7 @@ function showMenu() {
     console.log(msg.menu2);
     console.log(msg.menu3);
     console.log(msg.menu4);
+    console.log(msg.menu5);
     console.log(msg.menu0);
     console.log(colors.yellow + '=========================================' + colors.reset);
     console.log();
@@ -481,7 +532,229 @@ async function executeMigration() {
 }
 
 /**
- * 4. Show help
+ * 4. Check migration progress
+ */
+async function checkProgress() {
+    let showAll = false;
+    
+    while (true) {
+        console.log();
+        console.log(colors.cyan + '=========================================' + colors.reset);
+        console.log(colors.bright + `  ${msg.progressTitle}` + colors.reset);
+        console.log(colors.cyan + '=========================================' + colors.reset);
+        console.log();
+        
+        try {
+            const ProgressManager = require('./src/progress-manager');
+            const allProgressFiles = ProgressManager.listProgressFiles();
+            
+            if (allProgressFiles.length === 0) {
+                console.log(colors.yellow + msg.noProgressFiles + colors.reset);
+                console.log();
+                await prompt(msg.pressEnter);
+                return;
+            }
+            
+            // 최근 3개 또는 전체 표시
+            const progressFiles = showAll ? allProgressFiles : allProgressFiles.slice(0, 3);
+            
+            console.log(showAll ? msg.progressListHeaderAll : msg.progressListHeaderRecent);
+            console.log();
+            
+            progressFiles.forEach((progress, index) => {
+                const statusColor = 
+                    progress.status === 'COMPLETED' ? colors.green :
+                    progress.status === 'FAILED' ? colors.red :
+                    progress.status === 'RUNNING' ? colors.cyan :
+                    progress.status === 'PAUSED' ? colors.yellow :
+                    colors.white;
+                
+                console.log(`${colors.bright}${index + 1}. ${progress.migrationId}${colors.reset}`);
+                console.log(`   Status: ${statusColor}${progress.status}${colors.reset}`);
+                
+                if (progress.startTime) {
+                    const startDate = new Date(progress.startTime);
+                    console.log(`   Started: ${startDate.toLocaleString()}`);
+                }
+                
+                if (progress.totalQueries) {
+                    console.log(`   Progress: ${progress.completedQueries}/${progress.totalQueries} queries`);
+                    if (progress.failedQueries > 0) {
+                        console.log(`   ${colors.red}Failed: ${progress.failedQueries}${colors.reset}`);
+                    }
+                }
+                
+                if (progress.endTime) {
+                    const endDate = new Date(progress.endTime);
+                    const duration = ((progress.endTime - progress.startTime) / 1000).toFixed(0);
+                    console.log(`   Completed: ${endDate.toLocaleString()} (${duration}s)`);
+                }
+                
+                console.log();
+            });
+            
+            if (!showAll && allProgressFiles.length > 3) {
+                console.log(colors.dim + `Showing 3 of ${allProgressFiles.length} migration(s)` + colors.reset);
+            } else {
+                console.log(colors.dim + `Total: ${progressFiles.length} migration(s)` + colors.reset);
+            }
+            console.log();
+            
+            // 상세 정보 선택 또는 전체 보기
+            const selection = await prompt(msg.selectMigration);
+            
+            if (selection === '0' || selection === '') {
+                return;
+            }
+            
+            // 전체 보기 옵션
+            if (selection.toUpperCase() === 'A') {
+                if (showAll) {
+                    // 이미 전체를 보고 있으면 최근 3개로 돌아감
+                    showAll = false;
+                } else {
+                    // 전체 보기로 전환
+                    showAll = true;
+                }
+                continue;
+            }
+            
+            // 숫자 입력 처리
+            const selectionNum = parseInt(selection);
+            if (isNaN(selectionNum) || selectionNum < 1 || selectionNum > progressFiles.length) {
+                console.log(colors.red + msg.invalidInput + colors.reset);
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                continue;
+            }
+            
+            // 상세 정보 표시
+            const selectedProgress = progressFiles[selectionNum - 1];
+            await showProgressDetails(selectedProgress);
+            
+        } catch (error) {
+            console.log(colors.red + `Error loading progress: ${error.message}` + colors.reset);
+            console.log();
+            await prompt(msg.pressEnter);
+            return;
+        }
+    }
+}
+
+/**
+ * Show detailed progress information
+ */
+async function showProgressDetails(progressInfo) {
+    console.log();
+    console.log(colors.cyan + '=========================================' + colors.reset);
+    console.log(colors.bright + `  ${msg.progressDetails}` + colors.reset);
+    console.log(colors.cyan + '=========================================' + colors.reset);
+    console.log();
+    
+    try {
+        const fs = require('fs');
+        const progressData = JSON.parse(fs.readFileSync(progressInfo.filePath, 'utf8'));
+        
+        // 기본 정보
+        console.log(`${colors.bright}${msg.detailMigrationId}${colors.reset} ${progressData.migrationId}`);
+        
+        const statusColor = 
+            progressData.status === 'COMPLETED' ? colors.green :
+            progressData.status === 'FAILED' ? colors.red :
+            progressData.status === 'RUNNING' ? colors.cyan :
+            progressData.status === 'PAUSED' ? colors.yellow :
+            colors.white;
+        console.log(`${colors.bright}${msg.detailStatus}${colors.reset} ${statusColor}${progressData.status}${colors.reset}`);
+        
+        if (progressData.startTime) {
+            console.log(`${colors.bright}${msg.detailStartTime}${colors.reset} ${new Date(progressData.startTime).toLocaleString()}`);
+        }
+        
+        if (progressData.endTime) {
+            console.log(`${colors.bright}${msg.detailEndTime}${colors.reset} ${new Date(progressData.endTime).toLocaleString()}`);
+        }
+        
+        if (progressData.startTime) {
+            const endTime = progressData.endTime || Date.now();
+            const duration = ((endTime - progressData.startTime) / 1000).toFixed(1);
+            console.log(`${colors.bright}${msg.detailDuration}${colors.reset} ${duration}s`);
+        }
+        
+        console.log();
+        
+        // 진행 상황
+        console.log(`${colors.bright}${msg.detailTotalQueries}${colors.reset} ${progressData.totalQueries || 0}`);
+        console.log(`${colors.bright}${msg.detailCompletedQueries}${colors.reset} ${colors.green}${progressData.completedQueries || 0}${colors.reset}`);
+        
+        if (progressData.failedQueries > 0) {
+            console.log(`${colors.bright}${msg.detailFailedQueries}${colors.reset} ${colors.red}${progressData.failedQueries}${colors.reset}`);
+        }
+        
+        if (progressData.totalRows) {
+            console.log(`${colors.bright}${msg.detailTotalRows}${colors.reset} ${progressData.totalRows.toLocaleString()}`);
+        }
+        
+        if (progressData.processedRows) {
+            console.log(`${colors.bright}${msg.detailProcessedRows}${colors.reset} ${progressData.processedRows.toLocaleString()}`);
+        }
+        
+        if (progressData.currentPhase) {
+            console.log(`${colors.bright}${msg.detailCurrentPhase}${colors.reset} ${progressData.currentPhase}`);
+        }
+        
+        // 쿼리별 상태
+        if (progressData.queries && Object.keys(progressData.queries).length > 0) {
+            console.log();
+            console.log(`${colors.bright}${msg.detailQueryList}${colors.reset}`);
+            console.log();
+            
+            let queryIndex = 1;
+            for (const [queryId, queryData] of Object.entries(progressData.queries)) {
+                const queryStatusColor = 
+                    queryData.status === 'COMPLETED' ? colors.green :
+                    queryData.status === 'FAILED' ? colors.red :
+                    queryData.status === 'RUNNING' ? colors.cyan :
+                    colors.yellow;
+                
+                console.log(`  ${queryIndex}. ${queryId}`);
+                console.log(`     Status: ${queryStatusColor}${queryData.status}${colors.reset}`);
+                
+                if (queryData.processedRows) {
+                    console.log(`     Rows: ${queryData.processedRows.toLocaleString()}`);
+                }
+                
+                if (queryData.error) {
+                    console.log(`     ${colors.red}Error: ${queryData.error}${colors.reset}`);
+                }
+                
+                queryIndex++;
+            }
+        }
+        
+        // 오류 정보
+        if (progressData.errors && progressData.errors.length > 0) {
+            console.log();
+            console.log(`${colors.bright}${colors.red}${msg.detailErrors}${colors.reset}`);
+            progressData.errors.forEach((error, index) => {
+                console.log(`  ${index + 1}. ${error.message || error}`);
+                if (error.queryId) {
+                    console.log(`     Query: ${error.queryId}`);
+                }
+            });
+        } else {
+            console.log();
+            console.log(`${colors.green}${msg.detailNoErrors}${colors.reset}`);
+        }
+        
+    } catch (error) {
+        console.log(colors.red + `Error loading details: ${error.message}` + colors.reset);
+    }
+    
+    console.log();
+    await prompt(msg.pressEnter);
+}
+
+/**
+ * 5. Show help
  */
 async function showHelp() {
     console.log();
@@ -539,6 +812,10 @@ async function main() {
                 break;
                 
             case '4':
+                await checkProgress();
+                break;
+                
+            case '5':
                 await showHelp();
                 break;
                 
