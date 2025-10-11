@@ -352,7 +352,7 @@
     <!-- 주문 테이블 데이터 이관 (SQL 파일 사용) -->
     <query id="migrate_orders_from_file"
            description="주문 테이블 데이터 이관 (SQL 파일 사용)"
-           enabled="true">
+           enabled="false">
       <sourceQuery sourceQueryFile="sql/orders_migration.sql"
                   targetTable="orders"
                   targetColumns="*"
@@ -448,7 +448,7 @@
     <!-- multiple_columns 동적 변수 사용 예시 쿼리들 -->
     <query id="migrate_related_entities"
            description="multiple_columns로 추출된 모든 엔티티 ID를 사용한 관련 데이터 이관"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="entity_relationships" 
                   targetColumns="relation_id,entity_id,related_entity_id,relation_type,created_date" 
                   identityColumns="relation_id">
@@ -471,7 +471,7 @@
     <!-- 방법 1: 개별 변수를 사용한 쿼리 -->
     <query id="migrate_approver_audit_logs"
            description="승인자 코드만을 사용한 감사 로그 이관"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="audit_logs" 
                   targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
                   identityColumns="log_id">
@@ -572,7 +572,7 @@
     <!-- 컬럼별 식별을 활용한 복합 쿼리 예시 -->
     <query id="migrate_complex_approval_relations"
            description="컬럼별 식별된 코드들을 사용한 복합 관계 데이터 이관"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="approval_relations" 
                   targetColumns="relation_id,approver_id,requester_id,product_id,relation_type,created_date" 
                   identityColumns="relation_id">
@@ -639,7 +639,7 @@
 
     <query id="migrate_employees_with_dept_info"
            description="부서 매핑을 사용한 직원 정보 이관"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="employees_with_dept" 
                   targetColumns="emp_id,emp_name,dept_code,dept_name,status,status_desc,hire_date" 
                   identityColumns="emp_id">

@@ -4,6 +4,7 @@
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
   "main": "src/migrate-cli.js",
   "scripts": {
+    "start": "node app.js",
     "migrate": "echo '사용법: npm run migrate -- --query <파일경로>' && node src/migrate-cli.js migrate",
     "dry-run": "echo '사용법: npm run dry-run -- --query <파일경로>' && node src/migrate-cli.js migrate --dry-run",
     "validate": "echo '사용법: npm run validate -- --query <파일경로>' && node src/migrate-cli.js validate",
@@ -11,10 +12,7 @@
     "progress": "echo '사용법: npm run progress -- <command> [migration-id]' && node src/progress-cli.js",
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
-    "help": "node src/migrate-cli.js help",
-    "build": "node -e \"const pkg = require('./package.json'); const { execSync } = require('child_process'); execSync(`pkg . --public --no-native-build --output dist/sql2excel-v${pkg.version}.exe`, { stdio: 'inherit' });\"",
-    "release": "node create-release.js",
-    "clean": "if exist release rmdir /s /q release && if exist dist\\sql2excel-v*.exe del dist\\sql2excel-v*.exe"
+    "help": "node src/migrate-cli.js help"
   },
   "dependencies": {
     "dotenv": "^16.5.0",
