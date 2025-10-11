@@ -3,6 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// pkg 실행 파일 경로 처리
+const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
+
+// pkg 환경에서는 migrate-cli.js를 직접 require
+const MSSQLDataMigrator = process.pkg ? require('./src/mssql-data-migrator-modular') : null;
+
 // ANSI 색상 코드
 const colors = {
     reset: '\x1b[0m',
@@ -206,11 +212,12 @@ function showMenu() {
  * Get query files from queries folder
  */
 function getQueryFiles() {
-    const queriesDir = path.join(__dirname, 'queries');
+    const queriesDir = path.join(APP_ROOT, 'queries');
     const files = [];
     
     try {
         if (!fs.existsSync(queriesDir)) {
+            console.error(colors.red + `Queries directory not found: ${queriesDir}` + colors.reset);
             return files;
         }
         
@@ -219,7 +226,7 @@ function getQueryFiles() {
         // XML files
         allFiles.filter(f => f.endsWith('.xml')).forEach(f => {
             files.push({
-                path: path.join('queries', f),
+                path: path.join(queriesDir, f),
                 name: f,
                 type: 'XML'
             });
@@ -228,7 +235,7 @@ function getQueryFiles() {
         // JSON files
         allFiles.filter(f => f.endsWith('.json')).forEach(f => {
             files.push({
-                path: path.join('queries', f),
+                path: path.join(queriesDir, f),
                 name: f,
                 type: 'JSON'
             });
@@ -312,13 +319,28 @@ async function validateQueryFile() {
     console.log();
     
     try {
-        execSync(`node src/migrate-cli.js validate --query "${filePath}"`, {
-            stdio: 'inherit',
-            cwd: __dirname
-        });
-        
-        console.log();
-        console.log(colors.green + msg.validationCompleted + colors.reset);
+        if (process.pkg) {
+            // pkg 환경: 직접 모듈 사용
+            const migrator = new MSSQLDataMigrator(filePath);
+            const isValid = await migrator.validateConfiguration();
+            
+            if (isValid) {
+                console.log();
+                console.log(colors.green + msg.validationCompleted + colors.reset);
+            } else {
+                console.log();
+                console.log(colors.red + msg.validationFailed + colors.reset);
+            }
+        } else {
+            // Node.js 환경: CLI 실행
+            execSync(`node src/migrate-cli.js validate --query "${filePath}"`, {
+                stdio: 'inherit',
+                cwd: APP_ROOT
+            });
+            
+            console.log();
+            console.log(colors.green + msg.validationCompleted + colors.reset);
+        }
     } catch (error) {
         console.log();
         console.log(colors.red + msg.validationFailed + colors.reset);
@@ -341,13 +363,38 @@ async function testDatabaseConnection() {
     console.log();
     
     try {
-        execSync('node src/migrate-cli.js list-dbs', {
-            stdio: 'inherit',
-            cwd: __dirname
-        });
-        
-        console.log();
-        console.log(colors.green + msg.connectionSuccess + colors.reset);
+        if (process.pkg) {
+            // pkg 환경: 직접 모듈 사용
+            const ConfigManager = require('./src/modules/config-manager');
+            const configManager = new ConfigManager();
+            await configManager.loadDbInfo();
+            
+            const dbInfo = configManager.getDbInfo();
+            if (!dbInfo || !dbInfo.dbs) {
+                console.log(colors.red + msg.connectionFailed + colors.reset);
+                console.log(colors.yellow + msg.checkConfig + colors.reset);
+            } else {
+                console.log('Available databases:');
+                console.log();
+                for (const [dbId, dbConfig] of Object.entries(dbInfo.dbs)) {
+                    console.log(`${colors.cyan}${dbId}${colors.reset}: ${dbConfig.server}/${dbConfig.database}`);
+                    console.log(`  - ${dbConfig.description || 'No description'}`);
+                    console.log(`  - Writable: ${dbConfig.isWritable ? colors.green + 'Yes' : colors.yellow + 'No'}${colors.reset}`);
+                    console.log();
+                }
+                console.log();
+                console.log(colors.green + msg.connectionSuccess + colors.reset);
+            }
+        } else {
+            // Node.js 환경: CLI 실행
+            execSync('node src/migrate-cli.js list-dbs', {
+                stdio: 'inherit',
+                cwd: APP_ROOT
+            });
+            
+            console.log();
+            console.log(colors.green + msg.connectionSuccess + colors.reset);
+        }
     } catch (error) {
         console.log();
         console.log(colors.red + msg.connectionFailed + colors.reset);
@@ -385,20 +432,44 @@ async function executeMigration() {
     const startTime = new Date();
     
     try {
-        execSync(`node src/migrate-cli.js migrate --query "${filePath}"`, {
-            stdio: 'inherit',
-            cwd: __dirname
-        });
-        
-        const endTime = new Date();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
-        
-        console.log();
-        console.log(colors.green + msg.migrationSuccess + colors.reset);
-        console.log(colors.dim + `${msg.executionTime} ${duration}s` + colors.reset);
+        if (process.pkg) {
+            // pkg 환경: 직접 모듈 사용
+            const migrator = new MSSQLDataMigrator(filePath);
+            await migrator.initialize();
+            const result = await migrator.execute();
+            await migrator.cleanup();
+            
+            const endTime = new Date();
+            const duration = ((endTime - startTime) / 1000).toFixed(2);
+            
+            if (result.success) {
+                console.log();
+                console.log(colors.green + msg.migrationSuccess + colors.reset);
+                console.log(colors.dim + `${msg.executionTime} ${duration}s` + colors.reset);
+            } else {
+                console.log();
+                console.log(colors.red + msg.migrationFailed + colors.reset);
+            }
+        } else {
+            // Node.js 환경: CLI 실행
+            execSync(`node src/migrate-cli.js migrate --query "${filePath}"`, {
+                stdio: 'inherit',
+                cwd: APP_ROOT
+            });
+            
+            const endTime = new Date();
+            const duration = ((endTime - startTime) / 1000).toFixed(2);
+            
+            console.log();
+            console.log(colors.green + msg.migrationSuccess + colors.reset);
+            console.log(colors.dim + `${msg.executionTime} ${duration}s` + colors.reset);
+        }
     } catch (error) {
         console.log();
         console.log(colors.red + msg.migrationFailed + colors.reset);
+        if (error.message) {
+            console.log(colors.yellow + error.message + colors.reset);
+        }
     }
     
     console.log();
@@ -415,13 +486,15 @@ async function showHelp() {
     console.log(colors.cyan + '=========================================' + colors.reset);
     console.log();
     
-    try {
-        execSync('node src/migrate-cli.js help', {
-            stdio: 'inherit',
-            cwd: __dirname
-        });
-    } catch (error) {
-        // Ignore errors in help
+    if (!process.pkg) {
+        try {
+            execSync('node src/migrate-cli.js help', {
+                stdio: 'inherit',
+                cwd: APP_ROOT
+            });
+        } catch (error) {
+            // Ignore errors in help
+        }
     }
     
     console.log();

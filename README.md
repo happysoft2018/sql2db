@@ -464,7 +464,7 @@ npm run build
 ```
 
 This will create a standalone executable in the `dist/` directory:
-- `dist/mssql-data-migrator-win-x64.exe` (Windows 64-bit)
+- `dist/sql2db.exe` (Windows 64-bit)
 
 ### Build Configuration
 The build process uses `pkg` to bundle the Node.js application:
@@ -481,10 +481,10 @@ The build process uses `pkg` to bundle the Node.js application:
 ### Running the Executable
 ```bash
 # Run the executable directly
-dist\mssql-data-migrator-win-x64.exe
+dist\sql2db.exe
 
 # Or use with language option
-dist\mssql-data-migrator-win-x64.exe --lang=kr
+dist\sql2db.exe --lang=kr
 ```
 
 The standalone executable includes everything needed to run the application without requiring Node.js installation.

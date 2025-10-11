@@ -238,7 +238,7 @@ npm run build
 ```
 
 이 명령은 `dist/` 디렉토리에 독립 실행 파일을 생성합니다:
-- `dist/mssql-data-migrator-win-x64.exe` (Windows 64비트)
+- `dist/sql2db.exe` (Windows 64비트)
 
 ### 빌드 설정
 빌드 프로세스는 `pkg`를 사용하여 Node.js 애플리케이션을 번들링합니다:
@@ -255,10 +255,10 @@ npm run build
 ### 실행 파일 실행
 ```bash
 # 실행 파일 직접 실행
-dist\mssql-data-migrator-win-x64.exe
+dist\sql2db.exe
 
 # 또는 언어 옵션과 함께 실행
-dist\mssql-data-migrator-win-x64.exe --lang=kr
+dist\sql2db.exe --lang=kr
 ```
 
 독립 실행 파일은 Node.js 설치 없이 애플리케이션을 실행하는 데 필요한 모든 것을 포함합니다.

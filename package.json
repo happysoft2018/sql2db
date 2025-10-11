@@ -1,5 +1,5 @@
 {
-  "name": "mssql-data-migrator",
+  "name": "sql2db",
   "version": "0.7.1",
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
   "main": "app.js",
@@ -14,10 +14,11 @@
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
     "help": "node src/migrate-cli.js help",
-    "build": "pkg . --public --no-native-build --compress GZip"
+    "build": "pkg . --public --no-native-build --compress GZip",
+    "release": "release.bat"
   },
   "bin": {
-    "mssql-data-migrator": "app.js"
+    "sql2db": "app.js"
   },
   "pkg": {
     "scripts": [
