@@ -1,6 +1,6 @@
 # SQL2DB Migration Tool Update Log
 
-## 🚀 v0.8.2 - Structure Improvements & Enhanced Validation (2025-01-XX)
+## 🚀 v0.8.2 - Structure Improvements & Enhanced Validation (2025-10-14)
 
 ### 🔧 Technical Improvements
 
