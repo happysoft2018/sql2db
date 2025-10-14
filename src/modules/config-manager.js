@@ -29,7 +29,7 @@ class ConfigManager {
             
             logger.info('DB 정보 파일 로드 완료', {
                 path: this.dbInfoPath,
-                availableDbs: Object.keys(this.dbInfo.dbs || {})
+                availableDbs: Object.keys(this.dbInfo || {})
             });
             
             return this.dbInfo;
@@ -43,11 +43,11 @@ class ConfigManager {
      * DB ID로 연결 정보 조회
      */
     getDbConfigById(dbId) {
-        if (!this.dbInfo || !this.dbInfo.dbs || !this.dbInfo.dbs[dbId]) {
-            throw new Error(`DB ID '${dbId}'를 dbinfo.json에서 찾을 수 없습니다. 사용 가능한 DB: ${Object.keys(this.dbInfo?.dbs || {}).join(', ')}`);
+        if (!this.dbInfo || !this.dbInfo[dbId]) {
+            throw new Error(`DB ID '${dbId}'를 dbinfo.json에서 찾을 수 없습니다. 사용 가능한 DB: ${Object.keys(this.dbInfo || {}).join(', ')}`);
         }
         
-        const dbConfig = this.dbInfo.dbs[dbId];
+        const dbConfig = this.dbInfo[dbId];
         return {
             id: dbId,
             server: dbConfig.server,

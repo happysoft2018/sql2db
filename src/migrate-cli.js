@@ -215,13 +215,13 @@ async function main() {
                     const tempMigrator = new MSSQLDataMigrator();
                     await tempMigrator.loadDbInfo();
                     
-                    if (!tempMigrator.dbInfo || !tempMigrator.dbInfo.dbs) {
+                    if (!tempMigrator.dbInfo) {
                         console.log('❌ config/dbinfo.json 파일을 찾을 수 없거나 DB 정보가 없습니다.');
                         console.log('환경 변수(.env) 방식을 사용 중입니다.');
                         process.exit(1);
                     }
                     
-                    const dbs = tempMigrator.dbInfo.dbs;
+                    const dbs = tempMigrator.dbInfo;
                     const dbList = Object.keys(dbs);
                     
                     console.log('📊 데이터베이스 목록 및 연결 상태');
