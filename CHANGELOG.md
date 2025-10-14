@@ -1,5 +1,30 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.2 - Structure Improvements & Enhanced Validation (2025-01-XX)
+
+### 🔧 Technical Improvements
+
+#### Improved dbinfo.json Structure
+- **Removed dbs wrapper**: DB settings placed directly in root
+  - Before: `{"dbs": {"sampleDB": {...}}}`
+  - After: `{"sampleDB": {...}}`
+  - More concise structure for better readability
+  - All related code updated:
+    - `mssql-connection-manager.js`: config.dbs → config directly
+    - `migrate-cli.js`: dbInfo.dbs → dbInfo directly
+    - `config-manager.js`: dbInfo.dbs → dbInfo directly
+
+#### Improved pkg Environment Path Handling
+- **Using APP_ROOT constant**: Correct file paths in both pkg and development environments
+  - `mssql-connection-manager.js`: Added pkg environment path handling
+  - `migrate-cli.js`: Improved --xml option parsing in validate command
+  - Added debug logs: Track queryDef parsing process
+
+### 🐛 Bug Fixes
+- **validate command queryDef recognition error**: Improved id attribute recognition in queryDef
+- **validate-config.bat infinite loop**: Improved with file selection menu
+- **pkg environment file path error**: Resolved by using APP_ROOT
+
 ## 🚀 v0.8.1 - XML-Only Configuration Support (2025-10-11)
 
 ### 🔄 Breaking Changes

@@ -1,5 +1,30 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.2 - 구조 개선 및 검증 강화 (2025-01-XX)
+
+### 🔧 기술적 개선
+
+#### dbinfo.json 구조 개선
+- **dbs 래퍼 제거**: DB 설정을 직접 루트에 배치
+  - 변경 전: `{"dbs": {"sampleDB": {...}}}`
+  - 변경 후: `{"sampleDB": {...}}`
+  - 더 간결한 구조로 가독성 향상
+  - 모든 관련 코드 업데이트:
+    - `mssql-connection-manager.js`: config.dbs → config 직접 사용
+    - `migrate-cli.js`: dbInfo.dbs → dbInfo 직접 사용
+    - `config-manager.js`: dbInfo.dbs → dbInfo 직접 사용
+
+#### pkg 환경 경로 처리 개선
+- **APP_ROOT 상수 사용**: pkg 환경과 개발 환경 모두에서 올바른 파일 경로 사용
+  - `mssql-connection-manager.js`: pkg 환경 경로 처리 추가
+  - `migrate-cli.js`: validate 명령 시 --xml 옵션 파싱 개선
+  - 디버그 로그 추가: queryDef 파싱 과정 추적
+
+### 🐛 버그 수정
+- **validate 명령 queryDef 인식 오류**: queryDef의 id 속성 인식 개선
+- **validate-config.bat 무한 루프**: 파일 선택 메뉴 추가로 개선
+- **pkg 환경 파일 경로 오류**: APP_ROOT 사용으로 해결
+
 ## 🚀 v0.8.1 - XML 전용 설정 지원 (2025-10-11)
 
 ### 🔄 주요 변경 사항
