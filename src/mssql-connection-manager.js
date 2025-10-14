@@ -3,6 +3,9 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
+// pkg 실행 파일 경로 처리
+const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
+
 class MSSQLConnectionManager {
     constructor() {
         this.sourcePool = null;
@@ -27,7 +30,9 @@ class MSSQLConnectionManager {
     // dbinfo.json에서 DB 설정 로드
     loadDBConfigs() {
         try {
-            const configPath = path.join(__dirname, '..', 'config', 'dbinfo.json');
+            const configPath = process.pkg 
+                ? path.join(APP_ROOT, 'config', 'dbinfo.json')
+                : path.join(__dirname, '..', 'config', 'dbinfo.json');
             if (fs.existsSync(configPath)) {
                 const configData = fs.readFileSync(configPath, 'utf8');
                 this.dbConfigs = JSON.parse(configData);
