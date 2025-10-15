@@ -14,7 +14,7 @@
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
     "help": "node src/migrate-cli.js help",
-    "build": "pkg . --public --no-native-build --compress GZip",
+    "build": "pkg . --public --compress GZip",
     "release": "release.bat"
   },
   "bin": {
@@ -28,7 +28,9 @@
       "config/**/*",
       "queries/**/*",
       "*.md",
-      ".env"
+      ".env",
+      "node_modules/mssql/**/*",
+      "node_modules/tedious/**/*"
     ],
     "targets": [
       "node18-win-x64"

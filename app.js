@@ -421,13 +421,13 @@ async function testDatabaseConnection() {
             await configManager.loadDbInfo();
             
             const dbInfo = configManager.getDbInfo();
-            if (!dbInfo || !dbInfo.dbs) {
+            if (!dbInfo || Object.keys(dbInfo).length === 0) {
                 console.log(colors.red + msg.connectionFailed + colors.reset);
                 console.log(colors.yellow + msg.checkConfig + colors.reset);
             } else {
                 console.log('Available databases:');
                 console.log();
-                for (const [dbId, dbConfig] of Object.entries(dbInfo.dbs)) {
+                for (const [dbId, dbConfig] of Object.entries(dbInfo)) {
                     console.log(`${colors.cyan}${dbId}${colors.reset}: ${dbConfig.server}/${dbConfig.database}`);
                     console.log(`  - ${dbConfig.description || 'No description'}`);
                     console.log(`  - Writable: ${dbConfig.isWritable ? colors.green + 'Yes' : colors.yellow + 'No'}${colors.reset}`);
