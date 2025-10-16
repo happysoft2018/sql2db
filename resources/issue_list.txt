@@ -16,3 +16,6 @@ If you can't delete them all at once, how about dividing them into 2100 each?
 
 3. Password is exposed in the connection DB information when starting the task.
    --> Password will be masked
+
+4. Apply the version to the executable file name
+
