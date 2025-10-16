@@ -1,223 +1,505 @@
 const logger = require('../logger');
 
 /**
- * 변수 관리 모듈
- * 정적 변수, 동적 변수, 변수 치환 기능을 담당
+ * 변수 치환 및 동적 변수 처리 담당 모듈
  */
 class VariableManager {
-    constructor() {
+    constructor(connectionManager, logFunction) {
+        this.connectionManager = connectionManager;
+        this.log = logFunction || console.log;
         this.variables = {};
         this.dynamicVariables = {};
-        this.connectionManager = null;
     }
 
     /**
-     * 연결 관리자 설정
-     * @param {Object} connectionManager - 연결 관리자 인스턴스
-     */
-    setConnectionManager(connectionManager) {
-        this.connectionManager = connectionManager;
-    }
-
-    /**
-     * 정적 변수 설정
-     * @param {Object} variables - 변수 객체
+     * 일반 변수 설정
      */
     setVariables(variables) {
-        this.variables = { ...variables };
+        this.variables = variables || {};
     }
 
     /**
      * 동적 변수 설정
-     * @param {Object} dynamicVariables - 동적 변수 객체
      */
-    setDynamicVariables(dynamicVariables) {
-        this.dynamicVariables = { ...dynamicVariables };
+    setDynamicVariable(key, value) {
+        this.dynamicVariables[key] = value;
+        this.log(`동적 변수 설정: ${key} = ${Array.isArray(value) ? `[${value.join(', ')}]` : value}`);
     }
 
     /**
-     * 동적 변수 값 로드
-     * @returns {Promise<void>}
+     * 동적 변수 추출
      */
-    async loadDynamicVariables() {
-        if (!this.connectionManager) {
-            throw new Error('연결 관리자가 설정되지 않았습니다.');
+    async extractDataToVariable(extractConfig) {
+        try {
+            this.log(`\n=== 동적 변수 추출 시작: ${extractConfig.variableName} ===`);
+            this.log(`추출 쿼리: ${extractConfig.query}`);
+            
+            // 변수 치환 적용
+            const processedQuery = this.replaceVariables(extractConfig.query);
+            this.log(`변수 치환 후 쿼리: ${processedQuery}`);
+            
+            const database = extractConfig.database;
+            this.log(`데이터베이스: ${database}`);
+            
+            // 데이터 조회
+            const availableDBs = this.connectionManager.getAvailableDBKeys();
+            if (!availableDBs.includes(database)) {
+                throw new Error(`알 수 없는 데이터베이스: ${database}. 사용 가능한 DB: ${availableDBs.join(', ')}`);
+            }
+            
+            const data = await this.connectionManager.queryDB(database, processedQuery);
+            this.log(`추출된 행 수: ${data.length}`);
+            
+            if (data.length === 0) {
+                this.log(`⚠️ 추출된 데이터가 없습니다. 변수 ${extractConfig.variableName}는 빈 배열로 설정됩니다.`);
+                this.setDynamicVariable(extractConfig.variableName, []);
+                return [];
+            }
+            
+            // 추출 타입에 따른 처리
+            const extractedValue = this.extractByType(data, extractConfig);
+            
+            // 동적 변수 설정
+            this.setDynamicVariable(extractConfig.variableName, extractedValue);
+            
+            this.log(`=== 동적 변수 추출 완료: ${extractConfig.variableName} ===\n`);
+            return extractedValue;
+            
+        } catch (error) {
+            this.log(`동적 변수 추출 실패: ${extractConfig.variableName} - ${error.message}`);
+            throw error;
         }
+    }
 
-        for (const [varName, varConfig] of Object.entries(this.dynamicVariables)) {
-            try {
-                logger.info(`동적 변수 로드 중: ${varName}`, {
-                    sourceDb: varConfig.sourceDb,
-                    description: varConfig.description
-                });
-
-                const pool = await this.connectionManager.getConnection(varConfig.sourceDb);
-                const request = pool.request();
-                const result = await request.query(varConfig.sourceQuery);
-
-                if (result.recordset && result.recordset.length > 0) {
-                    const record = result.recordset[0];
-                    const keys = Object.keys(record);
-                    
-                    if (keys.length === 1) {
-                        // 단일 컬럼인 경우 값만 저장
-                        this.variables[varName] = record[keys[0]];
-                    } else {
-                        // 다중 컬럼인 경우 객체로 저장
-                        this.variables[varName] = record;
-                    }
-
-                    logger.info(`동적 변수 로드 완료: ${varName}`, {
-                        value: this.variables[varName],
-                        type: typeof this.variables[varName]
+    /**
+     * 타입별 데이터 추출
+     */
+    extractByType(data, extractConfig) {
+        switch (extractConfig.extractType) {
+            case 'single_value':
+                const firstRow = data[0];
+                const firstColumn = Object.keys(firstRow)[0];
+                const value = firstRow[firstColumn];
+                this.log(`단일 값 추출: ${value}`);
+                return value;
+                
+            case 'single_column':
+                const columnName = extractConfig.columnName || Object.keys(data[0])[0];
+                const values = data.map(row => row[columnName]).filter(val => val !== null && val !== undefined);
+                this.log(`단일 컬럼 추출 (${columnName}): ${values.length}개 값`);
+                return values;
+                
+            case 'multiple_columns':
+                const columns = extractConfig.columns || Object.keys(data[0]);
+                const allValues = [];
+                data.forEach(row => {
+                    columns.forEach(col => {
+                        if (row[col] !== null && row[col] !== undefined) {
+                            allValues.push(row[col]);
+                        }
                     });
-                } else {
-                    logger.warn(`동적 변수 ${varName}에 대한 결과가 없습니다.`);
-                    this.variables[varName] = null;
+                });
+                this.log(`다중 컬럼 추출 (${columns.join(', ')}): ${allValues.length}개 값`);
+                return allValues;
+                
+            case 'column_identified':
+                const identifiedColumns = extractConfig.columns || Object.keys(data[0]);
+                const identified = {};
+                identifiedColumns.forEach(col => {
+                    identified[col] = [];
+                });
+                
+                data.forEach(row => {
+                    identifiedColumns.forEach(col => {
+                        if (row[col] !== null && row[col] !== undefined) {
+                            identified[col].push(row[col]);
+                        }
+                    });
+                });
+                
+                // 중복 제거
+                Object.keys(identified).forEach(col => {
+                    identified[col] = [...new Set(identified[col])];
+                });
+                
+                const totalValues = Object.values(identified).reduce((sum, arr) => sum + arr.length, 0);
+                this.log(`컬럼별 식별 추출 (${identifiedColumns.join(', ')}): ${totalValues}개 값 (${Object.keys(identified).length}개 컬럼)`);
+                return identified;
+                
+            case 'key_value_pairs':
+                const keys = Object.keys(data[0]);
+                if (keys.length < 2) {
+                    throw new Error('key_value_pairs 타입은 최소 2개의 컬럼이 필요합니다.');
                 }
-            } catch (error) {
-                logger.error(`동적 변수 ${varName} 로드 실패`, error);
-                this.variables[varName] = null;
-            }
+                const pairs = {};
+                data.forEach(row => {
+                    const key = row[keys[0]];
+                    const val = row[keys[1]];
+                    if (key !== null && key !== undefined) {
+                        pairs[key] = val;
+                    }
+                });
+                this.log(`키-값 쌍 추출: ${Object.keys(pairs).length}개 쌍`);
+                return pairs;
+                
+            default:
+                // 기본값: column_identified
+                const defaultColumns = Object.keys(data[0]);
+                const defaultIdentified = {};
+                defaultColumns.forEach(col => {
+                    defaultIdentified[col] = [];
+                });
+                
+                data.forEach(row => {
+                    defaultColumns.forEach(col => {
+                        if (row[col] !== null && row[col] !== undefined) {
+                            defaultIdentified[col].push(row[col]);
+                        }
+                    });
+                });
+                
+                // 중복 제거
+                Object.keys(defaultIdentified).forEach(col => {
+                    defaultIdentified[col] = [...new Set(defaultIdentified[col])];
+                });
+                
+                const defaultTotalValues = Object.values(defaultIdentified).reduce((sum, arr) => sum + arr.length, 0);
+                this.log(`기본 추출 (column_identified): ${defaultTotalValues}개 값 (${Object.keys(defaultIdentified).length}개 컬럼)`);
+                return defaultIdentified;
         }
     }
 
     /**
-     * 문자열에서 변수 치환
-     * @param {string} str - 치환할 문자열
-     * @param {Object} additionalVars - 추가 변수 (선택적)
-     * @returns {string} 치환된 문자열
+     * 변수 치환
      */
-    replaceVariables(str, additionalVars = {}) {
-        if (!str || typeof str !== 'string') {
-            return str;
+    replaceVariables(text) {
+        let result = text;
+        const originalText = text;
+        const debugVariables = process.env.DEBUG_VARIABLES === 'true';
+        
+        if (debugVariables) {
+            this.log(`변수 치환 시작: ${originalText.substring(0, 200)}${originalText.length > 200 ? '...' : ''}`);
         }
-
-        const allVars = { ...this.variables, ...additionalVars };
-        let result = str;
-
-        // ${변수명} 형태의 변수 치환
-        result = result.replace(/\$\{([^}]+)\}/g, (match, varName) => {
-            if (varName in allVars) {
-                const value = allVars[varName];
-                if (value === null || value === undefined) {
-                    return 'NULL';
-                }
-                if (typeof value === 'string') {
-                    return value;
-                }
-                if (Array.isArray(value)) {
-                    return value.map(v => `'${v}'`).join(',');
-                }
-                return String(value);
-            }
-            return match; // 변수를 찾지 못한 경우 원본 유지
-        });
-
+        
+        // 1. 동적 변수 치환 (우선순위 높음)
+        result = this.replaceDynamicVariables(result, debugVariables);
+        
+        // 2. 일반 변수 치환
+        result = this.replaceStaticVariables(result, debugVariables);
+        
+        // 3. 시간 함수 치환
+        result = this.replaceTimestampFunctions(result, debugVariables);
+        
+        // 4. 환경 변수 치환
+        result = this.replaceEnvironmentVariables(result, debugVariables);
+        
+        // 치환되지 않은 변수 확인
+        const unresolvedVariables = [...result.matchAll(/\$\{(\w+(?:\.\w+)?)\}/g)];
+        if (unresolvedVariables.length > 0 && debugVariables) {
+            this.log(`치환되지 않은 변수들: ${unresolvedVariables.map(m => m[1]).join(', ')}`);
+        }
+        
         return result;
     }
 
     /**
-     * 변수 값 가져오기
-     * @param {string} varName - 변수명
-     * @param {*} defaultValue - 기본값
-     * @returns {*} 변수 값
+     * 동적 변수 치환
      */
-    getVariable(varName, defaultValue = null) {
-        return this.variables.hasOwnProperty(varName) ? this.variables[varName] : defaultValue;
+    replaceDynamicVariables(text, debug = false) {
+        let result = text;
+        
+        Object.entries(this.dynamicVariables).forEach(([key, value]) => {
+            const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
+            const beforeReplace = result;
+            
+            try {
+                // 배열 타입
+                if (Array.isArray(value)) {
+                    if (value.length === 0) {
+                        result = result.replace(pattern, "'^-_'");
+                    } else {
+                        const inClause = value.map(v => {
+                            if (typeof v === 'string') {
+                                return `'${v.replace(/'/g, "''")}'`;
+                            }
+                            return v;
+                        }).join(', ');
+                        result = result.replace(pattern, inClause);
+                    }
+                    
+                    if (debug && beforeReplace !== result) {
+                        this.log(`동적 변수 [${key}] 치환: 배열 ${value.length}개 → IN절`);
+                    }
+                } 
+                // 객체 타입 (column_identified 또는 key_value_pairs)
+                else if (typeof value === 'object' && value !== null) {
+                    // ${변수명.키} 패턴 처리
+                    Object.keys(value).forEach(keyName => {
+                        const keyPattern = new RegExp(`\\$\\{${key}\\.${keyName}\\}`, 'g');
+                        const keyValue = value[keyName];
+                        
+                        if (Array.isArray(keyValue)) {
+                            const inClause = keyValue.map(v => {
+                                if (typeof v === 'string') {
+                                    return `'${v.replace(/'/g, "''")}'`;
+                                }
+                                return v;
+                            }).join(', ');
+                            result = result.replace(keyPattern, inClause);
+                        } else {
+                            const replacementValue = typeof keyValue === 'string' 
+                                ? `'${keyValue.replace(/'/g, "''")}'` 
+                                : keyValue;
+                            result = result.replace(keyPattern, replacementValue);
+                        }
+                    });
+                    
+                    // ${변수명} 패턴 처리
+                    const allValues = Object.values(value);
+                    const inClause = (allValues.every(v => Array.isArray(v)) 
+                        ? allValues.flat() 
+                        : allValues
+                    ).map(v => {
+                        if (typeof v === 'string') {
+                            return `'${v.replace(/'/g, "''")}'`;
+                        }
+                        return v;
+                    }).join(', ');
+                    result = result.replace(pattern, inClause);
+                } 
+                else {
+                    result = result.replace(pattern, value);
+                }
+            } catch (error) {
+                this.log(`동적 변수 [${key}] 치환 중 오류: ${error.message}`);
+            }
+        });
+        
+        return result;
     }
 
     /**
-     * 변수 값 설정
-     * @param {string} varName - 변수명
-     * @param {*} value - 변수 값
+     * 일반 변수 치환
      */
-    setVariable(varName, value) {
-        this.variables[varName] = value;
+    replaceStaticVariables(text, debug = false) {
+        let result = text;
+        
+        Object.entries(this.variables).forEach(([key, value]) => {
+            const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
+            const beforeReplace = result;
+            
+            try {
+                if (Array.isArray(value)) {
+                    const inClause = value.map(v => {
+                        if (typeof v === 'string') {
+                            return `'${v.replace(/'/g, "''")}'`;
+                        }
+                        return v;
+                    }).join(', ');
+                    result = result.replace(pattern, inClause);
+                    
+                    if (debug && beforeReplace !== result) {
+                        this.log(`일반 변수 [${key}] 치환: 배열 ${value.length}개 → IN절`);
+                    }
+                } else {
+                    result = result.replace(pattern, value);
+                    
+                    if (debug && beforeReplace !== result) {
+                        this.log(`일반 변수 [${key}] 치환: ${value}`);
+                    }
+                }
+            } catch (error) {
+                this.log(`일반 변수 [${key}] 치환 중 오류: ${error.message}`);
+            }
+        });
+        
+        return result;
     }
 
     /**
-     * 모든 변수 가져오기
-     * @returns {Object} 모든 변수
+     * 타임스탬프 함수 치환
+     */
+    replaceTimestampFunctions(text, debug = false) {
+        let result = text;
+        
+        const timestampFunctions = {
+            'CURRENT_TIMESTAMP': () => new Date().toISOString().slice(0, 19).replace('T', ' '),
+            'CURRENT_DATETIME': () => new Date().toISOString().slice(0, 19).replace('T', ' '),
+            'NOW': () => new Date().toISOString().slice(0, 19).replace('T', ' '),
+            'CURRENT_DATE': () => new Date().toISOString().slice(0, 10),
+            'CURRENT_TIME': () => new Date().toTimeString().slice(0, 8),
+            'UNIX_TIMESTAMP': () => Math.floor(Date.now() / 1000),
+            'TIMESTAMP_MS': () => Date.now(),
+            'ISO_TIMESTAMP': () => new Date().toISOString(),
+            'GETDATE': () => new Date().toISOString().slice(0, 19).replace('T', ' ')
+        };
+        
+        Object.entries(timestampFunctions).forEach(([funcName, funcImpl]) => {
+            const pattern = new RegExp(`\\$\\{${funcName}\\}`, 'g');
+            const beforeReplace = result;
+            
+            try {
+                result = result.replace(pattern, funcImpl());
+                
+                if (debug && beforeReplace !== result) {
+                    this.log(`시각 함수 [${funcName}] 치환: ${funcImpl()}`);
+                }
+            } catch (error) {
+                this.log(`시각 함수 [${funcName}] 치환 중 오류: ${error.message}`);
+            }
+        });
+        
+        return result;
+    }
+
+    /**
+     * 환경 변수 치환
+     */
+    replaceEnvironmentVariables(text, debug = false) {
+        let result = text;
+        const envPattern = /\$\{(\w+)\}/g;
+        const remainingMatches = [...result.matchAll(envPattern)];
+        
+        remainingMatches.forEach(match => {
+            const fullMatch = match[0];
+            const varName = match[1];
+            
+            // 이미 처리된 변수들과 중복되지 않는 경우만 환경 변수로 치환
+            const isAlreadyProcessed = 
+                this.dynamicVariables.hasOwnProperty(varName) ||
+                this.variables.hasOwnProperty(varName);
+                
+            if (!isAlreadyProcessed && process.env[varName]) {
+                const envValue = process.env[varName];
+                
+                try {
+                    const parsed = JSON.parse(envValue);
+                    if (Array.isArray(parsed)) {
+                        const inClause = parsed.map(v => {
+                            if (typeof v === 'string') {
+                                return `'${v.replace(/'/g, "''")}'`;
+                            }
+                            return v;
+                        }).join(', ');
+                        result = result.replace(fullMatch, inClause);
+                        
+                        if (debug) {
+                            this.log(`환경 변수 [${varName}] 치환: 배열 ${parsed.length}개 → IN절`);
+                        }
+                    } else {
+                        result = result.replace(fullMatch, envValue);
+                        
+                        if (debug) {
+                            this.log(`환경 변수 [${varName}] 치환: ${envValue}`);
+                        }
+                    }
+                } catch (e) {
+                    result = result.replace(fullMatch, envValue);
+                    
+                    if (debug) {
+                        this.log(`환경 변수 [${varName}] 치환: ${envValue} (단순 문자열)`);
+                    }
+                }
+            }
+        });
+        
+        return result;
+    }
+
+    /**
+     * JSON 값 해석
+     */
+    resolveJsonValue(value, context = {}) {
+        if (!value || typeof value !== 'string') {
+            return value;
+        }
+        
+        if (value.trim().startsWith('{') && value.trim().endsWith('}')) {
+            try {
+                const jsonObj = JSON.parse(value);
+                
+                if (context.tableName && jsonObj.hasOwnProperty(context.tableName)) {
+                    return jsonObj[context.tableName];
+                }
+                
+                if (context.database && jsonObj.hasOwnProperty(context.database)) {
+                    return jsonObj[context.database];
+                }
+                
+                if (jsonObj.hasOwnProperty('default')) {
+                    return jsonObj.default;
+                }
+                
+                const firstKey = Object.keys(jsonObj)[0];
+                return firstKey ? jsonObj[firstKey] : value;
+                
+            } catch (error) {
+                this.log(`JSON 파싱 오류: ${error.message}`, 'ERROR');
+                return value;
+            }
+        }
+        
+        return value;
+    }
+
+    /**
+     * 전역 컬럼 오버라이드 데이터 적용
+     */
+    applyGlobalColumnOverrides(sourceData, globalColumnOverrides) {
+        try {
+            if (!globalColumnOverrides || globalColumnOverrides.size === 0) {
+                this.log('전역 컬럼 오버라이드가 없습니다. 원본 데이터를 그대로 사용합니다.');
+                return sourceData;
+            }
+           
+            this.log(`전역 컬럼 오버라이드 적용 중: ${Array.from(globalColumnOverrides.keys()).join(', ')}`);
+            
+            const processedData = sourceData.map(row => {
+                const newRow = { ...row };
+                
+                globalColumnOverrides.forEach((value, column) => {
+                    let processedValue = this.replaceVariables(value);
+                    
+                    // JSON 매핑 처리
+                    if (typeof processedValue === 'string' && processedValue.trim().startsWith('{') && processedValue.trim().endsWith('}')) {
+                        try {
+                            const parsedJson = JSON.parse(processedValue);
+                            const originalValue = row[column];
+                            if (originalValue && parsedJson[originalValue]) {
+                                processedValue = parsedJson[originalValue];
+                            } else {
+                                processedValue = originalValue || Object.values(parsedJson)[0] || '';
+                            }
+                        } catch (jsonError) {
+                            // JSON 파싱 실패 시 원본 문자열 사용
+                        }
+                    }
+                    
+                    newRow[column] = processedValue;
+                });
+                
+                return newRow;
+            });
+            
+            this.log(`${sourceData.length}행에 전역 컬럼 오버라이드 적용 완료`);
+            return processedData;
+            
+        } catch (error) {
+            this.log(`전역 컬럼 오버라이드 적용 실패: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * 모든 변수 정보 조회
      */
     getAllVariables() {
-        return { ...this.variables };
-    }
-
-    /**
-     * 변수 존재 여부 확인
-     * @param {string} varName - 변수명
-     * @returns {boolean} 존재 여부
-     */
-    hasVariable(varName) {
-        return this.variables.hasOwnProperty(varName);
-    }
-
-    /**
-     * 변수 삭제
-     * @param {string} varName - 변수명
-     */
-    removeVariable(varName) {
-        delete this.variables[varName];
-    }
-
-    /**
-     * 모든 변수 초기화
-     */
-    clearVariables() {
-        this.variables = {};
-    }
-
-    /**
-     * 변수 통계 정보
-     * @returns {Object} 통계 정보
-     */
-    getVariableStats() {
-        const staticCount = Object.keys(this.variables).length - Object.keys(this.dynamicVariables).length;
-        const dynamicCount = Object.keys(this.dynamicVariables).length;
-        
         return {
-            total: Object.keys(this.variables).length,
-            static: Math.max(0, staticCount),
-            dynamic: dynamicCount,
-            variables: Object.keys(this.variables)
-        };
-    }
-
-    /**
-     * 문자열에서 사용된 변수 추출
-     * @param {string} str - 분석할 문자열
-     * @returns {Array} 사용된 변수명 배열
-     */
-    extractVariables(str) {
-        if (!str || typeof str !== 'string') {
-            return [];
-        }
-
-        const matches = str.match(/\$\{([^}]+)\}/g);
-        if (!matches) {
-            return [];
-        }
-
-        return matches.map(match => match.slice(2, -1)); // ${} 제거
-    }
-
-    /**
-     * 변수 의존성 검증
-     * @param {string} str - 검증할 문자열
-     * @returns {Object} 검증 결과
-     */
-    validateVariableDependencies(str) {
-        const usedVars = this.extractVariables(str);
-        const missingVars = usedVars.filter(varName => !this.hasVariable(varName));
-        
-        return {
-            isValid: missingVars.length === 0,
-            usedVariables: usedVars,
-            missingVariables: missingVars,
-            availableVariables: Object.keys(this.variables)
+            static: this.variables,
+            dynamic: this.dynamicVariables
         };
     }
 }
 
 module.exports = VariableManager;
+

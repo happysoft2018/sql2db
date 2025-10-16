@@ -1,11 +1,15 @@
 # MSSQL 데이터 이관 도구
 
-MSSQL DB간 데이터 이관을 위한 Node.js 기반 솔루션 입니다.
+대화형 인터페이스와 독립 실행 파일을 지원하는 MSSQL 데이터베이스 간 데이터 이관을 위한 Node.js 기반 솔루션입니다.
 
 ## 주요 기능
 
+- ✅ **대화형 인터페이스**: 쉬운 조작을 위한 사용자 친화적 메뉴 시스템
+- ✅ **독립 실행 파일**: Node.js 설치 없이 실행 가능
+- ✅ **다국어 지원**: 영어 및 한글 인터페이스
+- ✅ **진행 상황 모니터링**: 상세 이력이 포함된 실시간 이관 진행 상황 추적
 - ✅ **MSSQL 간 데이터 이관**: 고성능 배치 처리
-- ✅ **XML/JSON 설정 지원**: 유연한 설정 형식 선택
+- ✅ **XML 설정 지원**: 유연한 XML 기반 설정
 - ✅ **컬럼 오버라이드**: 이관 시 컬럼값 변경/추가
 - ✅ **전처리/후처리**: 이관 전후 SQL 스크립트 실행
 - ✅ **동적 변수**: 실행 시점 데이터 추출 및 활용
@@ -15,6 +19,31 @@ MSSQL DB간 데이터 이관을 위한 Node.js 기반 솔루션 입니다.
 - ✅ **SELECT * 자동 처리**: IDENTITY 컬럼 자동 제외
 
 ## 빠른 시작
+
+### 옵션 1: 독립 실행 파일 사용 (권장)
+
+1. **배포 패키지 다운로드**
+   - `sql2db-v0.8.1-bin.zip` 다운로드
+   - 원하는 위치에 압축 해제
+
+2. **데이터베이스 연결 설정**
+   - `config/dbinfo.json` 파일을 데이터베이스 설정으로 편집
+   - `queries/` 폴더에 쿼리문정의 파일 추가
+
+3. **실행**
+   ```bash
+   # 영문 버전
+   run.bat
+   
+   # 한글 버전
+   실행하기.bat
+   
+   # 또는 직접 실행
+   sql2db.exe --lang=en
+   sql2db.exe --lang=kr
+   ```
+
+### 옵션 2: Node.js 사용
 
 ### 1. 설치
 ```bash
@@ -45,27 +74,70 @@ npm install
 ```
 
 ### 3. 기본 실행
-```bash
-# Windows 사용자 (권장)
-migrate.bat
 
-# 명령줄 사용자
+#### 대화형 인터페이스 (권장)
+```bash
+# 영문 버전
+npm start
+# 또는
+run.bat
+
+# 한글 버전
+npm run start:kr
+# 또는
+실행하기.bat
+```
+
+#### 커맨드라인 인터페이스
+```bash
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
+
+## 대화형 메뉴 기능
+
+```
+=========================================
+  MSSQL 데이터 이관 도구
+  버전 0.8.1
+=========================================
+
+1. 쿼리문정의 파일 Syntax검증
+2. DB연결 테스트 (연결 가능 여부 포함)
+3. 데이터 이관 실행
+4. 이관 진행 상황 조회
+5. 도움말 보기
+0. 종료
+
+선택하세요 (0-5):
+```
+
+### 메뉴 옵션
+
+1. **쿼리문정의 파일 Syntax검증**: XML 구문 및 속성명 검사
+2. **DB연결 테스트**: 데이터베이스 연결 확인
+3. **데이터 이관 실행**: 선택한 쿼리 파일로 데이터 이관 실행
+4. **이관 진행 상황 조회**: 이관 이력 및 상세 상태 보기
+   - 기본적으로 최근 3개 이관 작업 표시
+   - 'A' 입력하여 모든 이관 작업 보기
+   - 번호 입력하여 상세 진행 정보 조회
+5. **도움말 보기**: 사용 정보 표시
 
 ## 주요 명령어
 
 | 명령어 | 설명 |
 |--------|------|
-| `migrate.bat` | 대화형 메뉴 인터페이스 |
+| `npm start` 또는 `run.bat` | 대화형 메뉴 (영문) |
+| `npm run start:kr` 또는 `실행하기.bat` | 대화형 메뉴 (한글) |
 | `node src/migrate-cli.js validate` | 설정 검증 |
 | `node src/migrate-cli.js test` | 연결 테스트 |
 | `node src/migrate-cli.js migrate --dry-run` | 시뮬레이션 실행 |
 | `node src/migrate-cli.js list-dbs` | DB 목록 조회 |
+| `npm run build` | 독립 실행 파일 빌드 |
+| `npm run release` | 배포 패키지 생성 |
 
 ## 설정 파일 형식
 
-### XML 형식 (권장)
+### XML 형식
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
@@ -90,24 +162,6 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
     </query>
   </queries>
 </migration>
-```
-
-### JSON 형식
-```json
-{
-  "databases": {
-    "source": "sourceDB",
-    "target": "targetDB"
-  },
-  "queries": [
-    {
-      "id": "migrate_users",
-      "sourceQuery": "SELECT * FROM users WHERE status = 'ACTIVE'",
-      "targetTable": "users",
-      "enabled": true
-    }
-  ]
-}
 ```
 
 ## 문서
@@ -145,7 +199,7 @@ sqlcmd -S your-server -d your-database -i resources/create-example-table.sql
 
 ## 📈 진행 상황 관리
 
-v2.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다:
+v0.1부터 실시간 진행 상황 추적 및 모니터링 기능이 추가되었습니다:
 
 ```bash
 # 진행 상황 목록 조회
@@ -224,6 +278,44 @@ test-dbid-migration.bat    # DB ID 참조 테스트
 test-log-levels.bat        # 로그 레벨 테스트
 test-select-star-identity.bat  # SELECT * IDENTITY 제외 테스트
 ```
+
+## 독립 실행 파일 빌드
+
+### 사전 준비
+```bash
+npm install
+```
+
+### 빌드
+```bash
+npm run build
+```
+
+이 명령은 `dist/` 디렉토리에 독립 실행 파일을 생성합니다:
+- `dist/sql2db.exe` (Windows 64비트)
+
+### 빌드 설정
+빌드 프로세스는 `pkg`를 사용하여 Node.js 애플리케이션을 번들링합니다:
+- **타겟**: Windows x64 (Node.js 18)
+- **압축**: GZip
+- **포함된 에셋**:
+  - 모든 소스 파일 (`src/**/*.js`)
+  - 설정 파일 (`config/**/*.json`)
+  - 쿼리 정의 파일 (`queries/**/*.xml`, `queries/**/*.json`, `queries/**/*.sql`)
+  - 예제 파일 (`examples/**/*.xml`)
+  - 리소스 파일 (`resources/**/*.sql`)
+  - 문서 파일 (README, USER_MANUAL, CHANGELOG)
+
+### 실행 파일 실행
+```bash
+# 실행 파일 직접 실행
+dist\sql2db.exe
+
+# 또는 언어 옵션과 함께 실행
+dist\sql2db.exe --lang=kr
+```
+
+독립 실행 파일은 Node.js 설치 없이 애플리케이션을 실행하는 데 필요한 모든 것을 포함합니다.
 
 ## 기여하기
 

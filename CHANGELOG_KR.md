@@ -1,6 +1,235 @@
 # SQL2DB Migration Tool 업데이트 로그
 
-## 🔧 v2.7.1 - 다중 데이터베이스 동적변수 지원 확장 (2025-09-01)
+## 🚀 v0.8.2 - 구조 개선 및 검증 강화 (2025-10-14)
+
+### 🔧 기술적 개선
+
+#### dbinfo.json 구조 개선
+- **dbs 래퍼 제거**: DB 설정을 직접 루트에 배치
+  - 변경 전: `{"dbs": {"sampleDB": {...}}}`
+  - 변경 후: `{"sampleDB": {...}}`
+  - 더 간결한 구조로 가독성 향상
+  - 모든 관련 코드 업데이트:
+    - `mssql-connection-manager.js`: config.dbs → config 직접 사용
+    - `migrate-cli.js`: dbInfo.dbs → dbInfo 직접 사용
+    - `config-manager.js`: dbInfo.dbs → dbInfo 직접 사용
+
+#### pkg 환경 경로 처리 개선
+- **APP_ROOT 상수 사용**: pkg 환경과 개발 환경 모두에서 올바른 파일 경로 사용
+  - `mssql-connection-manager.js`: pkg 환경 경로 처리 추가
+  - `migrate-cli.js`: validate 명령 시 --xml 옵션 파싱 개선
+  - 디버그 로그 추가: queryDef 파싱 과정 추적
+
+### 🐛 버그 수정
+- **validate 명령 queryDef 인식 오류**: queryDef의 id 속성 인식 개선
+- **validate-config.bat 무한 루프**: 파일 선택 메뉴 추가로 개선
+- **pkg 환경 파일 경로 오류**: APP_ROOT 사용으로 해결
+
+## 🚀 v0.8.1 - XML 전용 설정 지원 (2025-10-11)
+
+### 🔄 주요 변경 사항
+
+#### JSON 쿼리문정의 파일 지원 제거
+- **XML 전용**: 쿼리문정의 파일은 이제 XML 형식만 지원
+- **간소화된 아키텍처**: 더 깨끗한 코드베이스를 위해 JSON 파싱 로직 제거
+- **명확한 오류 메시지**: JSON 파일 사용 시도 시 명확한 오류 제공
+- **일관된 문서화**: 모든 문서가 XML 전용 지원을 반영하도록 업데이트
+
+### 📝 변경 내용
+
+#### 코드 업데이트
+- **migrate-cli.js**: XML 형식만 지정하도록 도움말 텍스트 업데이트
+- **config-manager.js**: XML이 아닌 파일을 거부하는 검증 추가
+- **삭제된 파일**: `queries/migration-queries.json` 샘플 파일 삭제
+
+#### 문서 업데이트
+- **README.md**: JSON 형식 섹션 및 예제 제거
+- **README_KR.md**: JSON 형식 섹션 및 예제 제거
+- **USER_MANUAL.md**: 설정 형식 설명 업데이트
+- **USER_MANUAL_KR.md**: 설정 형식 설명 업데이트
+- **CHANGELOG.md**: JSON 참조 제거
+- **CHANGELOG_KR.md**: JSON 참조 제거
+
+### 💡 마이그레이션 가이드
+
+JSON 쿼리문정의 파일을 사용하고 있었다면:
+
+1. **XML로 변환**: 문서에 표시된 XML 형식 구조 사용
+2. **파일 확장자 변경**: `.json`을 `.xml`로 변경
+3. **구문 조정**: 적절한 태그와 CDATA 섹션이 있는 XML 구조 따르기
+
+**변환 예시:**
+```json
+// 이전 JSON 형식 (더 이상 지원되지 않음)
+{
+  "queries": [{
+    "id": "migrate_users",
+    "sourceQuery": "SELECT * FROM users"
+  }]
+}
+```
+
+```xml
+<!-- 새로운 XML 형식 -->
+<migration>
+  <queries>
+    <query id="migrate_users">
+      <sourceQuery>
+        <![CDATA[SELECT * FROM users]]>
+      </sourceQuery>
+    </query>
+  </queries>
+</migration>
+```
+
+### 🎯 변경 이유
+
+- **단일 형식**: 하나의 설정 형식 유지로 복잡성 감소
+- **더 나은 구조**: XML은 복잡한 설정에 더 나은 구조 제공
+- **CDATA 지원**: XML CDATA 섹션은 SQL 쿼리를 더 자연스럽게 처리
+- **업계 표준**: XML은 데이터베이스 마이그레이션 도구에서 더 일반적
+
+---
+
+## 🚀 v0.8.0 - 대화형 인터페이스 및 독립 실행 파일 지원 (2025-10-11)
+
+### ✨ 새로운 기능
+
+#### 대화형 커맨드라인 인터페이스 (app.js)
+- **사용자 친화적 메뉴**: 쉬운 조작을 위한 대화형 메뉴 시스템
+- **번호로 파일 선택**: 전체 경로 입력 없이 번호로 쿼리문정의 파일 선택
+- **다국어 지원**: 영어 및 한글 인터페이스 지원 (--lang 옵션)
+- **통합 작업**: 단일 인터페이스에서 모든 일반 작업 접근 가능
+  - 쿼리문정의 파일 검증
+  - 데이터베이스 연결 테스트
+  - 데이터 이관 실행
+  - 이관 진행 상황 모니터링
+
+#### 이관 진행 상황 모니터링
+- **최근 이력 보기**: 기본적으로 최근 3개 이관 작업 표시
+- **전체 이력 접근**: 'A' 명령으로 모든 이관 이력 보기 토글
+- **상세 진행 정보**: 모든 이관 작업의 포괄적인 상세 정보 조회
+  - 이관 상태 및 타임스탬프
+  - 쿼리별 진행 상황 추적
+  - 행 수 및 처리 속도
+  - 오류 정보 및 스택 트레이스
+- **대화형 탐색**: 목록과 상세 보기 간 쉬운 탐색
+
+#### 독립 실행 파일 지원
+- **PKG 통합**: `npm run build`로 독립 실행 Windows 실행 파일 빌드
+- **Node.js 불필요**: Node.js 설치 없이 이관 실행
+- **완전한 패키지**: 모든 의존성 및 리소스 포함
+- **최적화된 빌드**: 더 작은 파일 크기를 위한 GZip 압축
+- **경로 처리**: 패키지 환경에서 자동 경로 처리
+
+#### 자동화된 배포 프로세스
+- **배포 스크립트**: 자동 패키징을 위한 포괄적인 `release.bat`
+- **패키지 구조**: 체계적인 디렉토리로 구성된 전문적인 배포 패키지
+- **실행 스크립트**: 영어 및 한글 버전 전용 배치 파일
+- **문서화**: 버전 정보, 릴리스 노트, 매뉴얼 포함
+- **ZIP 아카이브**: 배포를 위한 자동 ZIP 파일 생성
+
+### 🔄 개선 사항
+
+#### 모듈화 아키텍처 리팩토링
+- **관심사 분리**: 모놀리식 코드를 집중된 모듈로 분할
+  - `config-manager.js`: 설정 로드 및 파싱
+  - `variable-manager.js`: 동적 변수 관리
+  - `query-processor.js`: SQL 쿼리 처리
+  - `script-processor.js`: 전/후처리 스크립트 실행
+- **향상된 유지보수성**: 더 이해하기 쉽고 수정하기 쉬운 코드
+- **더 나은 테스트**: 개별 모듈을 독립적으로 테스트 가능
+- **API 호환성**: 기존 설정과의 하위 호환성 유지
+
+#### 강화된 설정 검증
+- **속성명 검증**: 모든 XML 속성명 검증
+- **상세한 오류 메시지**: 검증 실패 시 허용되는 속성 표시
+- **포괄적인 검사**: 모든 설정 섹션 검증
+  - 설정 속성
+  - 쿼리 속성
+  - 동적 변수 속성
+  - 전/후처리 속성
+  - 전역 처리 그룹 속성
+
+#### PKG 환경 지원
+- **경로 처리**: 패키지된 실행 파일에서 올바른 `__dirname` 처리
+- **디렉토리 생성**: 로그 및 출력 디렉토리를 위한 대체 메커니즘
+- **모듈 로딩**: CLI 실행 대신 직접 모듈 require()
+- **리소스 포함**: 쿼리, 설정, 리소스의 적절한 번들링
+
+### 🛠️ 사용 예시
+
+#### 대화형 인터페이스
+```bash
+# 영문 버전
+npm start
+# 또는
+run.bat
+
+# 한글 버전
+npm run start:kr
+# 또는
+실행하기.bat
+
+# 독립 실행 파일
+sql2db.exe --lang=en
+sql2db.exe --lang=kr
+```
+
+#### 진행 상황 모니터링
+```
+이관 작업 이력 (최근 3개):
+
+1. migration-2025-10-11-01-45-35
+   상태: COMPLETED
+   시작: 2025-10-11 오전 1:45:35
+   진행: 25/25 queries
+   완료: 2025-10-11 오전 1:48:20 (165s)
+
+Showing 3 of 15 migration(s)
+
+상세 정보를 볼 번호를 입력하세요 ('A': 전체보기, '0': 뒤로가기):
+```
+
+#### 실행 파일 빌드
+```bash
+# 독립 실행 파일 빌드
+npm run build
+
+# 배포 패키지 생성
+npm run release
+
+# 출력: release/sql2db-v0.8.0-bin.zip
+```
+
+### 📦 배포 패키지 내용
+- `sql2db.exe`: 독립 실행 파일
+- `run.bat`: 영문 실행 스크립트
+- `실행하기.bat`: 한글 실행 스크립트
+- `config/`: 데이터베이스 설정 파일
+- `queries/`: 쿼리문정의 파일
+- `resources/`: SQL 리소스 파일
+- `user_manual/`: 완전한 문서
+
+### 🔧 기술적 개선사항
+- **향상된 오류 처리**: 패키지 환경에서 포괄적인 오류 메시지
+- **메모리 관리**: CLI 인터페이스를 위한 최적화된 리소스 사용
+- **파일 시스템 작업**: 대체 옵션이 있는 안전한 디렉토리 생성
+- **콘솔 출력**: 개선된 포맷팅 및 색상 코딩 메시지
+
+### 📊 성능
+- **빠른 시작**: 대화형 인터페이스의 빠른 초기화
+- **효율적인 진행 추적**: 모니터링을 위한 최소 오버헤드
+- **최적화된 빌드**: 모든 의존성 포함 ~50MB 실행 파일
+
+### 🎯 마이그레이션 경로
+- **설정 불필요**: 기존 쿼리 파일이 변경 없이 작동
+- **API 호환**: 모든 CLI 명령어 여전히 기능
+- **점진적 개선**: CLI와 대화형 인터페이스 중 선택
+
+---
+
+## 🔧 v0.7.1 - 다중 데이터베이스 동적변수 지원 확장 (2025-09-01)
 
 ### ✨ 새로운 기능
 
@@ -8,14 +237,6 @@
 - **전체 DB 지원**: dbinfo.json에 정의된 모든 데이터베이스에서 동적변수 추출 가능
 - **자동 연결 관리**: 각 DB별로 별도의 연결 풀 생성 및 관리
 - **에러 처리 강화**: 잘못된 DB 지정 시 사용 가능한 DB 목록 표시
-
-#### 지원하는 데이터베이스
-| 데이터베이스 | 설명 | 사용 예시 |
-|-------------|------|-----------|
-| `sourceDB` | 소스 데이터베이스 (읽기 전용) | 운영 환경에서 마스터 데이터 추출 |
-| `targetDB` | 타겟 데이터베이스 (읽기/쓰기) | 개발 환경에서 참조 데이터 추출 |
-| `sampleDB` | 샘플 데이터베이스 | 테스트 데이터 또는 메타데이터 추출 |
-| 기타 DB | dbinfo.json에 정의된 모든 DB | 사용자 정의 데이터베이스에서 데이터 추출 |
 
 #### 사용 예시
 ```xml
@@ -65,7 +286,7 @@
 
 ---
 
-## 🔧 v2.7 - 동적 변수 및 SQL 처리 개선 (2025-08-29)
+## 🔧 v0.7 - 동적 변수 및 SQL 처리 개선 (2025-08-29)
 
 ### ✨ 새로운 기능
 
@@ -138,7 +359,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ---
 
-## 🔧 v2.6 - 처리 단계별 컬럼 오버라이드 제어 (2024-08-14)
+## 🔧 v0.6 - 처리 단계별 컬럼 오버라이드 제어 (2024-08-14)
 
 ### ✨ 새로운 기능
 
@@ -177,7 +398,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 이를 통해 각 단계의 목적에 맞는 최적화된 컬럼 오버라이드 적용이 가능합니다.
 
-## 🎯 v2.5 - 전역 전/후처리 그룹 관리 기능 (2024-08-14)
+## 🎯 v0.5 - 전역 전/후처리 그룹 관리 (2024-08-14)
 
 ### ✨ 새로운 기능
 
@@ -185,7 +406,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 - **간단한 그룹화**: globalProcesses 내에서 전/후처리를 기능별 그룹으로 관리
 - **순차 실행**: 정의된 순서대로 그룹별 실행
 - **개별 제어**: 각 그룹별 활성화/비활성화 설정
-- **동적변수 완전 지원**: 모든 그룹에서 동적변수 사용 가능
+- **완전한 동적 변수 지원**: 모든 그룹에서 동적 변수 사용 가능
 
 #### 기본 제공 그룹 예시
 1. **performance_setup**: 성능 최적화 설정 (인덱스/제약조건 비활성화)
@@ -197,7 +418,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ### 🔄 실행 순서
 1. **전역 전처리 그룹들** (정의된 순서대로)
-2. 동적변수 추출
+2. 동적 변수 추출
 3. 개별 쿼리 마이그레이션
 4. **전역 후처리 그룹들** (정의된 순서대로)
 
@@ -205,7 +426,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 - **전처리 그룹 오류**: 마이그레이션 전체 중단
 - **후처리 그룹 오류**: 경고 로그 후 다음 그룹 계속 진행
 
-### 📝 사용법 예시
+### 📝 사용 예시
 
 #### XML 그룹 설정
 ```xml
@@ -225,7 +446,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
     
     <group id="validation" description="데이터 검증" enabled="true">
       <![CDATA[
-        -- 중복 데이터 체크 (동적변수 사용)
+        -- 중복 데이터 체크 (동적 변수 사용)
         IF EXISTS (SELECT user_id, COUNT(*) FROM users_source GROUP BY user_id HAVING COUNT(*) > 1)
         BEGIN
           RAISERROR('중복된 사용자 ID가 발견되었습니다.', 16, 1);
@@ -242,633 +463,419 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
   <postProcessGroups>
     <group id="performance_restore" description="성능 최적화 복원" enabled="true">
       <![CDATA[
-        -- 인덱스 재구성
+        -- 제약조건 재활성화
+        ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
+        ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
+        
+        -- 인덱스 재활성화
         ALTER INDEX ALL ON users REBUILD;
         ALTER INDEX ALL ON products REBUILD;
+      ]]>
+    </group>
+    
+    <group id="completion" description="완료 로깅" enabled="true">
+      <![CDATA[
+        -- 최종 통계
+        INSERT INTO migration_completion_log 
+        SELECT 'MIGRATION_COMPLETE', GETDATE(), 
+               (SELECT COUNT(*) FROM users),
+               (SELECT COUNT(*) FROM products);
       ]]>
     </group>
   </postProcessGroups>
 </globalProcesses>
 ```
 
-## 🔄 v2.4 - columnOverrides 기능 개선 (2024-08-14)
+## 🔄 v0.4 - 동적 변수 시스템 개선 (2024-08-13)
 
 ### ✨ 새로운 기능
 
-#### 선택적 전역 컬럼 오버라이드 적용
-- **applyGlobalColumns 속성 추가**: 각 쿼리에서 필요한 전역 컬럼만 선택적으로 적용 가능
-- **유연한 설정 옵션**: `all`, `none`, 개별 컬럼명, 쉼표로 구분된 여러 컬럼 지원
-- **스마트 검증**: 존재하지 않는 컬럼 지정 시 경고 메시지 출력
-- **성능 최적화**: 필요한 컬럼만 처리하여 성능 향상
+#### 향상된 동적 변수 시스템
+- **기본 타입 단순화**: `extractType`이 지정되지 않으면 자동으로 `column_identified` 동작으로 기본 설정
+- **개선된 변수 타입**: 사용성을 위해 3개 타입에서 2개 타입으로 간소화
+- **향상된 오류 처리**: 해결되지 않은 변수와 엣지 케이스에 대한 더 나은 처리
 
-#### 개선된 행 수 추정 시스템
-- **안전한 변수 치환**: 행 수 추정 시 변수 값이 2개 이상이어도 오류 없이 처리
-- **COUNT 쿼리 최적화**: 서브쿼리를 사용한 효율적인 행 수 계산
-- **Graceful Fallback**: COUNT 쿼리 실패 시 원본 쿼리로 안전하게 대체
-- **SQL 파일 지원**: sourceQueryFile 사용 시에도 정확한 행 수 추정
+### 🔄 변경 사항
 
-### ⚠️ 주요 변경사항
+#### 기본 타입 동작
+- **이전**: 명시적인 `extractType` 지정 필요
+- **신규**: `extractType`이 생략되면 `column_identified`로 기본 설정
 
-#### columnOverrides 기능 단순화
-- **개별 쿼리 columnOverrides 제거**: 각 쿼리의 `<columnOverrides>` 설정 완전 제거
-- **globalColumnOverrides 중심**: 전역 설정을 정의하고 각 쿼리에서 선택적 적용  
-- **코드 간소화**: 복잡한 병합 로직 제거로 성능 향상 및 유지보수성 개선
-- **유연성 향상**: 쿼리별로 필요한 컬럼만 적용하여 더욱 세밀한 제어
+#### 변수 타입 단순화
+| 타입 | 설명 | 접근 패턴 | 기본값 |
+|------|-------------|----------------|---------|
+| `column_identified` | 모든 컬럼을 컬럼명으로 키를 가진 배열로 추출 | `${varName.columnName}` | ✅ 예 |
+| `key_value_pairs` | 처음 두 컬럼을 키-값 쌍으로 추출 | `${varName.key}` | 아니오 |
 
-### 📋 마이그레이션 가이드
+### 📝 사용 예시
 
-기존 XML 파일을 수정하여 개별 쿼리의 `<columnOverrides>` 섹션을 제거하고, 
-필요한 경우 `<globalColumnOverrides>`에 추가하시기 바랍니다.
-
-**변경 전:**
+#### 간소화된 설정
 ```xml
-<query id="example">
-  <columnOverrides>
-    <override column="status">MIGRATED</override>
-  </columnOverrides>
-</query>
+<dynamicVariables>
+  <!-- column_identified 사용 (기본값) - extractType 불필요 -->
+  <dynamicVar id="customer_data" description="고객 정보">
+    <query>SELECT CustomerID, CustomerName, Region FROM Customers</query>
+  </dynamicVar>
+  
+  <!-- key_value_pairs 사용 - 명시적 지정 필요 -->
+  <dynamicVar id="status_mapping" description="상태 매핑">
+    <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
+    <extractType>key_value_pairs</extractType>
+  </dynamicVar>
+</dynamicVariables>
 ```
 
-**변경 후:**
-```xml
-<!-- globalColumnOverrides에 통합 -->
-<globalColumnOverrides>
-  <override column="status">MIGRATED</override>
-  <override column="created_by">SYSTEM</override>
-  <override column="updated_by">SYSTEM</override>
-</globalColumnOverrides>
+### 🔧 개선사항
+- **사용성 향상**: `column_identified`를 기본값으로 설정하여 설정 복잡성 감소
+- **일관성**: 도구 간 일관성을 위해 sql2excel 동작과 정렬
+- **문서화**: 새로운 기본 동작을 반영하여 모든 문서 업데이트
 
-<query id="example" applyGlobalColumns="status">
-  <!-- 필요한 전역 컬럼만 선택적 적용 -->
-</query>
-
-<query id="another" applyGlobalColumns="all">
-  <!-- 모든 전역 컬럼 적용 -->
-</query>
-
-<query id="minimal" applyGlobalColumns="none">
-  <!-- 전역 컬럼 적용 안함 -->
-</query>
-```
-
----
-
-## 🌟 v2.3 - 고급 기능 대폭 강화 (2025-08-11)
+## 📈 v0.3.0 - 진행 상황 관리 시스템 (2024-08-12)
 
 ### ✨ 새로운 기능
 
-#### 🖥️ 실시간 인터랙티브 모니터링
-- **키보드 컨트롤**: 실시간 모니터링 중 키보드로 모드 전환 및 제어
-- **다중 디스플레이 모드**: 간단/상세/오류로그/통계/로그스트림 모드 지원
-- **실시간 차트**: 텍스트 기반 성능 차트 및 진행률 시각화
-- **스마트 알림**: 오류 임계값, 느린 쿼리, 정체 상황 자동 감지 및 알림
-- **Windows Toast 알림**: 시스템 알림으로 중요 이벤트 통지
+#### 실시간 진행 상황 추적
+- **라이브 모니터링**: 실시간 마이그레이션 진행 상황 모니터링
+- **성능 메트릭**: 처리 속도 및 예상 완료 시간
+- **상세 분석**: 단계, 쿼리, 배치 레벨 상세 정보
+- **중단 복구**: 완료된 지점에서 중단된 마이그레이션 재개
+- **영구 저장**: 이력 관리를 위한 진행 상황 파일
+- **CLI 도구**: 다양한 쿼리 및 관리 명령어
 
-#### ⭐ 전/후처리 스크립트 SELECT * 자동 확장
-- **스마트 컬럼 확장**: 전/후처리 스크립트의 `SELECT *`를 테이블 스키마 기반으로 자동 확장
-- **테이블 별칭 지원**: `SELECT u.* FROM users u` 형태의 별칭 처리
-- **복잡한 SQL 지원**: JOIN, WHERE, ORDER BY와 함께 사용 가능
-- **오류 처리**: 스키마 조회 실패 시 원본 쿼리 유지
-
-#### 🎨 전/후처리 columnOverrides 자동 적용
-- **INSERT 문 지원**: `VALUES (...)` 및 `SELECT ...` 형태 모두 지원
-- **UPDATE 문 지원**: 기존 SET 절에 새로운 컬럼 할당 자동 추가
-- **스마트 충돌 방지**: 이미 존재하는 컬럼은 중복 추가하지 않음
-- **변수 치환**: columnOverrides 값에도 동적 변수 치환 적용
-
-#### 📝 고급 SQL 파싱 및 주석 처리
-- **정확한 주석 제거**: 라인 주석(`--`)과 블록 주석(`/* */`) 정확한 파싱
-- **문자열 리터럴 보호**: 문자열 내 주석 패턴은 주석으로 처리하지 않음
-- **이스케이프 처리**: 이스케이프된 따옴표 정확한 처리
-- **멀티라인 지원**: 여러 줄에 걸친 복잡한 SQL 구문 지원
-
-#### 🔧 변수 시스템 강화
-- **처리 우선순위 개선**: 동적 변수 → 정적 변수 → 타임스탬프 함수 → 환경 변수
-- **충돌 방지**: 상위 우선순위로 처리된 변수를 하위에서 덮어쓰지 않음
-- **상세 디버깅**: `DEBUG_VARIABLES=true`로 변수 치환 과정 추적
-- **오류 복구**: 개별 변수 치환 실패가 전체에 영향주지 않음
-
-### 🚀 성능 및 안정성 개선
-
-#### 처리 순서 최적화
-```
-변수 치환 → SELECT * 확장 → columnOverrides 적용 → 주석 제거 → SQL 실행
-```
-
-#### 오류 처리 강화
-- **단계별 오류 격리**: 각 처리 단계의 실패가 다른 단계에 영향주지 않음
-- **Graceful Degradation**: 기능 실패 시 원본 데이터로 안전하게 fallback
-- **상세 로깅**: 각 단계별 처리 결과와 오류 정보 제공
-
-### 🛠️ 새로운 환경 변수
-
-#### 디버깅 옵션
+### 🛠️ 진행 상황 관리 명령어
 ```bash
-DEBUG_VARIABLES=true    # 변수 치환 과정 상세 로그
-DEBUG_COMMENTS=true     # 주석 제거 과정 확인  
-DEBUG_SCRIPTS=true      # 스크립트 전체 처리 과정 확인
-```
+# 모든 마이그레이션 목록
+node src/progress-cli.js list
 
-#### 기능 제어
-```bash
-PROCESS_SELECT_STAR=false        # SELECT * 처리 비활성화
-ERROR_THRESHOLD=5                # 오류 알림 임계값
-SLOW_QUERY_THRESHOLD=30          # 느린 쿼리 알림 임계값 (초)
-ENABLE_TOAST_NOTIFICATIONS=true  # Windows Toast 알림 활성화
-```
+# 특정 마이그레이션 상세 정보
+node src/progress-cli.js show migration-2024-12-01-15-30-00
 
-### 📊 실시간 모니터링 키보드 컨트롤
-
-| 키 | 기능 |
-|---|------|
-| `q` | 모니터링 종료 |
-| `p` | 일시정지/재개 |
-| `d` | 상세/간단 모드 전환 |
-| `+/-` | 새로고침 속도 조절 |
-| `r` | 즉시 새로고침 |
-| `e` | 오류 로그 보기 |
-| `s` | 통계 보기 |
-| `l` | 로그 스트림 보기 |
-| `c` | 화면 클리어 |
-| `h` | 도움말 |
-
-### 🎯 사용법 예시
-
-#### 실시간 모니터링
-```bash
-# 마이그레이션과 함께 모니터링 시작
+# 실시간 모니터링
 node src/progress-cli.js monitor migration-2024-12-01-15-30-00
 
-# 별도 터미널에서 모니터링
-node src/progress-cli.js monitor migration-id --watch-only
+# 재개 정보
+node src/progress-cli.js resume migration-2024-12-01-15-30-00
+
+# 중단된 마이그레이션 재시작
+node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
+
+# 전체 요약
+node src/progress-cli.js summary
+
+# 오래된 파일 정리
+node src/progress-cli.js cleanup 7
 ```
 
-#### 전/후처리에서 SELECT * 사용
+### 📊 진행 상황 파일 구조
+```json
+{
+  "migrationId": "migration-2024-12-01-15-30-00",
+  "startTime": "2024-12-01T15:30:00.000Z",
+  "status": "IN_PROGRESS",
+  "totalQueries": 5,
+  "completedQueries": 2,
+  "currentQuery": "migrate_users",
+  "currentBatch": 1500,
+  "totalBatches": 5000,
+  "progress": {
+    "percentage": 40.0,
+    "estimatedCompletion": "2024-12-01T16:45:00.000Z"
+  }
+}
+```
+
+## ⭐ v0.2.3 - SELECT * 자동 처리 (2024-08-11)
+
+### ✨ 새로운 기능
+
+#### SELECT * 자동 처리
+- **자동 감지**: `SELECT * FROM table_name` 패턴 자동 감지
+- **IDENTITY 컬럼 제외**: 타겟 테이블의 IDENTITY 컬럼을 자동으로 식별하고 제외
+- **자동 컬럼 목록 생성**: `targetColumns` 자동 설정
+- **소스 쿼리 변환**: `SELECT *`를 명시적 컬럼 목록으로 변환
+
+### 📝 사용 예시
 ```xml
-<preProcess description="백업 생성">
+<query id="migrate_users" targetTable="users" enabled="true">
+  <sourceQuery>
+    <![CDATA[SELECT * FROM users WHERE status = 'ACTIVE']]>
+  </sourceQuery>
+  <!-- targetColumns 자동 설정 (IDENTITY 컬럼 제외) -->
+</query>
+```
+
+### 🔄 처리 단계
+1. `SELECT *` 패턴 감지
+2. 타겟 테이블의 모든 컬럼 조회
+3. IDENTITY 컬럼 식별 및 제외
+4. `targetColumns` 자동 설정
+5. 소스 쿼리를 명시적 컬럼 목록으로 변환
+
+### 📋 로그 예시
+```
+SELECT * 감지됨. 테이블 users의 컬럼 정보를 자동으로 가져오는 중.
+IDENTITY 컬럼 자동 제외: id
+자동 설정된 컬럼 목록 (15개 컬럼, IDENTITY 제외): name, email, status, created_date, ...
+수정된 소스 쿼리: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
+```
+
+## 🔧 v0.2.1 - 컬럼 오버라이드 개선 (2024-08-10)
+
+### ✨ 새로운 기능
+
+#### 향상된 컬럼 오버라이드 시스템
+- **전역 컬럼 오버라이드**: 모든 쿼리에 오버라이드 적용
+- **전/후처리 오버라이드**: 전/후처리 스크립트에서 오버라이드 적용
+- **고급 SQL 파싱**: 주석이 포함된 복잡한 SQL 문 지원
+- **개선된 오류 처리**: 더 나은 오류 메시지 및 복구
+
+### 📝 사용 예시
+
+#### 전역 컬럼 오버라이드
+```xml
+<!-- 간단한 값 -->
+<globalColumnOverrides>
+  <override column="created_by">SYSTEM</override>
+  <override column="created_date">${CURRENT_TIMESTAMP}</override>
+  <override column="migration_source">LEGACY_SYSTEM</override>
+</globalColumnOverrides>
+
+<!-- JSON 값 -->
+<globalColumnOverrides>
+  <override column="data_version">{"users": "2.1", "orders": "2.2", "products": "2.3", "default": "2.0"}</override>
+  <override column="migration_date">{"sourceDB": "${CURRENT_DATE}", "targetDB": "2024-12-31", "default": "${CURRENT_DATE}"}</override>
+</globalColumnOverrides>
+```
+
+#### 전/후처리 오버라이드
+```xml
+<preProcess description="오버라이드와 함께 백업" applyGlobalColumns="all">
   <![CDATA[
-    -- 자동으로 모든 컬럼명으로 확장됨
-    INSERT INTO users_backup 
-    SELECT * FROM users WHERE status = 'ACTIVE';
+    INSERT INTO backup_table (id, name, created_by, created_date)
+    SELECT id, name, 'BACKUP_SYSTEM', GETDATE()
+    FROM target_table;
   ]]>
 </preProcess>
 ```
 
-#### 전/후처리 columnOverrides
-```xml
-<query id="audit_migration">
-  <preProcess description="감사 로그">
-    <![CDATA[
-      -- migration_user, migration_date 자동 추가
-      INSERT INTO audit_log (operation_type, start_time)
-      VALUES ('MIGRATION', GETDATE());
-    ]]>
-  </preProcess>
-  
-  <columnOverrides>
-    <override column="migration_user">${migrationUser}</override>
-    <override column="migration_date">GETDATE()</override>
-  </columnOverrides>
-</query>
-```
-
-### 🔍 향후 계획
-- 더 많은 SQL 패턴 지원 확장
-- 데이터베이스 종류별 최적화
-- 성능 모니터링 메트릭 추가
-- 웹 기반 모니터링 대시보드
-
----
-
-## 🆕 v2.2 - 전역 컬럼 오버라이드 기능 추가 (2025-08-07)
+## 🔄 v0.2.0 - 동적 변수 시스템 (2024-08-09)
 
 ### ✨ 새로운 기능
 
-#### 전역 columnOverrides 지원
-- **상위 레벨 설정**: 모든 쿼리에 공통으로 적용되는 전역 컬럼 오버라이드 정의 가능
-- **설정 병합**: 전역 설정과 개별 쿼리 설정의 지능적 병합
-- **우선순위 처리**: 개별 쿼리 설정이 전역 설정을 덮어쓰는 방식
+#### 동적 변수 시스템
+- **런타임 데이터 추출**: 런타임에 데이터베이스에서 데이터 추출
+- **변수 타입**: `column_identified` 및 `key_value_pairs` 타입 지원
+- **쿼리 통합**: 마이그레이션 쿼리에서 동적 변수 사용
+- **오류 처리**: 변수 해결 실패에 대한 우아한 처리
+- **데이터베이스 선택**: 소스 또는 타겟 데이터베이스 지정을 위한 `database` 속성 지원
 
-#### 주요 장점
-- **코드 중복 제거**: 공통 컬럼 설정을 한 곳에서 관리
-- **일관성 보장**: 마이그레이션 메타데이터 일관성 유지
-- **유지보수성 향상**: 전역 변경 시 한 번의 수정으로 모든 쿼리에 적용
+### 📝 사용 예시
 
-#### 사용 예시
+#### 동적 변수 정의
 ```xml
-<migration>
-  <!-- 전역 컬럼 오버라이드 -->
-  <globalColumnOverrides>
-    <override column="created_by">SYSTEM_MIGRATOR</override>
-    <override column="migration_date">${migrationTimestamp}</override>
-    <override column="data_version">2.2</override>
-  </globalColumnOverrides>
+<dynamicVariables>
+  <dynamicVar id="active_customers" description="활성 고객 목록">
+    <query>SELECT CustomerID FROM Customers WHERE IsActive = 1</query>
+    <extractType>column_identified</extractType>
+    <database>sourceDB</database>
+  </dynamicVar>
   
-  <queries>
-    <query id="migrate_users">
-      <!-- 개별 설정은 전역 설정과 병합됨 -->
-      <columnOverrides>
-        <override column="status">MIGRATED</override>
-      </columnOverrides>
-    </query>
-  </queries>
-</migration>
+  <dynamicVar id="status_mapping" description="상태 매핑">
+    <query>SELECT StatusCode, StatusName FROM StatusCodes</query>
+    <extractType>key_value_pairs</extractType>
+    <database>sourceDB</database>
+  </dynamicVar>
+  
+  <dynamicVar id="max_order_id" description="최대 주문 ID">
+    <query>SELECT MAX(OrderID) as max_id FROM Orders</query>
+    <extractType>single_value</extractType>
+    <database>targetDB</database>
+  </dynamicVar>
+</dynamicVariables>
 ```
 
-### 🔧 개선사항
-- XML 파싱 로직에 전역 columnOverrides 처리 추가
-- 컬럼 오버라이드 병합 알고리즘 구현
-- 디버그 로깅으로 적용된 오버라이드 추적 지원
-- 사용자 매뉴얼에 상세한 병합 규칙 설명 추가
-
----
-
-## 📋 v2.1 - 진행 상황 관리 및 재시작 기능 추가
-
-## 🎯 개요
-
-SQL2DB 마이그레이션 도구에 실시간 진행 상황 추적 및 모니터링 기능과 중단된 마이그레이션 재시작 기능이 추가되었습니다. 이제 대용량 데이터 마이그레이션의 진행 상황을 실시간으로 모니터링하고, 성능 메트릭을 확인하며, 네트워크 오류 등으로 중단된 작업을 완료된 지점에서 재시작할 수 있습니다.
-
-## 🚀 주요 기능
-
-### 1. 자동 진행 상황 추적
-- 마이그레이션 시작부터 완료까지 모든 단계 자동 추적
-- 고유한 Migration ID로 각 작업 식별
-- JSON 형태로 실시간 상태 저장
-
-### 2. 다차원 모니터링
-- **페이즈별 추적**: 연결, 전처리, 마이그레이션, 후처리
-- **쿼리별 상세 정보**: 각 쿼리의 실행 상태 및 처리량
-- **배치별 진행률**: 실시간 배치 처리 상황
-- **성능 메트릭**: 처리 속도, 예상 완료 시간
-
-### 3. 마이그레이션 재시작 (신규)
-- **지능적 재시작**: 완료된 쿼리는 건너뛰고 실패한 지점부터 재실행
-- **상태 기반 재시작**: FAILED, PAUSED, 오래된 RUNNING 상태에서 재시작 가능
-- **데이터 안전성**: 중복 처리 방지 및 트랜잭션 무결성 보장
-- **재시작 횟수 추적**: 시도 횟수 및 이력 관리
-
-### 4. 실시간 CLI 모니터링
-- 진행 상황 목록 조회
-- 특정 마이그레이션 상세 모니터링
-- 실시간 진행률 표시
-- 성능 지표 및 오류 추적
-
-## 📋 새로 추가된 파일
-
-### 1. `src/progress-manager.js`
-진행 상황 관리의 핵심 클래스:
-
-```javascript
-class ProgressManager {
-    constructor(migrationId = null)
-    startMigration(totalQueries, totalRows)
-    updatePhase(phaseName, status, description)
-    startQuery(queryId, description, estimatedRows)
-    updateBatchProgress(queryId, batchNumber, totalBatches, batchSize)
-    completeQuery(queryId, finalStats)
-    completeMigration()
-    // ... 기타 메서드
-}
+#### 쿼리에서 사용
+```sql
+SELECT * FROM Orders 
+WHERE CustomerID IN (${active_customers.CustomerID})
+  AND Status IN (${status_mapping.StatusCode})
 ```
 
-**주요 기능:**
-- 실시간 진행 상황 추적
-- JSON 파일 자동 저장 (5초 간격)
-- 성능 메트릭 계산
-- 오류 정보 수집
-- 진행률 및 예상 시간 계산
+## 📋 v0.1.9 - 로깅 및 모니터링 (2024-08-08)
 
-### 2. `src/progress-cli.js`
-진행 상황 조회 및 모니터링을 위한 CLI 도구:
+### ✨ 새로운 기능
 
+#### 향상된 로깅 시스템
+- **5단계 로깅**: DEBUG, INFO, WARN, ERROR, FATAL
+- **구조화된 로그**: 더 나은 파싱을 위한 JSON 형식
+- **로그 로테이션**: 자동 로그 파일 로테이션
+- **성능 메트릭**: 상세한 성능 추적
+
+#### 실시간 모니터링
+- **라이브 진행 상황**: 실시간 마이그레이션 진행 상황 표시
+- **성능 차트**: 시각적 성능 메트릭
+- **인터랙티브 인터페이스**: 키보드 기반 모니터링 인터페이스
+
+### 📊 로그 레벨
+- **DEBUG**: 상세한 디버깅 정보
+- **INFO**: 일반적인 마이그레이션 진행 상황 정보
+- **WARN**: 경고 메시지 (비중요한 문제)
+- **ERROR**: 오류 메시지 (마이그레이션 계속 가능)
+- **FATAL**: 치명적인 오류 (마이그레이션 중단)
+
+## 🛠️ v0.1.8 - CLI 및 배치 개선 (2024-08-07)
+
+### ✨ 새로운 기능
+
+#### 향상된 CLI 인터페이스
+- **인터랙티브 메뉴**: 사용자 친화적인 인터랙티브 메뉴 시스템
+- **명령어 검증**: 개선된 명령어 검증 및 오류 메시지
+- **도움말 시스템**: 포괄적인 도움말 문서
+- **배치 파일 지원**: 쉬운 실행을 위한 Windows 배치 파일
+
+#### 새로운 명령어
 ```bash
-# 사용 가능한 명령어
-node src/progress-cli.js list                    # 목록 조회
-node src/progress-cli.js show <migration-id>     # 상세 정보
-node src/progress-cli.js monitor <migration-id>  # 실시간 모니터링
-node src/progress-cli.js summary                 # 전체 요약
-node src/progress-cli.js cleanup [days]          # 파일 정리
+# 인터랙티브 메뉴
+migrate.bat
+
+# 설정 검증
+node src/migrate-cli.js validate --query ./queries/migration-queries.xml
+
+# 데이터베이스 연결 테스트
+node src/migrate-cli.js list-dbs
+
+# 드라이 런 시뮬레이션
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
 ```
 
-## 🔧 기존 코드 수정사항
+## 🔄 v0.1.7 - 트랜잭션 및 오류 처리 (2024-08-06)
 
-### 1. `src/mssql-data-migrator.js`
-**추가된 기능:**
-- ProgressManager 인스턴스 생성 및 관리
-- 각 페이즈별 진행 상황 업데이트
-- 쿼리별 시작/완료 추적
-- 최종 결과에 진행 상황 정보 포함
+### ✨ 새로운 기능
 
-**주요 수정 부분:**
-```javascript
-// 생성자에 진행 상황 관리자 추가
-this.progressManager = null;
+#### 트랜잭션 지원
+- **자동 트랜잭션**: 자동 트랜잭션 관리
+- **오류 시 롤백**: 마이그레이션 오류 시 자동 롤백
+- **커밋 제어**: 수동 커밋 제어 옵션
+- **격리 수준**: 설정 가능한 트랜잭션 격리 수준
 
-// 마이그레이션 시작 시 초기화
-this.progressManager = new ProgressManager();
+#### 향상된 오류 처리
+- **상세한 오류 메시지**: 포괄적인 오류 정보
+- **오류 복구**: 자동 오류 복구 메커니즘
+- **재시도 로직**: 일시적 오류에 대한 자동 재시도
+- **오류 로깅**: 상세한 오류 로깅 및 보고
 
-// 각 페이즈마다 상태 업데이트
-this.progressManager.updatePhase('CONNECTING', 'RUNNING', 'Connecting to databases');
-this.progressManager.updatePhase('MIGRATING', 'RUNNING', 'Migrating data');
+## 📊 v0.1.6 - 성능 최적화 (2024-08-05)
 
-// 쿼리별 추적
-this.progressManager.startQuery(queryConfig.id, queryConfig.description, 0);
-this.progressManager.completeQuery(queryConfig.id, { processedRows: result.rowsProcessed });
+### ✨ 새로운 기능
+
+#### 성능 개선
+- **배치 처리**: 대용량 데이터셋을 위한 최적화된 배치 처리
+- **메모리 관리**: 개선된 메모리 사용 및 가비지 컬렉션
+- **연결 풀링**: 향상된 연결 풀 관리
+- **쿼리 최적화**: 자동 쿼리 최적화
+
+#### 설정 옵션
+```xml
+<settings>
+  <batchSize>1000</batchSize>
+  <connectionPool>
+    <min>5</min>
+    <max>20</max>
+    <acquireTimeout>60000</acquireTimeout>
+  </connectionPool>
+  <performance>
+    <enableQueryOptimization>true</enableQueryOptimization>
+    <enableBatchProcessing>true</enableBatchProcessing>
+  </performance>
+</settings>
 ```
 
-### 2. `insertDataInBatches` 메서드 개선
-**배치 진행 상황 추적 추가:**
-```javascript
-// 배치 진행 상황 업데이트
-if (this.progressManager && queryId) {
-    this.progressManager.updateBatchProgress(
-        queryId, batchNumber, totalBatches, batchSize, i + batch.length
-    );
-}
-```
+## 🔧 v0.1.5 - 설정 개선 (2024-08-04)
 
-## 📊 진행 상황 데이터 구조
+### ✨ 새로운 기능
 
-### 저장 파일 위치
-```
-logs/progress-{migration-id}.json
-```
+#### 향상된 설정
+- **JSON 지원**: 완전한 JSON 설정 지원
+- **환경 변수**: 환경 변수 치환
+- **설정 검증**: 포괄적인 설정 검증
+- **기본값**: 모든 설정에 대한 합리적인 기본값
 
-### 데이터 구조
+#### 설정 예시
 ```json
 {
-  "migrationId": "migration-2024-12-01-15-30-00",
-  "status": "RUNNING",
-  "startTime": 1701434445000,
-  "endTime": null,
-  "totalQueries": 5,
-  "completedQueries": 2,
-  "failedQueries": 0,
-  "totalRows": 10000,
-  "processedRows": 4500,
-  "currentQuery": "migrate_users",
-  "currentPhase": "MIGRATING",
-  "phases": {
-    "CONNECTING": {
-      "status": "COMPLETED",
-      "startTime": 1701434445000,
-      "endTime": 1701434446000,
-      "description": "Database connections established"
-    }
+  "databases": {
+    "source": "sourceDB",
+    "target": "targetDB"
   },
-  "queries": {
-    "migrate_users": {
-      "status": "RUNNING",
-      "startTime": 1701434447000,
-      "processedRows": 2500,
-      "currentBatch": 3,
-      "totalBatches": 10
-    }
+  "settings": {
+    "batchSize": 1000,
+    "logLevel": "INFO"
   },
-  "performance": {
-    "avgRowsPerSecond": 850,
-    "estimatedTimeRemaining": 6.47,
-    "totalDuration": 5.29
-  },
-  "errors": []
-}
-```
-
-## 🎨 사용자 인터페이스
-
-### 1. 실시간 모니터링 화면
-```
-================================================================================
-📊 Migration Progress: migration-2024-12-01-15-30-00
-================================================================================
-Status: RUNNING | Phase: MIGRATING
-Current Query: migrate_users
-
-Queries: [████████████████████          ] 65.0% (13/20)
-Rows:    [██████████████████████████    ] 87.3% (87,300/100,000)
-
-Duration: 2m 15s
-Speed: 647 rows/sec
-ETA: 18s
-================================================================================
-```
-
-### 2. 목록 조회 화면
-```
-================================================================================
-📊 마이그레이션 진행 상황 목록
-================================================================================
-
-1. migration-2024-12-01-15-30-00
-   상태: ✅ COMPLETED
-   시작: 2024. 12. 1. 오후 3:30:00
-   종료: 2024. 12. 1. 오후 3:45:30
-   수정: 2024. 12. 1. 오후 3:45:30
-   쿼리: 20/20 (100.0%)
-
-2. migration-2024-12-01-14-15-00
-   상태: 🔄 RUNNING
-   시작: 2024. 12. 1. 오후 2:15:00
-   종료: N/A
-   수정: 2024. 12. 1. 오후 3:00:00
-   쿼리: 15/25 (60.0%)
-```
-
-### 3. 상세 정보 화면
-```
-================================================================================
-📊 마이그레이션 상세 진행 상황: migration-2024-12-01-15-30-00
-================================================================================
-
-📋 기본 정보
-   ID: migration-2024-12-01-15-30-00
-   상태: ✅ COMPLETED
-   현재 페이즈: POST_PROCESSING
-   현재 쿼리: None
-   시작 시간: 2024. 12. 1. 오후 3:30:00
-   종료 시간: 2024. 12. 1. 오후 3:45:30
-   실행 시간: 15m 30s
-
-📈 진행률
-   쿼리: [██████████████████████████████] 100.0% (20/20)
-   행:   [██████████████████████████████] 100.0% (1,000,000/1,000,000)
-
-⚡ 성능
-   평균 속도: 1,075 rows/sec
-
-🔄 페이즈별 상태
-   ✅ CONNECTING: COMPLETED (0.5s)
-   ✅ PRE_PROCESSING: COMPLETED (2.1s)
-   ✅ MIGRATING: COMPLETED (14.2s)
-   ✅ POST_PROCESSING: COMPLETED (0.7s)
-
-📝 쿼리별 상태
-   ✅ migrate_users: COMPLETED
-     설명: 사용자 데이터 이관
-     처리: 250,000행 (3.5s)
-     배치: 250/250 (100.0%)
-   
-   ✅ migrate_orders: COMPLETED
-     설명: 주문 데이터 이관
-     처리: 500,000행 (7.2s)
-     배치: 500/500 (100.0%)
-```
-
-## 🔍 성능 메트릭
-
-### 1. 실시간 계산 지표
-- **평균 처리 속도**: `processedRows / elapsedSeconds`
-- **예상 완료 시간**: `remainingRows / avgRowsPerSecond`
-- **전체 진행률**: `completedQueries / totalQueries * 100`
-- **행 처리율**: `processedRows / totalRows * 100`
-
-### 2. 배치별 성능 추적
-```javascript
-// 배치 진행 상황 업데이트
-updateBatchProgress(queryId, batchNumber, totalBatches, batchSize, processedInBatch)
-```
-
-## 🛡️ 오류 처리
-
-### 1. 오류 정보 수집
-```json
-{
-  "errors": [
+  "queries": [
     {
-      "timestamp": 1701434445000,
-      "queryId": "migrate_orders",
-      "error": "Connection timeout",
-      "phase": "MIGRATING",
-      "stack": "Error: Connection timeout\n    at ..."
+      "id": "migrate_users",
+      "sourceQuery": "SELECT * FROM users WHERE status = 'ACTIVE'",
+      "targetTable": "users",
+      "enabled": true
     }
   ]
 }
 ```
 
-### 2. 자동 복구 및 추적
-- 연결 오류 시 재시도 로직
-- 오류 발생 시 상세 정보 기록
-- 실패한 쿼리별 오류 추적
+## 📋 v0.1.4 - 문서 및 예시 (2024-08-03)
 
-## 📁 파일 관리
+### ✨ 새로운 기능
 
-### 1. 자동 저장
-- 5초마다 자동 저장
-- 마이그레이션 완료/실패 시 최종 저장
-- 프로세스 종료 시 안전한 저장
+#### 포괄적인 문서
+- **사용자 매뉴얼**: 예시가 포함된 완전한 사용자 매뉴얼
+- **API 문서**: 상세한 API 문서
+- **설정 가이드**: 단계별 설정 가이드
+- **문제 해결 가이드**: 일반적인 문제 및 해결책
 
-### 2. 파일 정리
-```bash
-# 7일 이전 완료된 파일 자동 정리
-node src/progress-cli.js cleanup 7
-```
+#### 예시 파일
+- **샘플 설정**: XML 및 JSON 예시 파일
+- **데이터베이스 스크립트**: 샘플 데이터베이스 생성 스크립트
+- **테스트 데이터**: 테스트용 샘플 데이터
+- **마이그레이션 예시**: 실제 마이그레이션 예시
 
-### 3. 파일 명명 규칙
-```
-progress-migration-YYYY-MM-DD-HH-mm-ss.json
-```
+## 🔄 v0.1.3 - 핵심 마이그레이션 엔진 (2024-08-02)
 
-## 🎯 활용 시나리오
+### ✨ 새로운 기능
 
-### 1. 대용량 데이터 마이그레이션
-```bash
-# 1단계: 마이그레이션 실행
-node src/migrate-cli.js migrate --query queries/large-migration.xml
+#### 핵심 마이그레이션 엔진
+- **기본 마이그레이션**: 핵심 데이터 마이그레이션 기능
+- **컬럼 매핑**: 자동 컬럼 매핑
+- **데이터 타입 처리**: 포괄적인 데이터 타입 지원
+- **오류 처리**: 기본 오류 처리 및 보고
 
-# 2단계: 별도 터미널에서 실시간 모니터링
-node src/progress-cli.js monitor migration-2024-12-01-15-30-00
+#### 초기 기능
+- XML 설정 지원
+- 기본 SQL Server 연결
+- 간단한 데이터 전송
+- 기본 로깅
 
-# 3단계: 완료 후 상세 분석
-node src/progress-cli.js show migration-2024-12-01-15-30-00
-```
+## 📊 v0.1.2 - 기반 (2024-08-01)
 
-### 2. 배치 작업 관리
-```bash
-# 전체 마이그레이션 현황 파악
-node src/progress-cli.js summary
+### ✨ 새로운 기능
 
-# 실패한 작업 분석
-node src/progress-cli.js list | grep FAILED
+#### 프로젝트 기반
+- **프로젝트 구조**: 초기 프로젝트 구조
+- **의존성**: 핵심 Node.js 의존성
+- **기본 설정**: 초기 설정 시스템
+- **문서**: 기본 프로젝트 문서
 
-# 오래된 로그 정리
-node src/progress-cli.js cleanup 30
-```
+## 🔧 v0.1.1 - 초기 릴리스 (2024-07-31)
 
-### 3. 성능 튜닝
-```bash
-# 진행 중인 작업의 성능 메트릭 확인
-node src/progress-cli.js show migration-2024-12-01-15-30-00
+### ✨ 새로운 기능
 
-# 처리 속도가 낮은 쿼리 식별
-# 배치 크기 조정으로 성능 최적화
-```
+#### 초기 릴리스
+- **기본 기능**: 핵심 마이그레이션 도구 기능
+- **SQL Server 지원**: SQL Server 데이터베이스 지원
+- **Node.js 플랫폼**: Node.js 기반 구현
+- **오픈 소스**: MIT 라이선스
 
-## 🔄 기존 기능과의 호환성
+---
 
-### 1. 기존 로깅 시스템
-- 기존 로그 파일과 별도로 진행 상황 추적
-- 로그 레벨 설정과 독립적으로 동작
-- 기존 로그 포맷 유지
-
-### 2. DRY RUN 모드
-- DRY RUN 모드에서도 진행 상황 추적 가능
-- 실제 데이터 변경 없이 성능 테스트 가능
-
-### 3. 트랜잭션 모드
-- 트랜잭션 사용 여부와 관계없이 진행 상황 추적
-- 롤백 시에도 진행 상황 정보 보존
-
-## 🔄 재시작 기능 (신규)
-
-### 1. 재시작 명령어
-```bash
-# 재시작 정보 확인
-node src/progress-cli.js resume migration-2024-12-01-15-30-00
-
-# 실제 재시작 실행
-node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
-```
-
-### 2. 재시작 동작 방식
-- **완료된 쿼리 건너뛰기**: 이미 성공한 쿼리는 재실행하지 않음
-- **실패 지점부터 재시작**: 실패한 쿼리부터 정확히 재실행
-- **통계 정보 보존**: 이전 실행 결과를 최종 결과에 포함
-- **안전성 보장**: 중복 처리 방지 및 데이터 무결성 유지
-
-### 3. 사용 시나리오
-- **네트워크 장애**: 연결 끊김으로 중단된 마이그레이션 재시작
-- **시스템 재부팅**: 서버 재시작 후 미완료 작업 이어서 진행
-- **메모리 부족**: 리소스 부족으로 실패한 작업 재시도
-- **타임아웃 오류**: 대용량 쿼리 타임아웃 후 재시작
-
-## 🚀 향후 확장 계획
-
-### 1. 웹 기반 모니터링
-- 웹 대시보드를 통한 실시간 모니터링
-- 여러 마이그레이션 동시 모니터링
-- 알림 및 경고 기능
-
-### 2. 성능 분석
-- 과거 마이그레이션 성능 비교
-- 병목 지점 자동 분석
-- 최적화 제안 기능
-
-### 3. 자동화 연동
-- CI/CD 파이프라인 연동
-- 스케줄러와 연동한 배치 작업
-- 외부 모니터링 시스템 연동
-
-## 📊 결론
-
-진행 상황 관리 및 재시작 기능의 추가로 SQL2DB 마이그레이션 도구는 다음과 같은 이점을 제공합니다:
-
-1. **투명성**: 마이그레이션 과정의 모든 단계가 투명하게 공개
-2. **예측 가능성**: 정확한 완료 시간 예측으로 계획 수립 지원
-3. **문제 해결**: 오류 발생 시 빠른 원인 파악 및 해결
-4. **성능 최적화**: 실시간 메트릭을 통한 성능 튜닝 지원
-5. **이력 관리**: 과거 마이그레이션 이력을 통한 개선점 도출
-6. **복원력**: 중단된 작업을 완료된 지점에서 안전하게 재시작
-7. **시간 절약**: 처음부터 다시 시작할 필요 없이 중단 지점부터 재개
-
-이러한 기능들을 통해 대용량 데이터 마이그레이션 작업을 보다 안전하고 효율적으로 수행할 수 있으며, 네트워크 불안정이나 시스템 장애에도 안정적으로 대응할 수 있습니다.
+**연락처**: sql2db.nodejs@gmail.com  
+**웹사이트**: sql2db.com  
+**라이선스**: MIT License

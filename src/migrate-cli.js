@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
-const MSSQLDataMigrator = require('./mssql-data-migrator');
+// 모듈화된 버전 사용 (권장)
+const MSSQLDataMigrator = require('./mssql-data-migrator-modular');
+// 레거시 버전: const MSSQLDataMigrator = require('./mssql-data-migrator');
+
 const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
@@ -24,7 +27,7 @@ MSSQL 데이터 이관 도구 v2.1
   help                       도움말 표시
 
 옵션:
-  --query, -q <파일경로>     사용자 정의 쿼리문정의 파일 경로 (JSON 또는 XML)
+  --query, -q <파일경로>     사용자 정의 쿼리문정의 파일 경로 (XML)
   --dry-run                  실제 이관 없이 시뮬레이션만 실행
 
 예시:
@@ -212,13 +215,13 @@ async function main() {
                     const tempMigrator = new MSSQLDataMigrator();
                     await tempMigrator.loadDbInfo();
                     
-                    if (!tempMigrator.dbInfo || !tempMigrator.dbInfo.dbs) {
+                    if (!tempMigrator.dbInfo) {
                         console.log('❌ config/dbinfo.json 파일을 찾을 수 없거나 DB 정보가 없습니다.');
                         console.log('환경 변수(.env) 방식을 사용 중입니다.');
                         process.exit(1);
                     }
                     
-                    const dbs = tempMigrator.dbInfo.dbs;
+                    const dbs = tempMigrator.dbInfo;
                     const dbList = Object.keys(dbs);
                     
                     console.log('📊 데이터베이스 목록 및 연결 상태');

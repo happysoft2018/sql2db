@@ -3,6 +3,9 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
+// pkg 실행 파일 경로 처리
+const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
+
 class MSSQLConnectionManager {
     constructor() {
         this.sourcePool = null;
@@ -27,11 +30,13 @@ class MSSQLConnectionManager {
     // dbinfo.json에서 DB 설정 로드
     loadDBConfigs() {
         try {
-            const configPath = path.join(__dirname, '..', 'config', 'dbinfo.json');
+            const configPath = process.pkg 
+                ? path.join(APP_ROOT, 'config', 'dbinfo.json')
+                : path.join(__dirname, '..', 'config', 'dbinfo.json');
             if (fs.existsSync(configPath)) {
                 const configData = fs.readFileSync(configPath, 'utf8');
                 this.dbConfigs = JSON.parse(configData);
-                console.log(`dbinfo.json 로드 완료: ${Object.keys(this.dbConfigs.dbs).length}개 DB 설정`);
+                console.log(`dbinfo.json 로드 완료: ${Object.keys(this.dbConfigs).length}개 DB 설정`);
                 return this.dbConfigs;
             } else {
                 console.warn('dbinfo.json 파일을 찾을 수 없습니다.');
@@ -50,7 +55,7 @@ class MSSQLConnectionManager {
                 this.loadDBConfigs();
             }
             
-            if (!this.dbConfigs || !this.dbConfigs.dbs[dbKey]) {
+            if (!this.dbConfigs || !this.dbConfigs[dbKey]) {
                 throw new Error(`DB 키 '${dbKey}'에 대한 설정을 찾을 수 없습니다.`);
             }
             
@@ -59,7 +64,7 @@ class MSSQLConnectionManager {
                 return this.dbPools[dbKey];
             }
             
-            const dbConfig = this.dbConfigs.dbs[dbKey];
+            const dbConfig = this.dbConfigs[dbKey];
             const config = this.getDBConfig(dbConfig);
             
             console.log(`DB '${dbKey}'에 연결 중... (${config.server}:${config.port}/${config.database})`);
@@ -102,7 +107,7 @@ class MSSQLConnectionManager {
             return [];
         }
         
-        return Object.keys(this.dbConfigs.dbs);
+        return Object.keys(this.dbConfigs);
     }
 
     // 특정 DB 연결 해제

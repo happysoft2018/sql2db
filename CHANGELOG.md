@@ -1,6 +1,235 @@
 # SQL2DB Migration Tool Update Log
 
-## 🔧 v2.7.1 - Multi-Database Dynamic Variable Support Extension (2025-09-01)
+## 🚀 v0.8.2 - Structure Improvements & Enhanced Validation (2025-10-14)
+
+### 🔧 Technical Improvements
+
+#### Improved dbinfo.json Structure
+- **Removed dbs wrapper**: DB settings placed directly in root
+  - Before: `{"dbs": {"sampleDB": {...}}}`
+  - After: `{"sampleDB": {...}}`
+  - More concise structure for better readability
+  - All related code updated:
+    - `mssql-connection-manager.js`: config.dbs → config directly
+    - `migrate-cli.js`: dbInfo.dbs → dbInfo directly
+    - `config-manager.js`: dbInfo.dbs → dbInfo directly
+
+#### Improved pkg Environment Path Handling
+- **Using APP_ROOT constant**: Correct file paths in both pkg and development environments
+  - `mssql-connection-manager.js`: Added pkg environment path handling
+  - `migrate-cli.js`: Improved --xml option parsing in validate command
+  - Added debug logs: Track queryDef parsing process
+
+### 🐛 Bug Fixes
+- **validate command queryDef recognition error**: Improved id attribute recognition in queryDef
+- **validate-config.bat infinite loop**: Improved with file selection menu
+- **pkg environment file path error**: Resolved by using APP_ROOT
+
+## 🚀 v0.8.1 - XML-Only Configuration Support (2025-10-11)
+
+### 🔄 Breaking Changes
+
+#### Removed JSON Query Definition File Support
+- **XML Only**: Query definition files now support XML format only
+- **Simplified Architecture**: Removed JSON parsing logic for cleaner codebase
+- **Clear Error Messages**: Provides clear error when attempting to use JSON files
+- **Consistent Documentation**: All documentation updated to reflect XML-only support
+
+### 📝 Changes
+
+#### Code Updates
+- **migrate-cli.js**: Updated help text to specify XML format only
+- **config-manager.js**: Added validation to reject non-XML files
+- **Removed Files**: Deleted `queries/migration-queries.json` sample file
+
+#### Documentation Updates
+- **README.md**: Removed JSON format section and examples
+- **README_KR.md**: Removed JSON format section and examples
+- **USER_MANUAL.md**: Updated configuration format description
+- **USER_MANUAL_KR.md**: Updated configuration format description
+- **CHANGELOG.md**: Removed JSON references
+- **CHANGELOG_KR.md**: Removed JSON references
+
+### 💡 Migration Guide
+
+If you were using JSON query definition files:
+
+1. **Convert to XML**: Use the XML format structure as shown in documentation
+2. **Update File Extension**: Change `.json` to `.xml`
+3. **Adjust Syntax**: Follow XML structure with proper tags and CDATA sections
+
+**Example Conversion:**
+```json
+// Old JSON format (no longer supported)
+{
+  "queries": [{
+    "id": "migrate_users",
+    "sourceQuery": "SELECT * FROM users"
+  }]
+}
+```
+
+```xml
+<!-- New XML format -->
+<migration>
+  <queries>
+    <query id="migrate_users">
+      <sourceQuery>
+        <![CDATA[SELECT * FROM users]]>
+      </sourceQuery>
+    </query>
+  </queries>
+</migration>
+```
+
+### 🎯 Rationale
+
+- **Single Format**: Maintaining one configuration format reduces complexity
+- **Better Structure**: XML provides better structure for complex configurations
+- **CDATA Support**: XML CDATA sections handle SQL queries more naturally
+- **Industry Standard**: XML is more common for database migration tools
+
+---
+
+## 🚀 v0.8.0 - Interactive Interface & Standalone Executable (2025-10-11)
+
+### ✨ New Features
+
+#### Interactive Command-Line Interface (app.js)
+- **User-Friendly Menu**: Interactive menu system for easy operation
+- **File Selection by Number**: Select query definition files by number instead of typing full path
+- **Multilingual Support**: English and Korean interface support (--lang option)
+- **Integrated Operations**: All common operations accessible from single interface
+  - Query definition file validation
+  - Database connection testing
+  - Data migration execution
+  - Migration progress monitoring
+
+#### Migration Progress Monitoring
+- **Recent History View**: Display recent 3 migrations by default
+- **Full History Access**: Toggle to view all migration history with 'A' command
+- **Detailed Progress Info**: View comprehensive details for any migration
+  - Migration status and timestamps
+  - Query-level progress tracking
+  - Row counts and processing speed
+  - Error information and stack traces
+- **Interactive Navigation**: Easy navigation between list and detail views
+
+#### Standalone Executable Support
+- **PKG Integration**: Build standalone Windows executable with `npm run build`
+- **No Node.js Required**: Run migrations without Node.js installation
+- **Complete Package**: Includes all dependencies and assets
+- **Optimized Build**: GZip compression for smaller file size
+- **Path Resolution**: Automatic path handling for packaged environment
+
+#### Automated Release Process
+- **Release Script**: Comprehensive `release.bat` for automated packaging
+- **Package Structure**: Professional release package with organized directories
+- **Launcher Scripts**: Dedicated batch files for English and Korean versions
+- **Documentation**: Includes version info, release notes, and manuals
+- **ZIP Archive**: Automatic ZIP file creation for distribution
+
+### 🔄 Improvements
+
+#### Modular Architecture Refactoring
+- **Separated Concerns**: Split monolithic code into focused modules
+  - `config-manager.js`: Configuration loading and parsing
+  - `variable-manager.js`: Dynamic variable management
+  - `query-processor.js`: SQL query processing
+  - `script-processor.js`: Pre/Post script execution
+- **Improved Maintainability**: Easier to understand and modify code
+- **Better Testing**: Individual modules can be tested independently
+- **API Compatibility**: Maintains backward compatibility with existing configurations
+
+#### Enhanced Configuration Validation
+- **Attribute Name Validation**: Validates all XML attribute names
+- **Detailed Error Messages**: Shows allowed attributes when validation fails
+- **Comprehensive Checks**: Validates all configuration sections
+  - Settings attributes
+  - Query attributes
+  - Dynamic variable attributes
+  - Pre/Post process attributes
+  - Global process group attributes
+
+#### PKG Environment Support
+- **Path Resolution**: Correct `__dirname` handling in packaged executables
+- **Directory Creation**: Fallback mechanisms for log and output directories
+- **Module Loading**: Direct module require() instead of CLI execution
+- **Asset Inclusion**: Proper bundling of queries, configs, and resources
+
+### 🛠️ Usage Examples
+
+#### Interactive Interface
+```bash
+# English version
+npm start
+# or
+run.bat
+
+# Korean version
+npm run start:kr
+# or
+실행하기.bat
+
+# Standalone executable
+sql2db.exe --lang=en
+sql2db.exe --lang=kr
+```
+
+#### Progress Monitoring
+```
+Migration History (Recent 3):
+
+1. migration-2025-10-11-01-45-35
+   Status: COMPLETED
+   Started: 2025-10-11 1:45:35 AM
+   Progress: 25/25 queries
+   Completed: 2025-10-11 1:48:20 AM (165s)
+
+Showing 3 of 15 migration(s)
+
+Enter number to view details, 'A' for all, or '0' to go back:
+```
+
+#### Building Executable
+```bash
+# Build standalone executable
+npm run build
+
+# Create release package
+npm run release
+
+# Output: release/sql2db-v0.8.0-bin.zip
+```
+
+### 📦 Release Package Contents
+- `sql2db.exe`: Standalone executable
+- `run.bat`: English launcher
+- `실행하기.bat`: Korean launcher
+- `config/`: Database configuration files
+- `queries/`: Query definition files
+- `resources/`: SQL resource files
+- `user_manual/`: Complete documentation
+
+### 🔧 Technical Improvements
+- **Better Error Handling**: Comprehensive error messages in packaged environment
+- **Memory Management**: Optimized resource usage for CLI interface
+- **File System Operations**: Safe directory creation with fallback options
+- **Console Output**: Improved formatting and color-coded messages
+
+### 📊 Performance
+- **Fast Startup**: Quick initialization of interactive interface
+- **Efficient Progress Tracking**: Minimal overhead for monitoring
+- **Optimized Build**: ~50MB executable with all dependencies
+
+### 🎯 Migration Path
+- **Zero Configuration**: Existing query files work without changes
+- **API Compatible**: All CLI commands still functional
+- **Progressive Enhancement**: Choose between CLI and interactive interface
+
+---
+
+## 🔧 v0.7.1 - Multi-Database Dynamic Variable Support Extension (2025-09-01)
 
 ### ✨ New Features
 
@@ -8,14 +237,6 @@
 - **Full DB Support**: Extract dynamic variables from all databases defined in dbinfo.json
 - **Automatic Connection Management**: Create and manage separate connection pools for each database
 - **Enhanced Error Handling**: Display available database list when invalid DB is specified
-
-#### Supported Databases
-| Database | Description | Usage Example |
-|----------|-------------|---------------|
-| `sourceDB` | Source database (read-only) | Extract master data from production environment |
-| `targetDB` | Target database (read/write) | Extract reference data from development environment |
-| `sampleDB` | Sample database | Extract test data or metadata |
-| Other DBs | All databases defined in dbinfo.json | Extract data from user-defined databases |
 
 #### Usage Examples
 ```xml
@@ -65,7 +286,7 @@
 
 ---
 
-## 🔧 v2.7 - Dynamic Variable and SQL Processing Improvements (2025-08-29)
+## 🔧 v0.7 - Dynamic Variable and SQL Processing Improvements (2025-08-29)
 
 ### ✨ New Features
 
@@ -138,7 +359,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 ---
 
-## 🔧 v2.6 - Processing Stage Column Override Control (2024-08-14)
+## 🔧 v0.6 - Processing Stage Column Override Control (2024-08-14)
 
 ### ✨ New Features
 
@@ -177,7 +398,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 
 This enables optimized column override application tailored to each stage's purpose.
 
-## 🎯 v2.5 - Global Pre/Post-processing Group Management (2024-08-14)
+## 🎯 v0.5 - Global Pre/Post-processing Group Management (2024-08-14)
 
 ### ✨ New Features
 
@@ -265,7 +486,7 @@ This enables optimized column override application tailored to each stage's purp
 </globalProcesses>
 ```
 
-## 🔄 v2.4 - Dynamic Variables System Enhancement (2024-08-13)
+## 🔄 v0.4 - Dynamic Variables System Enhancement (2024-08-13)
 
 ### ✨ New Features
 
@@ -309,7 +530,7 @@ This enables optimized column override application tailored to each stage's purp
 - **Consistency**: Aligned with sql2excel behavior for cross-tool consistency
 - **Documentation**: Updated all documentation to reflect new default behavior
 
-## 📈 v2.3 - Progress Management System (2024-08-12)
+## 📈 v0.3.0 - Progress Management System (2024-08-12)
 
 ### ✨ New Features
 
@@ -363,7 +584,7 @@ node src/progress-cli.js cleanup 7
 }
 ```
 
-## ⭐ v2.2 - SELECT * Auto Processing (2024-08-11)
+## ⭐ v0.2.3 - SELECT * Auto Processing (2024-08-11)
 
 ### ✨ New Features
 
@@ -398,7 +619,7 @@ Auto-set column list (15 columns, IDENTITY excluded): name, email, status, creat
 Modified source query: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
 ```
 
-## 🔧 v2.1 - Column Override Enhancements (2024-08-10)
+## 🔧 v0.2.1 - Column Override Enhancements (2024-08-10)
 
 ### ✨ New Features
 
@@ -437,7 +658,7 @@ Modified source query: SELECT name, email, status, created_date, ... FROM users 
 </preProcess>
 ```
 
-## 🔄 v2.0 - Dynamic Variables System (2024-08-09)
+## 🔄 v0.2.0 - Dynamic Variables System (2024-08-09)
 
 ### ✨ New Features
 
@@ -480,7 +701,7 @@ WHERE CustomerID IN (${active_customers.CustomerID})
   AND Status IN (${status_mapping.StatusCode})
 ```
 
-## 📋 v1.9 - Logging and Monitoring (2024-08-08)
+## 📋 v0.1.9 - Logging and Monitoring (2024-08-08)
 
 ### ✨ New Features
 
@@ -502,7 +723,7 @@ WHERE CustomerID IN (${active_customers.CustomerID})
 - **ERROR**: Error messages (migration may continue)
 - **FATAL**: Critical errors (migration stops)
 
-## 🛠️ v1.8 - CLI and Batch Improvements (2024-08-07)
+## 🛠️ v0.1.8 - CLI and Batch Improvements (2024-08-07)
 
 ### ✨ New Features
 
@@ -527,7 +748,7 @@ node src/migrate-cli.js list-dbs
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
 ```
 
-## 🔄 v1.7 - Transaction and Error Handling (2024-08-06)
+## 🔄 v0.1.7 - Transaction and Error Handling (2024-08-06)
 
 ### ✨ New Features
 
@@ -543,7 +764,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - **Retry Logic**: Automatic retry for transient errors
 - **Error Logging**: Detailed error logging and reporting
 
-## 📊 v1.6 - Performance Optimizations (2024-08-05)
+## 📊 v0.1.6 - Performance Optimizations (2024-08-05)
 
 ### ✨ New Features
 
@@ -569,7 +790,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 </settings>
 ```
 
-## 🔧 v1.5 - Configuration Enhancements (2024-08-04)
+## 🔧 v0.1.5 - Configuration Enhancements (2024-08-04)
 
 ### ✨ New Features
 
@@ -601,7 +822,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 }
 ```
 
-## 📋 v1.4 - Documentation and Examples (2024-08-03)
+## 📋 v0.1.4 - Documentation and Examples (2024-08-03)
 
 ### ✨ New Features
 
@@ -617,7 +838,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - **Test Data**: Sample data for testing
 - **Migration Examples**: Real-world migration examples
 
-## 🔄 v1.3 - Core Migration Engine (2024-08-02)
+## 🔄 v0.1.3 - Core Migration Engine (2024-08-02)
 
 ### ✨ New Features
 
@@ -633,7 +854,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - Simple data transfer
 - Basic logging
 
-## 📊 v1.2 - Foundation (2024-08-01)
+## 📊 v0.1.2 - Foundation (2024-08-01)
 
 ### ✨ New Features
 
@@ -643,7 +864,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-ru
 - **Basic Configuration**: Initial configuration system
 - **Documentation**: Basic project documentation
 
-## 🔧 v1.1 - Initial Release (2024-07-31)
+## 🔧 v0.1.1 - Initial Release (2024-07-31)
 
 ### ✨ New Features
 

@@ -15,7 +15,7 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 
 ### Key Features
 - 🔄 **Batch Data Migration**: Optimized for large-scale data processing
-- 🎛️ **Flexible Configuration**: XML or JSON-based configuration
+- 🎛️ **Flexible Configuration**: XML-based configuration
 - 🔧 **Column Overrides**: Modify/add specific column values during migration
 - ⚙️ **Pre/Post Processing**: Execute SQL scripts before/after migration
 - 📊 **Dynamic Variables**: Extract and utilize data at runtime
@@ -33,17 +33,158 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 ## 🛠️ Installation and Setup
 
 ### 1. System Requirements
-- Node.js 14.0 or higher
+
+#### For Standalone Executable Users
+- Windows 7 or higher (64-bit)
+- SQL Server 2012 or higher (source/target)
+- Appropriate database permissions
+- **No Node.js installation required**
+
+#### For Node.js Source Users
+- Windows 7 or higher (64-bit)
+- **Node.js 14.0 or higher** (18.x recommended)
+- npm 6.0 or higher
 - SQL Server 2012 or higher (source/target)
 - Appropriate database permissions
 
 ### 2. Installation
+
+#### Option 1: Standalone Executable (For End Users)
+
+**Best for:**
+- Users who want quick setup without Node.js
+- Production environments
+- Users unfamiliar with Node.js
+
+**Installation Steps:**
+1. Download `sql2db-v0.8.1-bin.zip` from the release page
+2. Extract to your desired location (e.g., `C:\Tools\sql2db\`)
+3. No additional installation required - ready to use!
+
+**Package Contents:**
+```
+sql2db-v0.8.1/
+├── sql2db.exe              # Main executable (no Node.js needed)
+├── run.bat                 # English launcher
+├── 실행하기.bat             # Korean launcher
+├── config/
+│   └── dbinfo.json         # Database configuration
+├── queries/                # Query definition files
+│   └── (your XML files)
+├── resources/              # SQL resource files
+│   ├── create_sample_tables.sql
+│   └── insert_sample_data.sql
+├── user_manual/            # Complete documentation
+│   ├── USER_MANUAL.md
+│   ├── USER_MANUAL_KR.md
+│   ├── CHANGELOG.md
+│   └── CHANGELOG_KR.md
+├── logs/                   # Log output directory (auto-created)
+└── results/                # Migration results (auto-created)
+```
+
+**Advantages:**
+- ✅ No Node.js installation required
+- ✅ Single executable file
+- ✅ Fast startup
+- ✅ ~50MB complete package with all dependencies
+- ✅ Easy distribution
+
+#### Option 2: Node.js Source Version (For Developers)
+
+**Best for:**
+- Developers who need to modify the source code
+- CI/CD pipelines
+- Custom integrations
+- Development and testing
+
+**Installation Steps:**
+
+1. **Install Node.js**
+   ```bash
+   # Download from https://nodejs.org/
+   # Verify installation
+   node --version  # Should show v14.0 or higher
+   npm --version   # Should show v6.0 or higher
+   ```
+
+2. **Get Source Code**
+   ```bash
+   # Option A: Clone from repository
+   git clone https://github.com/your-repo/sql2db.git
+   cd sql2db
+   
+   # Option B: Download and extract source zip
+   # Extract sql2db-source-v0.8.0.zip
+   cd sql2db
+   ```
+
+3. **Install Dependencies**
 ```bash
 npm install
 ```
 
+4. **Verify Installation**
+   ```bash
+   npm start
+   # Should launch interactive menu
+   ```
+
+**Project Structure:**
+```
+sql2db/
+├── app.js                  # Main interactive interface
+├── package.json            # Project configuration
+├── src/                    # Source code
+│   ├── migrate-cli.js      # CLI entry point
+│   ├── mssql-data-migrator-modular.js
+│   ├── logger.js
+│   ├── progress-manager.js
+│   └── modules/            # Modular components
+│       ├── config-manager.js
+│       ├── variable-manager.js
+│       ├── query-processor.js
+│       └── script-processor.js
+├── config/
+│   └── dbinfo.json         # Database configuration
+├── queries/                # Query definition files
+├── resources/              # SQL resource files
+├── test/                   # Test files
+├── logs/                   # Log output
+└── dist/                   # Built executables (after npm run build)
+```
+
+**Development Commands:**
+```bash
+# Run interactive interface
+npm start              # English
+npm run start:kr       # Korean
+
+# Direct CLI usage
+npm run migrate        # Migrate with query file
+npm run validate       # Validate configuration
+npm run dry-run        # Simulation mode
+npm run list-dbs       # List databases
+
+# Build standalone executable
+npm run build          # Creates dist/sql2db.exe
+
+# Create release package
+npm run release        # Creates complete distribution package
+
+# Clean build artifacts
+npm run clean          # Remove dist/ and release/
+```
+
+**Advantages:**
+- ✅ Full source code access
+- ✅ Customizable and extensible
+- ✅ Easy debugging and testing
+- ✅ Can build custom executables
+- ✅ Integrate with existing Node.js projects
+
 ### 3. Database Connection Setup
-Create `config/dbinfo.json` file:
+Edit `config/dbinfo.json` file:
 ```json
 {
   "dbs": {
@@ -75,41 +216,347 @@ Create `config/dbinfo.json` file:
 
 ## 🚀 Basic Usage
 
-### 1. Commands
+## Method 1: Using Standalone Executable
 
-#### Configuration Validation
+### Launch Interactive Interface
+
+#### Windows Explorer
+1. Navigate to extracted folder
+2. Double-click `run.bat` (English) or `실행하기.bat` (Korean)
+
+#### Command Line
 ```bash
-node src/migrate-cli.js validate --query ./queries/migration-queries.xml
+# Navigate to installation directory
+cd C:\Tools\sql2db
+
+# English version
+run.bat
+
+# Korean version
+실행하기.bat
+
+# Or run executable directly with language option
+sql2db.exe --lang=en
+sql2db.exe --lang=kr
 ```
 
-#### List Databases
+### Interactive Menu
+```
+=========================================
+  MSSQL Data Migration Tool
+  Version 0.8.0
+=========================================
+
+1. Validate Query Definition File
+2. Test Database Connection
+3. Execute Data Migration
+4. Check Migration Progress
+5. Show Help
+0. Exit
+
+Please select (0-5):
+```
+
+### Menu Options Explained
+
+#### Option 1: Validate Query Definition File
+**Purpose:** Check configuration file for errors before migration
+
+**What it checks:**
+- ✅ XML/JSON syntax validity
+- ✅ Attribute name correctness
+- ✅ Required fields presence
+- ✅ Database references validity
+- ✅ Query structure integrity
+
+**Usage Steps:**
+1. Select menu option `1`
+2. Choose query definition file by number
+3. Review validation results
+4. Fix any errors shown
+
+**Example Output:**
+```
+✅ Configuration validation successful!
+   - Settings: Valid
+   - Queries: 5 found
+   - Dynamic Variables: 3 found
+   - Global Processes: 2 groups found
+```
+
+#### Option 2: Test Database Connection
+**Purpose:** Verify database connectivity before migration
+
+**What it tests:**
+- ✅ Server connectivity
+- ✅ Authentication credentials
+- ✅ Database accessibility
+- ✅ Read/Write permissions
+
+**Usage Steps:**
+1. Select menu option `2`
+2. View connection test results for all databases
+3. Verify all connections are successful
+
+**Example Output:**
+```
+Testing database connections...
+
+✅ sourceDB
+   Server: prod-db-01.company.com
+   Database: production_db
+   Status: Connected
+   
+✅ targetDB
+   Server: dev-db-01.company.com
+   Database: development_db
+   Status: Connected
+```
+
+#### Option 3: Execute Data Migration
+**Purpose:** Run actual data migration
+
+**Process:**
+1. Select query definition file
+2. Review migration summary
+3. Confirm execution
+4. Monitor real-time progress
+5. View completion summary
+
+**Usage Steps:**
+1. Select menu option `3`
+2. Choose query definition file by number
+3. Type 'Y' to confirm migration
+4. Wait for completion
+5. Check logs for details
+
+**Example Output:**
+```
+Starting data migration...
+
+✅ Query 1/5: migrate_users
+   Processed: 10,000 rows in 5.2s (1,923 rows/sec)
+
+✅ Query 2/5: migrate_orders
+   Processed: 50,000 rows in 24.5s (2,041 rows/sec)
+
+...
+
+✅ Data migration completed successfully!
+   Total time: 2m 15s
+   Total rows: 150,000
+```
+
+#### Option 4: Check Migration Progress
+**Purpose:** View history and details of past migrations
+
+**Features:**
+- View recent 3 migrations by default
+- Access full migration history (press 'A')
+- View detailed status for any migration
+- Check query-level progress
+- Review error information
+
+**Usage Steps:**
+1. Select menu option `4`
+2. View migration list
+3. Enter number for detailed info
+4. Press 'A' to see all migrations
+5. Press '0' to return to main menu
+
+**Example Output:**
+```
+Migration History (Recent 3):
+
+1. migration-2025-10-11-01-45-35
+   Status: COMPLETED
+   Started: 2025-10-11 1:45:35 AM
+   Progress: 25/25 queries
+   Completed: 2025-10-11 1:48:20 AM (165s)
+
+2. migration-2025-10-11-01-39-47
+   Status: FAILED
+   Started: 2025-10-11 1:39:47 AM
+   Progress: 15/25 queries
+   Failed: 3
+
+Enter number to view details, 'A' for all, or '0' to go back:
+```
+
+#### Option 5: Show Help
+**Purpose:** Display usage information and examples
+
+**Information Provided:**
+- Command examples
+- Configuration tips
+- Documentation links
+- Common troubleshooting
+
+---
+
+## Method 2: Using Node.js Source
+
+### Interactive Interface
+
+#### Launch from Command Line
 ```bash
+# Navigate to project directory
+cd /path/to/sql2db
+
+# English version
+npm start
+# Output: Interactive menu launches
+
+# Korean version
+npm run start:kr
+# Output: 대화형 메뉴 실행
+```
+
+The interactive menu is identical to the standalone executable version.
+
+### Command Line Interface (CLI)
+
+#### Validate Configuration
+```bash
+# Validate specific query file
+node src/migrate-cli.js validate --query ./queries/migration-queries.xml
+
+# Output example:
+# ✅ Configuration validation successful!
+#    Settings: Valid
+#    Queries: 5 found
+```
+
+#### Test Database Connections
+```bash
+# Test all configured databases
+node src/migrate-cli.js test
+
+# List all available databases
 node src/migrate-cli.js list-dbs
+
+# Test specific database connection
+node src/migrate-cli.js list-dbs --test sourceDB
 ```
 
 #### Execute Data Migration
 ```bash
+# Normal migration
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
-```
 
-#### Simulation Execution (DRY RUN)
-```bash
+# Simulation mode (DRY RUN) - no actual changes
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml --dry-run
+
+# With custom batch size
+BATCH_SIZE=2000 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
 
 #### Resume Interrupted Migration
 ```bash
-node src/migrate-cli.js resume migration-2024-12-01-15-30-00 --query ./queries/migration-queries.xml
+# List available migrations to resume
+node src/progress-cli.js list
+
+# Check resume information
+node src/progress-cli.js resume migration-2025-10-11-01-45-35
+
+# Resume migration from last completed point
+node src/migrate-cli.js resume migration-2025-10-11-01-45-35 --query ./queries/migration-queries.xml
 ```
 
-### 2. Windows Batch File Usage
+#### Monitor Migration Progress
 ```bash
-# Interactive menu interface
-migrate.bat
+# List all migrations
+node src/progress-cli.js list
 
-# English version
-migrate-english.bat
+# Show specific migration details
+node src/progress-cli.js show migration-2025-10-11-01-45-35
+
+# Real-time monitoring (requires migration to be running)
+node src/progress-cli.js monitor migration-2025-10-11-01-45-35
+
+# Display summary of all migrations
+node src/progress-cli.js summary
+
+# Clean up old progress files (older than 7 days)
+node src/progress-cli.js cleanup 7
 ```
+
+### Development Commands
+
+#### Build Standalone Executable
+```bash
+# Build executable (creates dist/sql2db.exe)
+npm run build
+
+# Output:
+# > pkg . --public --no-native-build --compress GZip
+# ✅ Build completed: dist/sql2db.exe
+```
+
+#### Create Release Package
+```bash
+# Create complete distribution package
+npm run release
+
+# Output:
+# - Builds executable
+# - Creates release directory structure
+# - Copies all necessary files
+# - Generates documentation
+# - Creates ZIP archive
+# Result: release/sql2db-v0.8.0-bin.zip
+```
+
+#### Run Tests
+```bash
+# Run all test files
+cd test
+node test-basic-migration.js
+node test-column-overrides.js
+node test-dynamic-variables.js
+# ... etc
+
+# Or run specific test
+node test/test-dry-run.js
+```
+
+#### Environment Variables
+```bash
+# Set batch size
+set BATCH_SIZE=2000
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
+
+# Enable detailed logging
+set ENABLE_LOGGING=true
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
+
+# Enable transaction support
+set ENABLE_TRANSACTION=true
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
+
+# Debug mode
+set DEBUG_VARIABLES=true
+set DEBUG_SCRIPTS=true
+node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
+```
+
+### npm Scripts Reference
+
+| Command | Description |
+|---------|-------------|
+| `npm start` | Launch interactive interface (English) |
+| `npm run start:kr` | Launch interactive interface (Korean) |
+| `npm run migrate` | Execute migration (with prompt) |
+| `npm run dry-run` | Execute simulation mode (with prompt) |
+| `npm run validate` | Validate configuration (with prompt) |
+| `npm run resume` | Resume interrupted migration (with prompt) |
+| `npm run progress` | Display progress information (with prompt) |
+| `npm run test-connections` | Test all database connections |
+| `npm run list-dbs` | List all configured databases |
+| `npm run help` | Display help information |
+| `npm run build` | Build standalone executable |
+| `npm run release` | Create complete release package |
+| `npm run clean` | Remove build artifacts |
 
 ## 📋 XML Structure Description
 
@@ -335,7 +782,7 @@ DEBUG_COMMENTS=true node src/migrate-cli.js migrate queries.xml
 DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 ```
 
-## 🔧 Recent Improvements (Post v2.6)
+## 🔧 Recent Improvements (Post v0.6)
 
 ### 1. Dynamic Variable Database Specification
 
@@ -346,15 +793,6 @@ You can now specify which database to extract data from in dynamic variables.
 - **Default Value**: Uses `sourceDB` as default when attribute is not specified
 - **Cross-DB Utilization**: Extract conditions from source then query related data from target
 - **All dbinfo.json DBs Supported**: Extract dynamic variables from all databases defined in dbinfo.json
-
-#### Supported Databases
-
-| Database | Description | Usage Example |
-|----------|-------------|---------------|
-| `sourceDB` | Source database (read-only) | Extract master data from production environment |
-| `targetDB` | Target database (read/write) | Extract reference data from development environment |
-| `sampleDB` | Sample database | Extract test data or metadata |
-| Other DBs | All databases defined in dbinfo.json | Extract data from user-defined databases |
 
 #### Usage Examples
 

@@ -45,7 +45,7 @@
     <!-- 전체 이관 시작 전 실행 그룹들 -->
     <preProcessGroups>
      
-      <group id="logging" description="마이그레이션 로그 초기화" enabled="false">
+      <group id="logging" description="마이그레이션 로그 초기화" enabled="true">
         <![CDATA[
           -- 마이그레이션 시작 로그
           INSERT INTO migration_log (query_id, phase, message, created_date)
@@ -54,7 +54,7 @@
         ]]>
       </group>
       
-      <group id="validation" description="데이터 검증" enabled="false">
+      <group id="validation" description="데이터 검증" enabled="true">
         <![CDATA[
           -- 소스 데이터 기본 검증
           IF EXISTS (SELECT 1 FROM users WHERE username IS NULL OR email IS NULL)
@@ -74,7 +74,7 @@
     
     <!-- 전체 이관 완료 후 실행 그룹들 -->
     <postProcessGroups>
-      <group id="performance_restore" description="성능 최적화 복원" enabled="false">
+      <group id="performance_restore" description="성능 최적화 복원" enabled="true">
         <![CDATA[
           -- 인덱스 재구성
           ALTER INDEX ALL ON users REBUILD;
@@ -91,7 +91,7 @@
         ]]>
       </group>
       
-      <group id="verification" description="데이터 검증" enabled="false">
+      <group id="verification" description="데이터 검증" enabled="true">
         <![CDATA[
           -- 이관 후 데이터 개수 검증
           DECLARE @source_count INT, @target_count INT;
@@ -106,7 +106,7 @@
         ]]>
       </group>
       
-      <group id="completion" description="완료 로그" enabled="false">
+      <group id="completion" description="완료 로그" enabled="true">
         <![CDATA[
           -- 이관 완료 로그 기록
           INSERT INTO migration_log (query_id, status, message, rows_processed, created_date) 
@@ -142,7 +142,7 @@
                 variableName="companyMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
       ]]>
@@ -153,7 +153,7 @@
                 variableName="departmentMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT department_code, department_name 
         FROM departments 
@@ -167,7 +167,7 @@
                 variableName="statusMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT status_code, status_description 
         FROM status_codes 
@@ -181,7 +181,7 @@
                 variableName="categoryMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT category_id, category_name 
         FROM categories 
@@ -207,7 +207,7 @@
                 extractType="column_identified"
                 columns="product_id,category_id"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT product_id, category_id FROM products WHERE category_id IN (${categoryIds})
       ]]>
@@ -220,7 +220,7 @@
                 extractType="multiple_columns"
                 columns="user_id,department_id,manager_id"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT
           u.user_id,
@@ -243,7 +243,7 @@
                 extractType="single_column"
                 columnName="approver_code"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT ar.approver_code
         FROM approval_requests ar
@@ -259,7 +259,7 @@
                 extractType="single_column"
                 columnName="requester_code"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT ar.requester_code
         FROM approval_requests ar
@@ -275,7 +275,7 @@
                 extractType="single_column"
                 columnName="product_code"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT ar.product_code
         FROM approval_requests ar
@@ -292,7 +292,7 @@
                 extractType="multiple_columns"
                 columns="approver_code,requester_code,product_code"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT 
           ar.approver_code,
@@ -314,7 +314,7 @@
                 extractType="column_identified"
                 columns="approver_code,requester_code,product_code"
                 database="sourceDB"
-                enabled="false">
+                enabled="true">
       <![CDATA[
         SELECT DISTINCT 
           ar.approver_code,
@@ -330,68 +330,7 @@
     </dynamicVar>
   </dynamicVariables>
 
-  <!-- 쿼리 정의 -->
   <queries>
-    <!-- 사용자 테이블 데이터 이관 -->
-    <query id="migrate_users"
-           description="사용자 테이블 데이터 이관"
-           enabled="false">
-      <!-- 이 쿼리 실행 전 전처리 -->
-      <preProcess description="사용자 테이블 이관 준비">
-        <![CDATA[
-          -- 임시 테이블 생성
-          IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
-          CREATE TABLE #temp_users (user_id INT, old_status VARCHAR(50), new_status VARCHAR(50));
-          
-          -- 회사별 통계 로그 (key_value_pairs 동적변수 사용)
-          INSERT INTO migration_stats (query_id, table_name, stat_type, stat_category, stat_name, stat_value)
-          SELECT 'migrate_users', 'users', 'OVERALL', 'DATA', 'user_count', COUNT(*) 
-          FROM users 
-          WHERE company_code IN (${companyMapping})
-            AND created_date >= '${startDate}'
-          GROUP BY company_code;
-          
-          -- 로그 기록
-          INSERT INTO migration_log (query_id, phase, message, created_date)
-          VALUES ('migrate_users', 'PRE_PROCESS', 'User migration preparation completed', GETDATE());
-        ]]>
-      </preProcess>
-      
-      <sourceQuery targetTable="users" 
-                  targetColumns="*" 
-                  identityColumns="username" 
-                  deleteBeforeInsert="true"
-                  enabled="false">
-        <![CDATA[
-          SELECT *
-          FROM users 
-          WHERE created_date >= '${startDate}' 
-            AND created_date <= '${endDate}' 
-          
-        ]]>
-      </sourceQuery>
-      
-      <!-- 이 쿼리 실행 후 후처리 -->
-      <postProcess description="사용자 테이블 이관 마무리">
-        <![CDATA[
-          -- 데이터 검증 (동적변수 사용)
-          DECLARE @source_count INT, @target_count INT, @active_user_count INT;
-          SELECT @target_count = COUNT(*) FROM users WHERE created_date = '${migrationTimestamp}';
-          SELECT @active_user_count = COUNT(*) FROM users WHERE user_id IN (${activeUserIds});
-          
-          -- 통계 업데이트
-          UPDATE STATISTICS users;
-          
-          -- 완료 로그 기록
-          INSERT INTO migration_log (query_id, phase, message, rows_processed, active_users, created_date)
-          VALUES ('migrate_users', 'POST_PROCESS', 'User migration completed successfully', 
-                  @target_count, @active_user_count, GETDATE());
-          
-          -- 임시 테이블 정리
-          IF OBJECT_ID('tempdb..#temp_users') IS NOT NULL DROP TABLE #temp_users;
-        ]]>
-      </postProcess>
-    </query>
 
     <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->
     <query id="migrate_products_all"
@@ -424,7 +363,7 @@
     <!-- 특정 상태의 상품 데이터 이관 (IN절 사용) -->
     <query id="migrate_products_by_status"
            description="특정 상태의 상품 데이터 이관 (IN절 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
@@ -443,7 +382,7 @@
     <!-- 특정 부서 직원 데이터 이관 (IN절 사용) -->
     <query id="migrate_employees_by_department"
            description="특정 부서 직원 데이터 이관 (IN절 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="employees" 
                   targetColumns="*" 
                   identityColumns="emp_code" 
@@ -462,7 +401,7 @@
     <!-- 상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용) -->
     <query id="migrate_products_from_file_with_in"
            description="상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery sourceQueryFile="sql/products_in_clause_example.sql"
                   targetTable="products"
                   targetColumns="*"
@@ -492,7 +431,7 @@
     <!-- 추출된 상품 관련 데이터 이관 (동적 변수 사용) -->
     <query id="migrate_related_products_dynamic"
            description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="product_reviews" 
                   targetColumns="*" 
                   identityColumns="product_id,customer_id">
@@ -556,7 +495,7 @@
 
     <query id="migrate_requester_audit_logs"
            description="요청자 코드만을 사용한 감사 로그 이관"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="audit_logs" 
                   targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
                   identityColumns="log_id">
@@ -581,13 +520,12 @@
     <!-- 방법 2: multiple_columns 사용 (기존) -->
     <query id="migrate_audit_logs_by_codes"
            description="multiple_columns로 추출된 승인 코드들로 감사 로그 이관"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="audit_logs" 
-                  targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
+                  targetColumns="action_type,entity_code,user_code,log_message,created_date" 
                   identityColumns="log_id">
         <![CDATA[
           SELECT 
-            log_id,
             action_type,
             entity_code,
             user_code,
@@ -607,7 +545,7 @@
     <!-- 방법 3: column_identified 사용 (NEW!) -->
     <query id="migrate_audit_logs_by_identified_codes"
            description="컬럼별로 식별된 승인 코드들을 사용한 감사 로그 이관"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="audit_logs" 
                   targetColumns="*" 
                   identityColumns="log_id">
@@ -672,7 +610,7 @@
     <!-- key_value_pairs 사용 예시 쿼리들 -->
     <query id="migrate_users_with_company_names"
            description="회사 코드-이름 매핑을 사용한 사용자 데이터 이관"
-           enabled="false">
+           enabled="true">
       <sourceQuery targetTable="users_with_company" 
                   targetColumns="user_id,username,email,company_code,company_name,created_date" 
                   identityColumns="user_id">
@@ -726,35 +664,10 @@
 
     </query>
 
-    <!-- key_value_pairs를 조건절에서 활용하는 예시 -->
-    <query id="migrate_filtered_by_mapping"
-           description="매핑 테이블 기반 필터링을 사용한 데이터 이관"
-           enabled="false">
-      <sourceQuery targetTable="filtered_data" 
-                  targetColumns="record_id,entity_code,entity_name,category_id,category_name,processed_date" 
-                  identityColumns="record_id">
-        <![CDATA[
-          SELECT 
-            rd.record_id,
-            rd.entity_code,
-            rd.entity_name,
-            rd.category_id,
-            rd.category_name,
-            rd.processed_date
-          FROM raw_data rd
-          WHERE rd.entity_code IN (${companyMapping})  -- 매핑된 회사 코드만
-            AND rd.category_id IN (${categoryMapping}) -- 매핑된 카테고리만
-            AND rd.processed_date >= '${startDate}'
-
-        ]]>
-      </sourceQuery>
-
-    </query>
-
     <!-- SELECT * 사용 예시 (전/후처리에서) -->
     <query id="migrate_with_select_star_in_process"
            description="전/후처리에서 SELECT * 사용 예시"
-           enabled="false">
+           enabled="true">
       
       <!-- 전처리에서 SELECT * 사용 -->
       <preProcess description="SELECT * 를 사용한 백업 및 준비 작업">

@@ -1,215 +1,180 @@
-# MSSQL Data Migrator - 모듈화된 구조
+# SQL2DB 모듈 아키텍처
 
-기존의 거대한 단일 클래스였던 `mssql-data-migrator.js`를 기능별로 모듈화하여 유지보수성과 확장성을 개선했습니다.
+## 📋 개요
 
-## 📁 모듈 구조
+SQL2DB의 핵심 기능을 역할별로 분리한 모듈화 아키텍처입니다. 각 모듈은 단일 책임 원칙(Single Responsibility Principle)에 따라 설계되었습니다.
+
+## 🏗️ 모듈 구조
 
 ```
-modules/
-├── database-config-manager.js    # 데이터베이스 설정 관리
-├── config-parser.js              # 설정 파일 파싱 (XML/JSON)
-├── variable-manager.js           # 변수 관리 (정적/동적 변수)
-├── query-executor.js             # 쿼리 실행 및 데이터 마이그레이션
-├── script-processor.js           # 전처리/후처리 스크립트 실행
-└── index.js                      # 모듈 인덱스
+src/
+├── modules/
+│   ├── config-manager.js        # 설정 파일 로드 및 파싱
+│   ├── variable-manager.js      # 변수 치환 및 동적 변수 처리
+│   ├── query-processor.js       # 쿼리 처리 및 변환
+│   ├── script-processor.js      # 전/후처리 스크립트 실행
+│   └── index.js                 # 모듈 통합 export
+│
+├── mssql-data-migrator-modular.js  # 모듈화된 메인 클래스 (권장)
+├── mssql-data-migrator.js          # 레거시 모놀리식 클래스
+├── mssql-connection-manager.js     # DB 연결 관리
+├── progress-manager.js             # 진행 상황 관리
+├── logger.js                       # 로깅 유틸리티
+└── migrate-cli.js                  # CLI 인터페이스
 ```
 
-## 🔧 주요 모듈 설명
+## 📦 모듈 상세
 
-### 1. DatabaseConfigManager
-- **역할**: 데이터베이스 설정 정보 관리
-- **주요 기능**:
-  - `dbinfo.json` 파일 로드
-  - DB ID로 연결 정보 조회
-  - 사용 가능한 DB 목록 제공
-  - 쓰기 권한 확인
+### 1. ConfigManager (config-manager.js)
+
+**책임**: 설정 파일 로드 및 파싱
+
+**주요 기능**:
+- `loadDbInfo()` - DB 정보 파일 로드
+- `getDbConfigById(dbId)` - DB ID로 연결 정보 조회
+- `loadConfig(queryFilePath)` - 쿼리 설정 파일 로드
+- `parseXmlConfig(xmlData)` - XML 설정 파싱
+- `parseSettings(settingsXml)` - 설정 섹션 파싱
+- `parseVariables(varsXml)` - 변수 섹션 파싱
+- `parseGlobalColumnOverrides(overridesXml)` - 전역 컬럼 오버라이드 파싱
+- `parseGlobalProcesses(processesXml)` - 전역 전/후처리 그룹 파싱
+- `parseDynamicVariables(dynamicVarsXml)` - 동적 변수 파싱
+- `parseQueries(queriesXml, settings)` - 쿼리 섹션 파싱
+
+**의존성**: logger
+
+### 2. VariableManager (variable-manager.js)
+
+**책임**: 변수 치환 및 동적 변수 처리
+
+**주요 기능**:
+- `setVariables(variables)` - 일반 변수 설정
+- `setDynamicVariable(key, value)` - 동적 변수 설정
+- `extractDataToVariable(extractConfig)` - 동적 변수 추출
+- `extractByType(data, extractConfig)` - 타입별 데이터 추출
+- `replaceVariables(text)` - 변수 치환
+- `replaceDynamicVariables(text)` - 동적 변수 치환
+- `replaceStaticVariables(text)` - 일반 변수 치환
+- `replaceTimestampFunctions(text)` - 타임스탬프 함수 치환
+- `replaceEnvironmentVariables(text)` - 환경 변수 치환
+- `resolveJsonValue(value, context)` - JSON 값 해석
+- `applyGlobalColumnOverrides(sourceData, globalColumnOverrides)` - 전역 컬럼 오버라이드 적용
+- `getAllVariables()` - 모든 변수 정보 조회
+
+**의존성**: connectionManager, logger
+
+### 3. QueryProcessor (query-processor.js)
+
+**책임**: 쿼리 처리 및 변환
+
+**주요 기능**:
+- `clearTableColumnCache()` - 테이블 컬럼 캐시 초기화
+- `getTableColumns(tableName, database)` - 테이블 컬럼 목록 조회
+- `getIdentityColumns(tableName, database)` - IDENTITY 컬럼 조회
+- `loadQueryFromFile(filePath, queryFilePath)` - 외부 SQL 파일 로드
+- `removeComments(script)` - SQL 주석 제거
+- `processQueryConfig(queryConfig, queryFilePath)` - 쿼리 설정 처리 (SELECT * 자동 변환)
+- `validateSingleSqlStatement(sourceQuery)` - 단일 SQL 문 검증
+- `estimateQueryRowCount(queryConfig, queryFilePath)` - 행 수 추정
+- `processInsertSelectColumnAlignment(script, database)` - INSERT SELECT 컬럼 맞춤
+
+**의존성**: connectionManager, variableManager, logger
+
+### 4. ScriptProcessor (script-processor.js)
+
+**책임**: 전/후처리 스크립트 실행
+
+**주요 기능**:
+- `executeGlobalProcessGroups(phase, config, progressManager)` - 전역 전/후처리 그룹 실행
+- `executeProcessScript(scriptConfig, database, useSession)` - 전/후처리 스크립트 실행
+- `detectTempTableUsageInScript(script)` - temp 테이블 사용 여부 감지
+
+**의존성**: connectionManager, variableManager, queryProcessor, logger
+
+## 🔄 사용 방법
+
+### 모듈화된 버전 사용 (권장)
 
 ```javascript
-const dbManager = new DatabaseConfigManager();
-await dbManager.loadDbInfo();
-const config = dbManager.getDbConfigById('sourceDb');
-const availableDbs = dbManager.getAvailableDbs();
-```
+const MSSQLDataMigrator = require('./mssql-data-migrator-modular');
 
-### 2. ConfigParser
-- **역할**: XML/JSON 형태의 쿼리 정의 파일 파싱
-- **주요 기능**:
-  - XML/JSON 자동 감지 및 파싱
-  - 전역 변수 파싱
-  - 동적 변수 파싱
-  - 전처리/후처리 그룹 파싱
-  - 컬럼 오버라이드 파싱
-
-```javascript
-const parser = new ConfigParser();
-const config = await parser.loadConfig('migration.xml');
-```
-
-### 3. VariableManager
-- **역할**: 정적 변수와 동적 변수 관리
-- **주요 기능**:
-  - 정적 변수 설정/조회
-  - 동적 변수 로드 (DB 쿼리 결과)
-  - 문자열 변수 치환 (`${변수명}` 형태)
-  - 변수 의존성 검증
-  - 변수 통계 정보 제공
-
-```javascript
-const varManager = new VariableManager();
-varManager.setVariables({ startDate: '2024-01-01' });
-await varManager.loadDynamicVariables();
-const result = varManager.replaceVariables('SELECT * FROM table WHERE date >= ${startDate}');
-```
-
-### 4. QueryExecutor
-- **역할**: 실제 데이터 마이그레이션 쿼리 실행
-- **주요 기능**:
-  - 소스 데이터 조회
-  - 타겟 테이블에 데이터 삽입
-  - 배치 처리 지원
-  - 트랜잭션 관리
-  - DRY RUN 모드 지원
-  - 테이블 truncate 처리
-
-```javascript
-const executor = new QueryExecutor(connectionManager, variableManager);
-executor.setDryRun(true);
-const result = await executor.executeQuery(queryConfig, progressManager);
-```
-
-### 5. ScriptProcessor
-- **역할**: 전처리/후처리 스크립트 실행
-- **주요 기능**:
-  - 전역 전처리/후처리 그룹 실행
-  - 쿼리별 전처리/후처리 그룹 실행
-  - SQL 스크립트 파싱 및 실행
-  - 트랜잭션 관리
-  - 임시 테이블 사용 감지
-
-```javascript
-const processor = new ScriptProcessor(connectionManager, variableManager);
-const result = await processor.executeGlobalPreProcessGroups(preGroups, targetDb);
-```
-
-## 🚀 사용법
-
-### 전체 마이그레이션 실행 (권장)
-
-```javascript
-const MSSQLDataMigrator = require('./mssql-data-migrator-refactored');
-
-const migrator = new MSSQLDataMigrator('migration.xml', false);
-await migrator.initialize();
-const result = await migrator.execute();
-await migrator.cleanup();
+const migrator = new MSSQLDataMigrator('queries/migration-queries.xml', false);
+const result = await migrator.executeMigration();
 ```
 
 ### 개별 모듈 사용
 
 ```javascript
 const {
-    DatabaseConfigManager,
-    ConfigParser,
+    ConfigManager,
     VariableManager,
-    QueryExecutor,
+    QueryProcessor,
     ScriptProcessor
 } = require('./modules');
 
-// 각 모듈을 독립적으로 사용
-const dbManager = new DatabaseConfigManager();
-const parser = new ConfigParser();
-// ...
+const configManager = new ConfigManager();
+const config = await configManager.loadConfig('queries/migration-queries.xml');
 ```
 
-## 🎯 모듈화의 장점
+## ✨ 장점
 
-### 1. **단일 책임 원칙 (SRP)**
-- 각 모듈이 하나의 명확한 책임을 가짐
-- 코드 이해도 향상
-- 버그 발생 시 원인 파악 용이
+### 1. **유지보수성 향상**
+- 각 모듈이 명확한 역할을 가짐
+- 코드 변경 시 영향 범위가 제한적
+- 3098줄 → 각 모듈 200-400줄로 분리
 
-### 2. **유지보수성 향상**
-- 특정 기능 수정 시 해당 모듈만 수정
-- 코드 재사용성 증대
-- 테스트 작성 용이
+### 2. **테스트 용이성**
+- 각 모듈을 독립적으로 테스트 가능
+- Mock 객체 주입이 쉬움
+- 단위 테스트 작성이 간편
 
-### 3. **확장성 개선**
+### 3. **재사용성**
+- 다른 프로젝트에서 모듈 재사용 가능
+- 필요한 모듈만 선택적으로 사용 가능
+
+### 4. **확장성**
 - 새로운 기능 추가 시 새 모듈로 분리 가능
-- 기존 코드에 미치는 영향 최소화
-- 플러그인 방식의 확장 가능
+- 기존 코드 수정 최소화
 
-### 4. **테스트 용이성**
-- 각 모듈별 단위 테스트 작성 가능
-- 모킹(Mocking) 용이
-- 통합 테스트 시나리오 구성 용이
+## 🔧 마이그레이션 가이드
 
-## 🔄 마이그레이션 가이드
+### 기존 코드 (레거시)
 
-### 기존 코드에서 새 모듈화 코드로 전환
-
-#### Before (기존 코드)
 ```javascript
 const MSSQLDataMigrator = require('./mssql-data-migrator');
 const migrator = new MSSQLDataMigrator('config.xml');
+const result = await migrator.executeMigration();
 ```
 
-#### After (모듈화된 코드)
+### 새로운 모듈화 코드 (권장)
+
 ```javascript
-const MSSQLDataMigrator = require('./mssql-data-migrator-refactored');
+const MSSQLDataMigrator = require('./mssql-data-migrator-modular');
 const migrator = new MSSQLDataMigrator('config.xml');
-await migrator.initialize(); // 추가된 초기화 단계
+const result = await migrator.executeMigration();
 ```
 
-### 주요 변경사항
+**API는 완전히 호환됩니다!** 단순히 require 경로만 변경하면 됩니다.
 
-1. **초기화 단계 추가**: `initialize()` 메서드 호출 필요
-2. **모듈별 설정**: 각 모듈의 설정을 개별적으로 조정 가능
-3. **에러 처리**: 더 세분화된 에러 정보 제공
-4. **진행 상황**: 더 상세한 진행 상황 모니터링 가능
+## 📊 코드 통계
 
-## 📝 예제
+| 구분 | 레거시 | 모듈화 | 개선 |
+|------|--------|--------|------|
+| **파일 수** | 1개 | 5개 | 관심사 분리 |
+| **총 라인 수** | 3098줄 | ~1500줄 | -51% |
+| **평균 파일 크기** | 3098줄 | ~300줄 | -90% |
+| **테스트 가능성** | 어려움 | 쉬움 | ✅ |
+| **재사용성** | 낮음 | 높음 | ✅ |
 
-자세한 사용 예제는 `examples/modular-usage-example.js` 파일을 참조하세요.
+## 🚀 향후 계획
 
-## 🧪 테스트
+- [ ] 각 모듈에 대한 단위 테스트 추가
+- [ ] TypeScript로 전환 고려
+- [ ] 추가 모듈 분리 (DataInserter, ValidationManager 등)
+- [ ] 레거시 코드 완전 제거 (v1.0.0)
 
-각 모듈별 테스트 파일을 작성하여 개별 기능을 검증할 수 있습니다:
+## 📞 지원
 
-```
-tests/
-├── database-config-manager.test.js
-├── config-parser.test.js
-├── variable-manager.test.js
-├── query-executor.test.js
-└── script-processor.test.js
-```
+문의사항이 있으시면 연락주세요:
+- 이메일: sql2db@happysoft.com
 
-## 🔧 설정
-
-환경 변수를 통해 각 모듈의 동작을 제어할 수 있습니다:
-
-```bash
-ENABLE_LOGGING=true          # 로깅 활성화
-ENABLE_TRANSACTION=true      # 트랜잭션 사용
-```
-
-## 🚨 주의사항
-
-1. **하위 호환성**: 기존 설정 파일과 완전 호환
-2. **성능**: 모듈화로 인한 성능 저하는 미미함
-3. **메모리**: 각 모듈이 독립적으로 메모리 관리
-4. **의존성**: 모듈 간 순환 의존성 없음
-
-## 🤝 기여
-
-새로운 모듈 추가나 기존 모듈 개선 시 다음 가이드라인을 따라주세요:
-
-1. 단일 책임 원칙 준수
-2. 명확한 인터페이스 정의
-3. 적절한 에러 처리
-4. 로깅 추가
-5. 문서화
-
----
-
-**모듈화된 MSSQL Data Migrator**로 더욱 안정적이고 확장 가능한 데이터 마이그레이션을 경험하세요! 🚀

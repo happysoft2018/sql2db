@@ -1,9 +1,11 @@
 {
-  "name": "mssql-data-migrator",
-  "version": "2.7.1",
+  "name": "sql2db",
+  "version": "0.8.2",
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
-  "main": "src/migrate-cli.js",
+  "main": "app.js",
   "scripts": {
+    "start": "node app.js --lang=en",
+    "start:kr": "node app.js --lang=kr",
     "migrate": "echo '사용법: npm run migrate -- --query <파일경로>' && node src/migrate-cli.js migrate",
     "dry-run": "echo '사용법: npm run dry-run -- --query <파일경로>' && node src/migrate-cli.js migrate --dry-run",
     "validate": "echo '사용법: npm run validate -- --query <파일경로>' && node src/migrate-cli.js validate",
@@ -11,11 +13,39 @@
     "progress": "echo '사용법: npm run progress -- <command> [migration-id]' && node src/progress-cli.js",
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
-    "help": "node src/migrate-cli.js help"
+    "help": "node src/migrate-cli.js help",
+    "build": "pkg . --public --compress GZip",
+    "release": "release.bat"
+  },
+  "bin": {
+    "sql2db": "app.js"
+  },
+  "pkg": {
+    "scripts": [
+      "src/**/*.js"
+    ],
+    "assets": [
+      "config/**/*",
+      "queries/**/*",
+      "*.md",
+      ".env",
+      "node_modules/mssql/**/*",
+      "node_modules/tedious/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist",
+    "ignore": [
+      "node_modules/open/xdg-open"
+    ]
   },
   "dependencies": {
     "dotenv": "^16.5.0",
     "mssql": "^11.0.1",
     "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

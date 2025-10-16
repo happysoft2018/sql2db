@@ -1,11 +1,15 @@
 # MSSQL Data Migration Tool
 
-A Node.js-based solution for data migration between MSSQL databases.
+A Node.js-based solution for data migration between MSSQL databases with an interactive interface and standalone executable support.
 
 ## Key Features
 
+- ✅ **Interactive Interface**: User-friendly menu system for easy operation
+- ✅ **Standalone Executable**: Run without Node.js installation
+- ✅ **Multilingual Support**: English and Korean interfaces
+- ✅ **Progress Monitoring**: Real-time migration progress tracking with detailed history
 - ✅ **MSSQL Data Migration**: High-performance batch processing
-- ✅ **XML/JSON Configuration Support**: Flexible configuration format selection
+- ✅ **XML Configuration Support**: Flexible XML-based configuration
 - ✅ **Column Overrides**: Modify/add column values during migration
 - ✅ **Pre/Post Processing**: Execute SQL scripts before/after migration
 - ✅ **Dynamic Variables**: Extract and utilize data at runtime
@@ -13,9 +17,33 @@ A Node.js-based solution for data migration between MSSQL databases.
 - ✅ **Detailed Logging**: 5-level log system
 - ✅ **DRY RUN Mode**: Simulation without actual changes
 - ✅ **SELECT * Auto Processing**: Automatic IDENTITY column exclusion
-- ✅ **Progress Tracking**: Real-time migration progress monitoring
 
 ## Quick Start
+
+### Option 1: Using Standalone Executable (Recommended)
+
+1. **Download Release Package**
+   - Download `sql2db-v0.8.1-bin.zip`
+   - Extract to your desired location
+
+2. **Configure Database Connection**
+   - Edit `config/dbinfo.json` with your database settings
+   - Add query definition files to `queries/` folder
+
+3. **Run**
+   ```bash
+   # English version
+   run.bat
+   
+   # Korean version
+   실행하기.bat
+   
+   # Or directly
+   sql2db.exe --lang=en
+   sql2db.exe --lang=kr
+   ```
+
+### Option 2: Using Node.js
 
 ### 1. Installation
 ```bash
@@ -46,27 +74,70 @@ Create `config/dbinfo.json` file:
 ```
 
 ### 3. Basic Execution
-```bash
-# Windows users (recommended)
-migrate.bat
 
-# Command line users
+#### Interactive Interface (Recommended)
+```bash
+# English version
+npm start
+# or
+run.bat
+
+# Korean version
+npm run start:kr
+# or
+실행하기.bat
+```
+
+#### Command Line Interface
+```bash
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
+
+## Interactive Menu Features
+
+```
+=========================================
+  MSSQL Data Migration Tool
+  Version 0.8.1
+=========================================
+
+1. Validate Query Definition File
+2. Test Database Connection
+3. Execute Data Migration
+4. Check Migration Progress
+5. Show Help
+0. Exit
+
+Please select (0-5):
+```
+
+### Menu Options
+
+1. **Validate Query Definition File**: Check XML syntax and attribute names
+2. **Test Database Connection**: Verify database connectivity
+3. **Execute Data Migration**: Run data migration with selected query file
+4. **Check Migration Progress**: View migration history and detailed status
+   - Recent 3 migrations displayed by default
+   - Press 'A' to view all migrations
+   - Enter number to view detailed progress information
+5. **Show Help**: Display usage information
 
 ## Main Commands
 
 | Command | Description |
 |---------|-------------|
-| `migrate.bat` | Interactive menu interface |
+| `npm start` or `run.bat` | Interactive menu (English) |
+| `npm run start:kr` or `실행하기.bat` | Interactive menu (Korean) |
 | `node src/migrate-cli.js validate` | Configuration validation |
 | `node src/migrate-cli.js test` | Connection test |
 | `node src/migrate-cli.js migrate --dry-run` | Simulation execution |
 | `node src/migrate-cli.js list-dbs` | List databases |
+| `npm run build` | Build standalone executable |
+| `npm run release` | Create release package |
 
-## Configuration File Formats
+## Configuration File Format
 
-### XML Format (Recommended)
+### XML Format
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
@@ -101,32 +172,6 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
     </dynamicVar>
   </dynamicVariables>
 </migration>
-```
-
-### JSON Format
-```json
-{
-  "databases": {
-    "source": "sourceDB",
-    "target": "targetDB"
-  },
-  "queries": [
-    {
-      "id": "migrate_users",
-      "sourceQuery": "SELECT * FROM users WHERE status = 'ACTIVE'",
-      "targetTable": "users",
-      "enabled": true
-    }
-  ],
-  "dynamicVariables": [
-    {
-      "id": "active_customers",
-      "description": "Active customer list",
-      "query": "SELECT CustomerID, CustomerName FROM Customers WHERE IsActive = 1",
-      "extractType": "column_identified"
-    }
-  ]
-}
 ```
 
 ## Dynamic Variables
@@ -370,7 +415,7 @@ This table includes:
 
 ## 📈 Progress Management
 
-Starting from v2.1, real-time progress tracking and monitoring features have been added:
+Starting from v0.1, real-time progress tracking and monitoring features have been added:
 
 ```bash
 # List progress
@@ -450,6 +495,44 @@ test-log-levels.bat        # Log level test
 test-select-star-identity.bat  # SELECT * IDENTITY exclusion test
 test-dynamic-variables.js  # Dynamic variables test
 ```
+
+## Building Standalone Executable
+
+### Prerequisites
+```bash
+npm install
+```
+
+### Build
+```bash
+npm run build
+```
+
+This will create a standalone executable in the `dist/` directory:
+- `dist/sql2db.exe` (Windows 64-bit)
+
+### Build Configuration
+The build process uses `pkg` to bundle the Node.js application:
+- **Target**: Windows x64 (Node.js 18)
+- **Compression**: GZip
+- **Assets Included**:
+  - All source files (`src/**/*.js`)
+  - Configuration files (`config/**/*.json`)
+  - Query definition files (`queries/**/*.xml`, `queries/**/*.json`, `queries/**/*.sql`)
+  - Example files (`examples/**/*.xml`)
+  - Resource files (`resources/**/*.sql`)
+  - Documentation files (README, USER_MANUAL, CHANGELOG)
+
+### Running the Executable
+```bash
+# Run the executable directly
+dist\sql2db.exe
+
+# Or use with language option
+dist\sql2db.exe --lang=kr
+```
+
+The standalone executable includes everything needed to run the application without requiring Node.js installation.
 
 ## Contributing
 
