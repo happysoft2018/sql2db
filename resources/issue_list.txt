@@ -1,0 +1,18 @@
+
+----------------------
+2025-10-16
+----------------------
+1. applyGlobalColumns 
+    - Column-by-column override feature not working
+    - Either all columns defined in globalColumnOverrides are applied, or none are applied.
+
+
+2. The incoming request has too many parameters. 
+The server supports a maximum of 2100 parameters. Reduce the number of parameters and resend the request.
+if row count * columns count > 2100 then exccept error
+Why is the number of parameters limited to 2100?
+If you can't delete them all at once, how about dividing them into 2100 each?
+
+
+3. Password is exposed in the connection DB information when starting the task.
+   --> Password will be masked
