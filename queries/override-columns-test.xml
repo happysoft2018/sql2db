@@ -59,7 +59,7 @@
       <sourceQuery targetTable="orders" 
                   targetColumns="*" 
                   identityColumns="order_number"
-                  applyGlobalColumns="payment_method, status">
+                  applyGlobalColumns="all">
         <![CDATA[
           SELECT *
           FROM orders 
@@ -77,7 +77,7 @@
       <sourceQuery targetTable="users" 
                   targetColumns="*" 
                   identityColumns="username" 
-                  applyGlobalColumns="none">
+                  applyGlobalColumns="email,created_date">
         <![CDATA[
           SELECT *
           FROM users 

@@ -171,7 +171,16 @@ class MSSQLDataMigrator {
             return {};
         }
         
-        switch (applyGlobalColumns) {
+        // 대소문자 구분 없이 처리하기 위해 소문자로 변환
+        const normalizedApplyGlobalColumns = applyGlobalColumns.toLowerCase().trim();
+        
+        // globalColumnOverrides의 키를 대소문자 구분 없이 검색하기 위한 Map 생성
+        const columnMap = new Map();
+        globalColumnOverrides.forEach((value, column) => {
+            columnMap.set(column.toLowerCase(), { originalColumn: column, value: value });
+        });
+        
+        switch (normalizedApplyGlobalColumns) {
             case 'all':
                 if (tableName) {
                     const tableColumns = await this.queryProcessor.getTableColumns(tableName, database);
@@ -187,45 +196,67 @@ class MSSQLDataMigrator {
                         }
                     });
                     
+                    const appliedColumns = Object.keys(existingOverrides);
+                    if (appliedColumns.length > 0) {
+                        this.log(`전역 컬럼 오버라이드 적용 (all): ${appliedColumns.join(', ')}`);
+                    }
+                    
                     return existingOverrides;
                 } else {
                     const allOverrides = {};
                     globalColumnOverrides.forEach((value, column) => {
                         allOverrides[column] = this.variableManager.resolveJsonValue(value, {});
                     });
+                    
+                    const appliedColumns = Object.keys(allOverrides);
+                    if (appliedColumns.length > 0) {
+                        this.log(`전역 컬럼 오버라이드 적용 (all): ${appliedColumns.join(', ')}`);
+                    }
+                    
                     return allOverrides;
                 }
                 
             case 'none':
+                this.log(`전역 컬럼 오버라이드 적용 안 함 (none)`);
                 return {};
                 
             default:
-                if (typeof applyGlobalColumns === 'string' && applyGlobalColumns.includes(',')) {
-                    const selectedColumns = applyGlobalColumns.split(',').map(col => col.trim());
+                if (normalizedApplyGlobalColumns.includes(',')) {
+                    const selectedColumns = normalizedApplyGlobalColumns.split(',').map(col => col.trim());
                     const selectedOverrides = {};
                     
                     selectedColumns.forEach(column => {
-                        if (globalColumnOverrides.has(column)) {
-                            const value = globalColumnOverrides.get(column);
-                            selectedOverrides[column] = this.variableManager.resolveJsonValue(value, {
+                        const columnInfo = columnMap.get(column);
+                        if (columnInfo) {
+                            const resolvedValue = this.variableManager.resolveJsonValue(columnInfo.value, {
                                 tableName: tableName,
                                 database: database
                             });
+                            selectedOverrides[columnInfo.originalColumn] = resolvedValue;
                         }
                     });
                     
+                    const appliedColumns = Object.keys(selectedOverrides);
+                    if (appliedColumns.length > 0) {
+                        this.log(`전역 컬럼 오버라이드 선택 적용: ${appliedColumns.join(', ')}`);
+                    } else {
+                        this.log(`전역 컬럼 오버라이드: 요청된 컬럼(${applyGlobalColumns})이 전역 설정에 없음`);
+                    }
+                    
                     return selectedOverrides;
                 } else {
-                    const column = applyGlobalColumns.trim();
-                    if (globalColumnOverrides.has(column)) {
-                        const value = globalColumnOverrides.get(column);
+                    const columnInfo = columnMap.get(normalizedApplyGlobalColumns);
+                    if (columnInfo) {
+                        const resolvedValue = this.variableManager.resolveJsonValue(columnInfo.value, {
+                            tableName: tableName,
+                            database: database
+                        });
+                        this.log(`전역 컬럼 오버라이드 적용: ${columnInfo.originalColumn}`);
                         return { 
-                            [column]: this.variableManager.resolveJsonValue(value, {
-                                tableName: tableName,
-                                database: database
-                            })
+                            [columnInfo.originalColumn]: resolvedValue
                         };
                     }
+                    this.log(`전역 컬럼 오버라이드: 요청된 컬럼 '${applyGlobalColumns}'이 전역 설정에 없음`);
                     return {};
                 }
         }
