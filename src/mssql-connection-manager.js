@@ -490,10 +490,46 @@ class MSSQLConnectionManager {
                 await this.connectTarget();
             }
 
+            // 명확하게 타겟 DB 정보 출력
+            const targetConfig = this.targetPool.config;
+            console.log(`🎯 [TARGET DB] ${targetConfig.server}/${targetConfig.database} 에서 삭제 작업 수행`);
+
             if (!sourceData || sourceData.length === 0) {
                 console.log(`소스 데이터가 없어 ${tableName} 테이블 삭제를 건너뜁니다.`);
                 return { rowsAffected: [0] };
             }
+
+            // 타겟 테이블의 실제 컬럼명 조회 (대소문자 정확히 매칭)
+            const targetColumnsInfo = await this.getTableColumns(tableName, 'target');
+            const targetColumnNames = targetColumnsInfo.map(col => col.name);
+            
+            // identityColumns를 타겟 테이블의 실제 컬럼명으로 매칭
+            const normalizeColumnName = (columnName) => {
+                // 정확히 일치하는 컬럼이 있으면 그대로 사용
+                if (targetColumnNames.includes(columnName)) {
+                    return columnName;
+                }
+                
+                // 대소문자 구분 없이 매칭
+                const normalizedName = columnName.toLowerCase();
+                const matchedColumn = targetColumnNames.find(col => col.toLowerCase() === normalizedName);
+                
+                if (matchedColumn) {
+                    if (matchedColumn !== columnName) {
+                        console.log(`ℹ️ identityColumns 컬럼명 자동 보정: "${columnName}" → "${matchedColumn}"`);
+                    }
+                    return matchedColumn;
+                }
+                
+                console.log(`⚠️ 경고: identityColumns "${columnName}"이(가) 타겟 테이블에 존재하지 않습니다.`);
+                console.log(`   타겟 테이블 컬럼: ${targetColumnNames.join(', ')}`);
+                return columnName; // 원본 반환
+            };
+            
+            // identityColumns 정규화
+            const normalizedIdentityColumns = Array.isArray(identityColumns)
+                ? identityColumns.map(col => normalizeColumnName(col))
+                : normalizeColumnName(identityColumns);
 
             // PK 값들 추출
             const pkValues = [];
@@ -514,14 +550,38 @@ class MSSQLConnectionManager {
             });
 
             if (pkValues.length === 0) {
-                console.log(`유효한 PK 값이 없어 ${tableName} 테이블 삭제를 건너뜁니다.`);
+                console.log(`❌ 유효한 PK 값이 없어 ${tableName} 테이블 삭제를 건너뜁니다.`);
+                console.log(`   identityColumns: ${Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns}`);
+                console.log(`   sourceData 행 수: ${sourceData.length}`);
+                if (sourceData.length > 0) {
+                    console.log(`   첫 번째 행의 컬럼: ${Object.keys(sourceData[0]).join(', ')}`);
+                }
                 return { rowsAffected: [0] };
+            }
+            
+            // PK 값 추출 성공 로그
+            const identityColumnsDisplay = Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns;
+            const normalizedColumnsDisplay = Array.isArray(normalizedIdentityColumns) ? normalizedIdentityColumns.join(', ') : normalizedIdentityColumns;
+            
+            if (identityColumnsDisplay !== normalizedColumnsDisplay) {
+                console.log(`✓ PK 값 추출 완료: ${pkValues.length}개 행 (identityColumns: ${identityColumnsDisplay} → ${normalizedColumnsDisplay})`);
+            } else {
+                console.log(`✓ PK 값 추출 완료: ${pkValues.length}개 행 (identityColumns: ${identityColumnsDisplay})`);
+            }
+            
+            // 디버깅을 위한 샘플 PK 값 출력
+            if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
+                if (pkValues.length <= 10) {
+                    console.log(`   PK 값: ${JSON.stringify(pkValues)}`);
+                } else {
+                    console.log(`   PK 값 (처음 10개): ${JSON.stringify(pkValues.slice(0, 10))}...`);
+                }
             }
 
             // SQL Server 파라미터 제한 (2100개)을 고려한 청크 크기 설정
-            const isCompositeKey = Array.isArray(identityColumns);
+            const isCompositeKey = Array.isArray(normalizedIdentityColumns);
             const maxChunkSize = isCompositeKey 
-                ? Math.floor(2000 / identityColumns.length)  // 복합 키: 2000 / 키 컬럼 수
+                ? Math.floor(2000 / normalizedIdentityColumns.length)  // 복합 키: 2000 / 키 컬럼 수
                 : 2000;  // 단일 키: 2000개씩
             
             let totalDeletedRows = 0;
@@ -542,9 +602,10 @@ class MSSQLConnectionManager {
                 if (isCompositeKey) {
                     // 복합 키인 경우
                     const conditions = chunk.map((pkSet, index) => {
-                        const conditions = identityColumns.map(pk => {
-                            const paramName = `pk_${pk}_${index}`;
-                            const value = pkSet[pk];
+                        const conditions = normalizedIdentityColumns.map((normalizedPk, pkIndex) => {
+                            const originalPk = Array.isArray(identityColumns) ? identityColumns[pkIndex] : identityColumns;
+                            const paramName = `pk_${normalizedPk}_${index}`;
+                            const value = pkSet[originalPk];
                             if (typeof value === 'string') {
                                 request.input(paramName, sql.NVarChar, value);
                             } else if (typeof value === 'number') {
@@ -552,7 +613,7 @@ class MSSQLConnectionManager {
                             } else {
                                 request.input(paramName, sql.Variant, value);
                             }
-                            return `${pk} = @${paramName}`;
+                            return `${normalizedPk} = @${paramName}`;
                         }).join(' AND ');
                         return `(${conditions})`;
                     }).join(' OR ');
@@ -569,7 +630,7 @@ class MSSQLConnectionManager {
                         } else {
                             request.input('pk_value', sql.Variant, value);
                         }
-                        deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} = @pk_value`;
+                        deleteQuery = `DELETE FROM ${tableName} WHERE ${normalizedIdentityColumns} = @pk_value`;
                     } else {
                         // 여러 PK 값들을 IN절로 처리
                         const inClause = chunk.map((value, index) => {
@@ -584,19 +645,87 @@ class MSSQLConnectionManager {
                             return `@${paramName}`;
                         }).join(', ');
                         
-                        deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} IN (${inClause})`;
+                        deleteQuery = `DELETE FROM ${tableName} WHERE ${normalizedIdentityColumns} IN (${inClause})`;
                     }
                 }
                 
                 if (totalChunks === 1) {
                     console.log(`대상 테이블 PK 기준 데이터 삭제 중: ${tableName} (${pkValues.length}개 행 대상)`);
+                } else {
+                    console.log(`PK 기준 삭제 청크 ${chunkNumber}/${totalChunks} 실행 중...`);
+                }
+                
+                // 디버깅을 위한 상세 로그
+                if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
+                    console.log(`DELETE 쿼리: ${deleteQuery}`);
+                    if (chunk.length <= 5) {
+                        console.log(`삭제 대상 PK 값: ${JSON.stringify(chunk)}`);
+                    } else {
+                        console.log(`삭제 대상 PK 값 (처음 5개): ${JSON.stringify(chunk.slice(0, 5))}...`);
+                    }
                 }
                 
                 const result = await request.query(deleteQuery);
-                totalDeletedRows += result.rowsAffected[0];
+                const deletedCount = result.rowsAffected[0];
+                totalDeletedRows += deletedCount;
                 
-                if (totalChunks > 1) {
-                    console.log(`청크 ${chunkNumber} 삭제 완료: ${result.rowsAffected[0]}행`);
+                // 삭제된 행 수 로그 (항상 출력)
+                if (totalChunks === 1) {
+                    console.log(`삭제 완료: ${deletedCount}행 삭제됨`);
+                } else {
+                    console.log(`청크 ${chunkNumber} 삭제 완료: ${deletedCount}행`);
+                }
+                
+                // 삭제된 행이 없으면 정보 출력
+                if (deletedCount === 0 && chunk.length > 0) {
+                    // 타겟 테이블에 데이터가 있는지 확인
+                    try {
+                        const checkRequest = this.targetPool.request();
+                        const checkQuery = `SELECT COUNT(*) as cnt FROM ${tableName}`;
+                        const checkResult = await checkRequest.query(checkQuery);
+                        const totalRows = checkResult.recordset[0].cnt;
+                        
+                        if (totalRows === 0) {
+                            console.log(`ℹ️ 타겟 테이블이 비어있습니다. 삭제할 데이터가 없으므로 INSERT만 진행합니다.`);
+                        } else {
+                            console.log(`⚠️ 타겟 테이블에 ${totalRows}행이 있지만, 소스 PK 값(${chunk.length}개)과 일치하는 데이터가 없습니다.`);
+                            
+                            // 디버그 정보
+                            if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
+                                const firstPkValue = chunk[0];
+                                const testRequest = this.targetPool.request();
+                                
+                                if (isCompositeKey) {
+                                    const testConditions = normalizedIdentityColumns.map((col, idx) => {
+                                        const originalCol = Array.isArray(identityColumns) ? identityColumns[idx] : identityColumns;
+                                        const value = firstPkValue[originalCol];
+                                        testRequest.input(`test_${col}`, typeof value === 'string' ? sql.NVarChar : sql.Int, value);
+                                        return `${col} = @test_${col}`;
+                                    }).join(' AND ');
+                                    const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${testConditions}`;
+                                    const testResult = await testRequest.query(testQuery);
+                                    console.log(`   [DEBUG] 샘플 PK로 조회 결과: ${testResult.recordset.length}행`);
+                                } else {
+                                    testRequest.input('test_pk', typeof firstPkValue === 'string' ? sql.NVarChar : sql.Int, firstPkValue);
+                                    const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${normalizedIdentityColumns} = @test_pk`;
+                                    const testResult = await testRequest.query(testQuery);
+                                    console.log(`   [DEBUG] 샘플 소스 PK: ${firstPkValue}`);
+                                    
+                                    // 타겟 테이블의 실제 PK 값 샘플 조회
+                                    const sampleRequest = this.targetPool.request();
+                                    const sampleQuery = `SELECT TOP 5 ${normalizedIdentityColumns} FROM ${tableName}`;
+                                    const sampleResult = await sampleRequest.query(sampleQuery);
+                                    console.log(`   [DEBUG] 타겟의 실제 ${normalizedIdentityColumns} 샘플:`, sampleResult.recordset.map(r => r[normalizedIdentityColumns]));
+                                }
+                            } else {
+                                console.log(`   상세 정보를 보려면: LOG_LEVEL=DEBUG 환경 변수를 설정하세요.`);
+                            }
+                            
+                            console.log(`   → INSERT는 정상 진행됩니다.`);
+                        }
+                    } catch (checkError) {
+                        console.log(`ℹ️ 삭제 대상 없음 (${checkError.message})`);
+                    }
                 }
             }
             

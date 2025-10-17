@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<migration>
+  <!-- 전역 기본 설정 -->
+  <settings>
+    <!-- 데이터베이스 연결 설정 (dbinfo.json 참조) -->
+    <sourceDatabase>sourceDB</sourceDatabase>
+    <targetDatabase>targetDB</targetDatabase>
+    <!-- 이관 기본 설정 -->
+    <batchSize>1000</batchSize>
+    <deleteBeforeInsert>true</deleteBeforeInsert>
+  </settings>
+
+  <!-- 전역 변수 정의 -->
+  <variables>
+    <var name="companyCode">COMPANY01</var>
+    <var name="statusList">["ACTIVE", "PENDING", "APPROVED"]</var>
+    <var name="categoryIds">[1, 2, 3, 5, 8]</var>
+    <!-- 현재 시각 함수 사용 예시 -->
+    <var name="currentTimestamp">${CURRENT_TIMESTAMP}</var>
+    <var name="currentDate">${CURRENT_DATE}</var>
+    <var name="currentTime">${CURRENT_TIME}</var>
+  </variables>
+
+  <!-- 전역 컬럼 오버라이드 설정 -->
+  <globalColumnOverrides>
+    <!-- 모든 쿼리에 공통으로 적용될 컬럼 값들 -->
+    <override column="payment_method">{"신용카드":"[신용카드]현대카드", "계좌이체":"[계좌이체]카카오뱅크"}</override>
+    <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON", "COMPANY03":"GOOGLE", "COMPANY04":"TESLA"}</override>
+    <override column="Username">{"david.brown":"david","emily.davis":"emily","robert.miller":"robert","lisa.garcia":"lisa"}</override>
+    <override column="email">{"david.brown@company.com":"david@gmail.com","emily.davis@company.com":"emily@gmail.com","robert.miller@company.com":"robert@gmail.com","lisa.garcia@company.com":"lisa@gmail.com"}</override>
+    <override column="Created_By">110</override>
+    <override column="created_date">${CURRENT_DATE}</override>
+    <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING", "SHIPPED":"DELIVERED"}</override>
+  </globalColumnOverrides>
+
+  <queries>
+
+    <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_products_all"
+           description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+      <sourceQuery targetTable="products" 
+                  targetColumns="*" 
+                  identityColumns="product_code" 
+                  applyGlobalColumns="created_by,Status" 
+                  deleteBeforeInsert="true">
+        <![CDATA[
+          SELECT *
+          FROM products 
+          WHERE status = 'ACTIVE'
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
+    <query id="migrate_user_orders_dynamic"
+           description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
+           enabled="true">
+      <sourceQuery targetTable="orders" 
+                  targetColumns="*" 
+                  identityColumns="order_number"
+                  applyGlobalColumns="payment_method, status">
+        <![CDATA[
+          SELECT *
+          FROM orders 
+        ]]>
+      </sourceQuery>
+
+    </query>
+
+    <!-- 전/후처리 예시 쿼리 -->
+    <query id="migrate_with_global_overrides_example"
+           description="전역 columnOverrides 적용 예시"
+           enabled="true"
+           deleteBeforeInsert="true">
+
+      <sourceQuery targetTable="users" 
+                  targetColumns="*" 
+                  identityColumns="username" 
+                  applyGlobalColumns="none">
+        <![CDATA[
+          SELECT *
+          FROM users 
+ 
+        ]]>
+      </sourceQuery>
+      
+    </query>
+
+  </queries>
+</migration> 
