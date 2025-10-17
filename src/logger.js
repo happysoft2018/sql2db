@@ -75,6 +75,32 @@ class Logger {
         return level <= this.logLevel;
     }
     
+    maskSensitiveData(obj) {
+        if (!obj || typeof obj !== 'object') {
+            return obj;
+        }
+        
+        const masked = Array.isArray(obj) ? [] : {};
+        
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const lowerKey = key.toLowerCase();
+                
+                // password, pwd, passwd 등의 키를 마스킹
+                if (lowerKey.includes('password') || lowerKey.includes('pwd') || lowerKey.includes('passwd')) {
+                    masked[key] = '********';
+                } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                    // 중첩된 객체도 재귀적으로 마스킹
+                    masked[key] = this.maskSensitiveData(obj[key]);
+                } else {
+                    masked[key] = obj[key];
+                }
+            }
+        }
+        
+        return masked;
+    }
+    
     formatMessage(level, message, data = null) {
         // 현지 시각으로 타임스탬프 생성
         const now = new Date();
@@ -93,7 +119,8 @@ class Logger {
         
         if (data !== null) {
             if (typeof data === 'object') {
-                formattedMessage += `\n${JSON.stringify(data, null, 2)}`;
+                const maskedData = this.maskSensitiveData(data);
+                formattedMessage += `\n${JSON.stringify(maskedData, null, 2)}`;
             } else {
                 formattedMessage += ` ${data}`;
             }
