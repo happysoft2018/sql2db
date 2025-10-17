@@ -518,63 +518,90 @@ class MSSQLConnectionManager {
                 return { rowsAffected: [0] };
             }
 
-            let deleteQuery;
-            const request = this.targetPool.request();
-
-            if (Array.isArray(identityColumns)) {
-                // 복합 키인 경우
-                const conditions = pkValues.map((pkSet, index) => {
-                    const conditions = identityColumns.map(pk => {
-                        const paramName = `pk_${pk}_${index}`;
-                        const value = pkSet[pk];
-                        if (typeof value === 'string') {
-                            request.input(paramName, sql.NVarChar, value);
-                        } else if (typeof value === 'number') {
-                            request.input(paramName, sql.Int, value);
-                        } else {
-                            request.input(paramName, sql.Variant, value);
-                        }
-                        return `${pk} = @${paramName}`;
-                    }).join(' AND ');
-                    return `(${conditions})`;
-                }).join(' OR ');
+            // SQL Server 파라미터 제한 (2100개)을 고려한 청크 크기 설정
+            const isCompositeKey = Array.isArray(identityColumns);
+            const maxChunkSize = isCompositeKey 
+                ? Math.floor(2000 / identityColumns.length)  // 복합 키: 2000 / 키 컬럼 수
+                : 2000;  // 단일 키: 2000개씩
+            
+            let totalDeletedRows = 0;
+            
+            // pkValues를 청크로 나눠서 처리
+            for (let i = 0; i < pkValues.length; i += maxChunkSize) {
+                const chunk = pkValues.slice(i, i + maxChunkSize);
+                const chunkNumber = Math.floor(i / maxChunkSize) + 1;
+                const totalChunks = Math.ceil(pkValues.length / maxChunkSize);
                 
-                deleteQuery = `DELETE FROM ${tableName} WHERE ${conditions}`;
-            } else {
-                // 단일 키인 경우
-                if (pkValues.length === 1) {
-                    const value = pkValues[0];
-                    if (typeof value === 'string') {
-                        request.input('pk_value', sql.NVarChar, value);
-                    } else if (typeof value === 'number') {
-                        request.input('pk_value', sql.Int, value);
-                    } else {
-                        request.input('pk_value', sql.Variant, value);
-                    }
-                    deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} = @pk_value`;
-                } else {
-                    // 여러 PK 값들을 IN절로 처리
-                    const inClause = pkValues.map((value, index) => {
-                        const paramName = `pk_${index}`;
-                        if (typeof value === 'string') {
-                            request.input(paramName, sql.NVarChar, value);
-                        } else if (typeof value === 'number') {
-                            request.input(paramName, sql.Int, value);
-                        } else {
-                            request.input(paramName, sql.Variant, value);
-                        }
-                        return `@${paramName}`;
-                    }).join(', ');
+                if (totalChunks > 1) {
+                    console.log(`PK 기준 삭제 청크 ${chunkNumber}/${totalChunks} 처리 중 (${chunk.length}개 행)`);
+                }
+                
+                let deleteQuery;
+                const request = this.targetPool.request();
+
+                if (isCompositeKey) {
+                    // 복합 키인 경우
+                    const conditions = chunk.map((pkSet, index) => {
+                        const conditions = identityColumns.map(pk => {
+                            const paramName = `pk_${pk}_${index}`;
+                            const value = pkSet[pk];
+                            if (typeof value === 'string') {
+                                request.input(paramName, sql.NVarChar, value);
+                            } else if (typeof value === 'number') {
+                                request.input(paramName, sql.Int, value);
+                            } else {
+                                request.input(paramName, sql.Variant, value);
+                            }
+                            return `${pk} = @${paramName}`;
+                        }).join(' AND ');
+                        return `(${conditions})`;
+                    }).join(' OR ');
                     
-                    deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} IN (${inClause})`;
+                    deleteQuery = `DELETE FROM ${tableName} WHERE ${conditions}`;
+                } else {
+                    // 단일 키인 경우
+                    if (chunk.length === 1) {
+                        const value = chunk[0];
+                        if (typeof value === 'string') {
+                            request.input('pk_value', sql.NVarChar, value);
+                        } else if (typeof value === 'number') {
+                            request.input('pk_value', sql.Int, value);
+                        } else {
+                            request.input('pk_value', sql.Variant, value);
+                        }
+                        deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} = @pk_value`;
+                    } else {
+                        // 여러 PK 값들을 IN절로 처리
+                        const inClause = chunk.map((value, index) => {
+                            const paramName = `pk_${index}`;
+                            if (typeof value === 'string') {
+                                request.input(paramName, sql.NVarChar, value);
+                            } else if (typeof value === 'number') {
+                                request.input(paramName, sql.Int, value);
+                            } else {
+                                request.input(paramName, sql.Variant, value);
+                            }
+                            return `@${paramName}`;
+                        }).join(', ');
+                        
+                        deleteQuery = `DELETE FROM ${tableName} WHERE ${identityColumns} IN (${inClause})`;
+                    }
+                }
+                
+                if (totalChunks === 1) {
+                    console.log(`대상 테이블 PK 기준 데이터 삭제 중: ${tableName} (${pkValues.length}개 행 대상)`);
+                }
+                
+                const result = await request.query(deleteQuery);
+                totalDeletedRows += result.rowsAffected[0];
+                
+                if (totalChunks > 1) {
+                    console.log(`청크 ${chunkNumber} 삭제 완료: ${result.rowsAffected[0]}행`);
                 }
             }
             
-            console.log(`대상 테이블 PK 기준 데이터 삭제 중: ${tableName} (${pkValues.length}개 행 대상)`);
-            const result = await request.query(deleteQuery);
-            
-            console.log(`삭제된 행 수: ${result.rowsAffected[0]}`);
-            return result;
+            console.log(`총 삭제된 행 수: ${totalDeletedRows}`);
+            return { rowsAffected: [totalDeletedRows] };
         } catch (error) {
             console.error('대상 데이터베이스 PK 기준 삭제 실패:', error.message);
             throw new Error(`대상 데이터베이스 PK 기준 삭제 실패: ${error.message}`);
