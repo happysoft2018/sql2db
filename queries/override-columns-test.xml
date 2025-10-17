@@ -30,7 +30,7 @@
     <override column="email">{"david.brown@company.com":"david@gmail.com","emily.davis@company.com":"emily@gmail.com","robert.miller@company.com":"robert@gmail.com","lisa.garcia@company.com":"lisa@gmail.com"}</override>
     <override column="Created_By">110</override>
     <override column="created_date">${CURRENT_DATE}</override>
-    <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING", "SHIPPED":"DELIVERED"}</override>
+    <override column="staTus">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING", "SHIPPED":"DELIVERED", "ACTIVE":"ING", "INACTIVE":"NOTING"}</override>
   </globalColumnOverrides>
 
   <queries>
@@ -42,7 +42,7 @@
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
-                  applyGlobalColumns="created_by,Status" 
+                  applyGlobalColumns="created_by,status" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *

@@ -184,15 +184,22 @@ class MSSQLDataMigrator {
             case 'all':
                 if (tableName) {
                     const tableColumns = await this.queryProcessor.getTableColumns(tableName, database);
+                    // 대소문자 구분 없이 비교하기 위해 소문자로 변환
+                    const tableColumnsLower = tableColumns.map(col => col.toLowerCase());
                     const existingOverrides = {};
                     
                     globalColumnOverrides.forEach((value, column) => {
-                        if (tableColumns.includes(column)) {
+                        const columnLower = column.toLowerCase();
+                        const matchIndex = tableColumnsLower.indexOf(columnLower);
+                        
+                        if (matchIndex !== -1) {
+                            // 테이블의 실제 컬럼명 사용
+                            const actualColumnName = tableColumns[matchIndex];
                             const resolvedValue = this.variableManager.resolveJsonValue(value, {
                                 tableName: tableName,
                                 database: database
                             });
-                            existingOverrides[column] = resolvedValue;
+                            existingOverrides[actualColumnName] = resolvedValue;
                         }
                     });
                     

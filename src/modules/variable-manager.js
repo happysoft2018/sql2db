@@ -457,14 +457,23 @@ class VariableManager {
             const processedData = sourceData.map(row => {
                 const newRow = { ...row };
                 
+                // row의 컬럼명을 대소문자 구분 없이 찾기 위한 Map 생성
+                const rowColumnMap = new Map();
+                Object.keys(row).forEach(key => {
+                    rowColumnMap.set(key.toLowerCase(), key);
+                });
+                
                 globalColumnOverrides.forEach((value, column) => {
                     let processedValue = this.replaceVariables(value);
+                    
+                    // 대소문자 구분 없이 실제 컬럼명 찾기
+                    const actualColumnName = rowColumnMap.get(column.toLowerCase()) || column;
                     
                     // JSON 매핑 처리
                     if (typeof processedValue === 'string' && processedValue.trim().startsWith('{') && processedValue.trim().endsWith('}')) {
                         try {
                             const parsedJson = JSON.parse(processedValue);
-                            const originalValue = row[column];
+                            const originalValue = row[actualColumnName];
                             if (originalValue && parsedJson[originalValue]) {
                                 processedValue = parsedJson[originalValue];
                             } else {
@@ -475,7 +484,8 @@ class VariableManager {
                         }
                     }
                     
-                    newRow[column] = processedValue;
+                    // 실제 컬럼명으로 값 설정
+                    newRow[actualColumnName] = processedValue;
                 });
                 
                 return newRow;
