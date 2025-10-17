@@ -325,7 +325,7 @@ async function selectQueryFile(title = null) {
     
     files.forEach((file, index) => {
         const typeColor = file.type === 'XML' ? colors.blue : colors.green;
-        console.log(`  ${colors.bright}${index + 1}.${colors.reset} ${file.name} ${typeColor}[${file.type}]${colors.reset}`);
+        console.log(`  ${colors.bright}${index + 1}.${colors.reset} ${file.name}`);
     });
     
     console.log();

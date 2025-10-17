@@ -2,14 +2,14 @@
 chcp 65001 >nul
 setlocal
 
+REM Read version from package.json
+for /f "delims=" %%i in ('powershell -Command "(Get-Content package.json -Raw | ConvertFrom-Json).version"') do set "VERSION=%%i"
+
 echo.
 echo ========================================
 echo   MSSQL Data Migrator Release Script
-echo   Version 0.8.3
 echo ========================================
 echo.
-
-set "VERSION=0.8.3"
 set "RELEASE_BASE=release"
 set "PACKAGE_NAME=sql2db-v%VERSION%-win-x64"
 set "RELEASE_DIR=%RELEASE_BASE%\%PACKAGE_NAME%"
@@ -57,8 +57,8 @@ echo 📦 Step 4: Copying files...
 echo.
 
 REM Copy executable
-if exist "dist\sql2db.exe" (
-    copy "dist\sql2db.exe" "%RELEASE_DIR%\" >nul
+if exist "dist\sql2db-v%VERSION%.exe" (
+    copy "dist\sql2db-v%VERSION%.exe" "%RELEASE_DIR%\" >nul
     echo ✅ Executable copied
 ) else (
     echo ❌ Executable not found in dist/ folder
@@ -102,12 +102,7 @@ REM run.bat (English version)
     echo chcp 65001 ^>nul
     echo cls
     echo echo.
-    echo echo ========================================
-    echo echo   MSSQL Data Migration Tool
-    echo echo   Version %VERSION%
-    echo echo ========================================
-    echo echo.
-    echo sql2db.exe --lang=en
+    echo sql2db-v%VERSION%.exe --lang=en
     echo pause
 ) > "%RELEASE_DIR%\run.bat"
 echo ✅ run.bat created (English)
@@ -118,12 +113,7 @@ REM 실행하기.bat (Korean version)
     echo chcp 65001 ^>nul
     echo cls
     echo echo.
-    echo echo ========================================
-    echo echo   MSSQL 데이터 이관 도구
-    echo echo   버전 %VERSION%
-    echo echo ========================================
-    echo echo.
-    echo sql2db.exe --lang=kr
+    echo sql2db-v%VERSION%.exe --lang=kr
     echo pause
 ) > "%RELEASE_DIR%\실행하기.bat"
 echo ✅ 실행하기.bat created (Korean)
