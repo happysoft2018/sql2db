@@ -21,7 +21,7 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - 📊 **Dynamic Variables**: Extract and utilize data at runtime
 - 🗄️ **Multi-DB Dynamic Variables**: Extract dynamic variables from all databases defined in dbinfo.json
 - 🚦 **Transaction Support**: Ensure data consistency
-- 📋 **Detailed Logging**: Track and debug migration processes
+- 📋 **Detailed Logging**: Track and debug migration processes with password masking
 - 📈 **Real-time Progress Management**: Track and monitor job progress
 - 🔄 **Interruption Recovery**: Resume interrupted migrations from the completed point
 - 🔍 **Current Time Functions**: Support for various timestamp formats
@@ -29,6 +29,9 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - ⭐ **SELECT * Auto Expansion**: Automatic column expansion in pre/post-processing scripts
 - 🎨 **Pre/Post-processing Column Overrides**: Automatic column addition to INSERT/UPDATE statements
 - 📝 **Advanced SQL Parsing**: Comment processing and complex SQL syntax support
+- 🆕 **Case-Insensitive Column Matching**: Automatically matches column names regardless of case
+- 🆕 **Large Dataset Support**: Handles SQL Server 2100 parameter limit automatically
+- 🆕 **Enhanced Debugging**: Detailed diagnostics for troubleshooting delete operations
 
 ## 🛠️ Installation and Setup
 

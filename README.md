@@ -14,9 +14,12 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 - ✅ **Pre/Post Processing**: Execute SQL scripts before/after migration
 - ✅ **Dynamic Variables**: Extract and utilize data at runtime
 - ✅ **Transaction Support**: Ensure data consistency
-- ✅ **Detailed Logging**: 5-level log system
+- ✅ **Detailed Logging**: 5-level log system with password masking
 - ✅ **DRY RUN Mode**: Simulation without actual changes
 - ✅ **SELECT * Auto Processing**: Automatic IDENTITY column exclusion
+- 🆕 **Case-Insensitive Column Matching**: No need to worry about column name case
+- 🆕 **Large Dataset Support**: Handles SQL Server 2100 parameter limit automatically
+- 🆕 **Enhanced Debugging**: Detailed diagnostics for delete operations
 
 ## Quick Start
 

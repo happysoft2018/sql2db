@@ -1,5 +1,115 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.3 - Case-Insensitive Column Matching & Enhanced Debugging (2025-10-17)
+
+### ✨ New Features
+
+#### Case-Insensitive Column Matching
+- **identityColumns**: Automatically matches target table columns regardless of case
+  - Example: `identityColumns="username"` matches both `username` and `Username` in target table
+  - Prevents delete failures due to case mismatch
+  
+- **globalColumnOverrides**: Case-insensitive column name handling
+  - Column names defined with any case (e.g., `Created_By`, `CREATED_BY`, `created_by`) are treated as the same
+  - Duplicate detection ignores case differences
+  - Applies override values to actual table column names
+  
+- **applyGlobalColumns**: Case-insensitive keyword and column name matching
+  - Keywords: `all`, `All`, `ALL`, `none`, `None`, `NONE` all work
+  - Column names: `UpdatedBy`, `updatedby`, `UPDATEDBY` all match
+  - Multiple columns: `created_by, STATUS` matches any case combination
+
+#### Password Masking in Logs
+- **Automatic password masking**: All password fields in logs are automatically masked with `********`
+- **Masked fields**: `password`, `pwd`, `passwd`, and any field containing "password"
+- **Applies to**: Console output and log files
+- **Nested objects**: Recursively masks passwords in nested configurations
+
+### 🔧 Improvements
+
+#### SQL Server 2100 Parameter Limit Handling
+- **Automatic chunking**: `deleteBeforeInsert` now splits large PK sets into chunks
+- **Chunk size calculation**:
+  - Single key: 2000 values per chunk
+  - Composite key (2 columns): 1000 values per chunk
+  - Composite key (3 columns): 666 values per chunk
+- **Progress logging**: Shows chunk processing progress for large datasets
+- **No more parameter limit errors**: Handles any number of rows
+
+#### Enhanced Delete Operation Debugging
+- **Database identification**: Clearly shows which database (source/target) is being used
+- **Detailed diagnostics**: Automatic diagnosis when delete operations fail
+  - Shows target table row count
+  - Tests sample PK values
+  - Displays actual PK values in target table
+  - Suggests possible causes
+- **Informative messages**: 
+  - "Table is empty, proceeding with INSERT only"
+  - "Target table has N rows but no matching source PK values"
+
+### 🐛 Bug Fixes
+- **deleteBeforeInsert parameter overflow**: Fixed SQL Server 2100 parameter limit error
+- **Case-sensitive column matching**: Fixed failures when XML column names don't match exact database case
+- **Global column override not applied**: Fixed override failure when column names have different cases
+- **identityColumns mismatch**: Fixed delete operation skip due to case differences
+
+### 📝 Technical Changes
+- **mssql-connection-manager.js**:
+  - Added `normalizeColumnName()` for case-insensitive column matching
+  - Implemented chunking in `deleteFromTargetByPK()`
+  - Enhanced logging with database information and diagnostics
+  
+- **config-manager.js**:
+  - Added case-insensitive duplicate detection in `parseGlobalColumnOverrides()`
+  - First-defined column name format is preserved
+  
+- **mssql-data-migrator-modular.js**:
+  - Updated `selectivelyApplyGlobalColumnOverrides()` with case-insensitive matching
+  - Column map creation for efficient case-insensitive lookups
+  
+- **modules/variable-manager.js**:
+  - Updated `applyGlobalColumnOverrides()` to find actual column names case-insensitively
+  - Ensures override values are applied to correct columns
+  
+- **logger.js**:
+  - Added `maskSensitiveData()` method
+  - Automatic password masking in all log outputs
+
+### 🎯 Usage Examples
+
+#### Case-Insensitive Column Matching
+```xml
+<!-- globalColumnOverrides definition -->
+<globalColumnOverrides>
+  <override column="Created_By">SYSTEM</override>
+  <override column="UPDATED_BY">ADMIN</override>
+</globalColumnOverrides>
+
+<!-- All these work regardless of case -->
+<query>
+  <sourceQuery applyGlobalColumns="created_by, updated_by">
+    SELECT * FROM users
+  </sourceQuery>
+</query>
+
+<query>
+  <sourceQuery applyGlobalColumns="CREATED_BY, UPDATED_BY">
+    SELECT * FROM products
+  </sourceQuery>
+</query>
+```
+
+#### identityColumns Case Handling
+```xml
+<!-- Works even if target table has "Username" (capital U) -->
+<sourceQuery 
+  targetTable="users" 
+  identityColumns="username"
+  deleteBeforeInsert="true">
+  SELECT * FROM users
+</sourceQuery>
+```
+
 ## 🚀 v0.8.2 - Structure Improvements & Enhanced Validation (2025-10-14)
 
 ### 🔧 Technical Improvements

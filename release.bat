@@ -5,11 +5,11 @@ setlocal
 echo.
 echo ========================================
 echo   MSSQL Data Migrator Release Script
-echo   Version 0.8.2
+echo   Version 0.8.3
 echo ========================================
 echo.
 
-set "VERSION=0.8.2"
+set "VERSION=0.8.3"
 set "RELEASE_BASE=release"
 set "PACKAGE_NAME=sql2db-v%VERSION%-win-x64"
 set "RELEASE_DIR=%RELEASE_BASE%\%PACKAGE_NAME%"

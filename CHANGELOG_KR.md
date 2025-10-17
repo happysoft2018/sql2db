@@ -1,5 +1,115 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.3 - 대소문자 구분 없는 컬럼 매칭 및 디버깅 강화 (2025-10-17)
+
+### ✨ 새로운 기능
+
+#### 대소문자 구분 없는 컬럼 매칭
+- **identityColumns**: 대소문자 무관하게 타겟 테이블 컬럼 자동 매칭
+  - 예: `identityColumns="username"`이 타겟 테이블의 `username`, `Username` 모두 매칭
+  - 대소문자 불일치로 인한 삭제 실패 방지
+  
+- **globalColumnOverrides**: 대소문자 구분 없는 컬럼명 처리
+  - 어떤 대소문자로 정의해도 동일하게 인식 (예: `Created_By`, `CREATED_BY`, `created_by`)
+  - 중복 감지 시 대소문자 차이 무시
+  - 실제 테이블 컬럼명으로 오버라이드 값 적용
+  
+- **applyGlobalColumns**: 대소문자 구분 없는 키워드 및 컬럼명 매칭
+  - 키워드: `all`, `All`, `ALL`, `none`, `None`, `NONE` 모두 작동
+  - 컬럼명: `UpdatedBy`, `updatedby`, `UPDATEDBY` 모두 매칭
+  - 여러 컬럼: `created_by, STATUS` 등 대소문자 조합 무관
+
+#### 로그 비밀번호 마스킹
+- **자동 비밀번호 마스킹**: 로그의 모든 비밀번호 필드를 자동으로 `********`로 마스킹
+- **마스킹 대상**: `password`, `pwd`, `passwd` 및 "password"가 포함된 모든 필드
+- **적용 범위**: 콘솔 출력 및 로그 파일
+- **중첩 객체**: 중첩된 설정의 비밀번호도 재귀적으로 마스킹
+
+### 🔧 개선 사항
+
+#### SQL Server 2100 파라미터 제한 처리
+- **자동 청크 처리**: `deleteBeforeInsert`가 대량 PK를 청크로 분할
+- **청크 크기 계산**:
+  - 단일 키: 청크당 2000개 값
+  - 복합 키 (2개 컬럼): 청크당 1000개 값
+  - 복합 키 (3개 컬럼): 청크당 666개 값
+- **진행 상황 로깅**: 대량 데이터 처리 시 청크 진행 상황 표시
+- **파라미터 제한 오류 해결**: 행 수에 관계없이 처리 가능
+
+#### 삭제 작업 디버깅 강화
+- **데이터베이스 식별**: 어느 DB(소스/타겟)에서 작업하는지 명확히 표시
+- **상세 진단**: 삭제 작업 실패 시 자동 진단
+  - 타겟 테이블 행 수 표시
+  - 샘플 PK 값으로 테스트
+  - 타겟 테이블의 실제 PK 값 표시
+  - 가능한 원인 제시
+- **명확한 메시지**: 
+  - "타겟 테이블이 비어있습니다. 삭제할 데이터가 없으므로 INSERT만 진행합니다"
+  - "타겟 테이블에 N행이 있지만, 소스 PK 값과 일치하는 데이터가 없습니다"
+
+### 🐛 버그 수정
+- **deleteBeforeInsert 파라미터 오버플로**: SQL Server 2100 파라미터 제한 오류 수정
+- **대소문자 구분 컬럼 매칭**: XML 컬럼명이 DB 실제 대소문자와 다를 때 실패 수정
+- **전역 컬럼 오버라이드 미적용**: 컬럼명 대소문자가 다를 때 오버라이드 실패 수정
+- **identityColumns 불일치**: 대소문자 차이로 삭제 작업 건너뛰기 수정
+
+### 📝 기술적 변경사항
+- **mssql-connection-manager.js**:
+  - 대소문자 구분 없는 컬럼 매칭을 위한 `normalizeColumnName()` 추가
+  - `deleteFromTargetByPK()`에 청크 처리 구현
+  - DB 정보 및 진단 정보가 포함된 로깅 강화
+  
+- **config-manager.js**:
+  - `parseGlobalColumnOverrides()`에 대소문자 구분 없는 중복 감지 추가
+  - 첫 번째 정의된 컬럼명 형식 유지
+  
+- **mssql-data-migrator-modular.js**:
+  - 대소문자 구분 없는 매칭으로 `selectivelyApplyGlobalColumnOverrides()` 업데이트
+  - 효율적인 대소문자 구분 없는 조회를 위한 컬럼 맵 생성
+  
+- **modules/variable-manager.js**:
+  - 대소문자 구분 없이 실제 컬럼명을 찾도록 `applyGlobalColumnOverrides()` 업데이트
+  - 오버라이드 값이 올바른 컬럼에 적용되도록 보장
+  
+- **logger.js**:
+  - `maskSensitiveData()` 메서드 추가
+  - 모든 로그 출력에서 자동 비밀번호 마스킹
+
+### 🎯 사용 예시
+
+#### 대소문자 구분 없는 컬럼 매칭
+```xml
+<!-- globalColumnOverrides 정의 -->
+<globalColumnOverrides>
+  <override column="Created_By">SYSTEM</override>
+  <override column="UPDATED_BY">ADMIN</override>
+</globalColumnOverrides>
+
+<!-- 대소문자에 관계없이 모두 작동 -->
+<query>
+  <sourceQuery applyGlobalColumns="created_by, updated_by">
+    SELECT * FROM users
+  </sourceQuery>
+</query>
+
+<query>
+  <sourceQuery applyGlobalColumns="CREATED_BY, UPDATED_BY">
+    SELECT * FROM products
+  </sourceQuery>
+</query>
+```
+
+#### identityColumns 대소문자 처리
+```xml
+<!-- 타겟 테이블이 "Username" (대문자 U)이어도 작동 -->
+<sourceQuery 
+  targetTable="users" 
+  identityColumns="username"
+  deleteBeforeInsert="true">
+  SELECT * FROM users
+</sourceQuery>
+```
+
 ## 🚀 v0.8.2 - 구조 개선 및 검증 강화 (2025-10-14)
 
 ### 🔧 기술적 개선
