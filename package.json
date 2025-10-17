@@ -14,7 +14,7 @@
     "test-connections": "node src/migrate-cli.js test",
     "list-dbs": "node src/migrate-cli.js list-dbs",
     "help": "node src/migrate-cli.js help",
-    "build": "pkg . --public --compress GZip",
+    "build": "node -e \"const pkg = require('./package.json'); const { execSync } = require('child_process'); execSync(`pkg app.js --public --compress GZip --target node18-win-x64 --output dist/sql2db-v${pkg.version}.exe`, { stdio: 'inherit' });\"",
     "release": "release.bat"
   },
   "bin": {
@@ -22,6 +22,7 @@
   },
   "pkg": {
     "scripts": [
+      "app.js",
       "src/**/*.js"
     ],
     "assets": [
