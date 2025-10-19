@@ -1,6 +1,59 @@
 const fs = require('fs');
 const path = require('path');
 
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        logDirCreateFailed: 'Could not create logs directory: {message}',
+        progressListenerError: 'Progress listener error: {message}',
+        migrationPreparing: 'Migration preparation started',
+        migrationCompleted: 'Migration completed successfully',
+        migrationFailed: 'Migration failed: {message}',
+        saveProgressFailed: 'Failed to save progress: {message}',
+        loadProgressFailed: 'Failed to load progress: {message}',
+        migrationProgress: '📊 Migration Progress: {migrationId}',
+        status: 'Status: {status} | Phase: {phase}',
+        currentQuery: 'Current Query: {query}',
+        none: 'None',
+        queries: 'Queries: {bar} {percent}% ({completed}/{total})',
+        rows: 'Rows:    {bar} {percent}% ({processed}/{total})',
+        duration: 'Duration: {duration}',
+        speed: 'Speed: {speed} rows/sec',
+        eta: 'ETA: {eta}',
+        errors: '⚠️  Errors: {count}',
+        listProgressFailed: 'Failed to list progress files: {message}',
+        deleteFailed: 'Failed to delete {path}: {message}',
+        cleanupFailed: 'Failed to cleanup old progress files: {message}'
+    },
+    kr: {
+        logDirCreateFailed: '로그 디렉토리 생성 실패: {message}',
+        progressListenerError: '진행 상황 리스너 오류: {message}',
+        migrationPreparing: '마이그레이션 준비 시작',
+        migrationCompleted: '마이그레이션 완료',
+        migrationFailed: '마이그레이션 실패: {message}',
+        saveProgressFailed: '진행 상황 저장 실패: {message}',
+        loadProgressFailed: '진행 상황 로드 실패: {message}',
+        migrationProgress: '📊 마이그레이션 진행 상황: {migrationId}',
+        status: '상태: {status} | 단계: {phase}',
+        currentQuery: '현재 쿼리: {query}',
+        none: '없음',
+        queries: '쿼리: {bar} {percent}% ({completed}/{total})',
+        rows: '행:    {bar} {percent}% ({processed}/{total})',
+        duration: '소요 시간: {duration}',
+        speed: '속도: {speed} 행/초',
+        eta: '예상 완료: {eta}',
+        errors: '⚠️  오류: {count}개',
+        listProgressFailed: '진행 상황 파일 목록 조회 실패: {message}',
+        deleteFailed: '{path} 삭제 실패: {message}',
+        cleanupFailed: '오래된 진행 상황 파일 정리 실패: {message}'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 class ProgressManager {
     constructor(migrationId = null) {
         this.migrationId = migrationId || this.generateMigrationId();
@@ -31,13 +84,12 @@ class ProgressManager {
         const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
         const logsDir = path.join(appRoot, 'logs');
         
-        // logs 디렉토리 확인 및 생성
         try {
             if (!fs.existsSync(logsDir)) {
                 fs.mkdirSync(logsDir, { recursive: true });
             }
         } catch (error) {
-            console.warn(`Could not create logs directory: ${error.message}`);
+            console.warn(msg.logDirCreateFailed.replace('{message}', error.message));
         }
         
         this.progressFile = path.join(logsDir, `progress-${this.migrationId}.json`);
@@ -65,24 +117,22 @@ class ProgressManager {
         this.listeners.push(listener);
     }
 
-    // 리스너에게 진행 상황 알림
     notifyListeners() {
         this.listeners.forEach(listener => {
             try {
                 listener(this.getProgressSummary());
             } catch (error) {
-                console.error('Progress listener error:', error.message);
+                console.error(msg.progressListenerError.replace('{message}', error.message));
             }
         });
     }
 
-    // 마이그레이션 시작
     startMigration(totalQueries, totalRows = 0) {
         this.progressData.status = 'RUNNING';
         this.progressData.totalQueries = totalQueries;
         this.progressData.totalRows = totalRows;
         this.progressData.currentPhase = 'PREPARING';
-        this.updatePhase('PREPARING', 'RUNNING', 'Migration preparation started');
+        this.updatePhase('PREPARING', 'RUNNING', msg.migrationPreparing);
         this.saveProgress();
         this.notifyListeners();
     }
@@ -236,18 +286,16 @@ class ProgressManager {
         }
     }
 
-    // 마이그레이션 완료
     completeMigration() {
         this.progressData.status = 'COMPLETED';
         this.progressData.endTime = Date.now();
         this.progressData.performance.totalDuration = (this.progressData.endTime - this.startTime) / 1000;
-        this.updatePhase(this.progressData.currentPhase, 'COMPLETED', 'Migration completed successfully');
+        this.updatePhase(this.progressData.currentPhase, 'COMPLETED', msg.migrationCompleted);
         this.saveProgress();
         this.notifyListeners();
         this.stopAutoSave();
     }
 
-    // 마이그레이션 실패
     failMigration(error) {
         this.progressData.status = 'FAILED';
         this.progressData.endTime = Date.now();
@@ -257,7 +305,7 @@ class ProgressManager {
             type: 'MIGRATION_FAILURE',
             error: error.message || error
         });
-        this.updatePhase(this.progressData.currentPhase, 'FAILED', `Migration failed: ${error.message}`);
+        this.updatePhase(this.progressData.currentPhase, 'FAILED', msg.migrationFailed.replace('{message}', error.message));
         this.saveProgress();
         this.notifyListeners();
         this.stopAutoSave();
@@ -302,7 +350,6 @@ class ProgressManager {
         return { ...this.progressData };
     }
 
-    // 진행 상황을 파일에 저장
     saveProgress() {
         try {
             const logsDir = path.dirname(this.progressFile);
@@ -312,7 +359,7 @@ class ProgressManager {
             
             fs.writeFileSync(this.progressFile, JSON.stringify(this.progressData, null, 2));
         } catch (error) {
-            console.error('Failed to save progress:', error.message);
+            console.error(msg.saveProgressFailed.replace('{message}', error.message));
         }
     }
 
@@ -331,7 +378,6 @@ class ProgressManager {
         }
     }
 
-    // 진행 상황 파일에서 로드
     static loadProgress(migrationId) {
         try {
             const progressFile = path.join(__dirname, '../logs', `progress-${migrationId}.json`);
@@ -344,7 +390,7 @@ class ProgressManager {
                 return manager;
             }
         } catch (error) {
-            console.error('Failed to load progress:', error.message);
+            console.error(msg.loadProgressFailed.replace('{message}', error.message));
         }
         return null;
     }
@@ -441,7 +487,6 @@ class ProgressManager {
         return Math.max(...times);
     }
 
-    // 진행 상황 표시 (콘솔)
     displayProgress() {
         const summary = this.getProgressSummary();
         const progressBar = this.createProgressBar(summary.totalProgress);
@@ -449,21 +494,31 @@ class ProgressManager {
         
         console.clear();
         console.log('='.repeat(80));
-        console.log(`📊 Migration Progress: ${this.migrationId}`);
+        console.log(msg.migrationProgress.replace('{migrationId}', this.migrationId));
         console.log('='.repeat(80));
-        console.log(`Status: ${summary.status} | Phase: ${summary.currentPhase}`);
-        console.log(`Current Query: ${summary.currentQuery || 'None'}`);
+        console.log(msg.status
+            .replace('{status}', summary.status)
+            .replace('{phase}', summary.currentPhase));
+        console.log(msg.currentQuery.replace('{query}', summary.currentQuery || msg.none));
         console.log('');
-        console.log(`Queries: ${progressBar} ${summary.totalProgress.toFixed(1)}% (${summary.queries.completed}/${summary.queries.total})`);
-        console.log(`Rows:    ${rowProgressBar} ${summary.rowProgress.toFixed(1)}% (${summary.rows.processed.toLocaleString()}/${summary.rows.total.toLocaleString()})`);
+        console.log(msg.queries
+            .replace('{bar}', progressBar)
+            .replace('{percent}', summary.totalProgress.toFixed(1))
+            .replace('{completed}', summary.queries.completed)
+            .replace('{total}', summary.queries.total));
+        console.log(msg.rows
+            .replace('{bar}', rowProgressBar)
+            .replace('{percent}', summary.rowProgress.toFixed(1))
+            .replace('{processed}', summary.rows.processed.toLocaleString())
+            .replace('{total}', summary.rows.total.toLocaleString()));
         console.log('');
-        console.log(`Duration: ${this.formatDuration(summary.duration)}`);
-        console.log(`Speed: ${summary.performance.avgRowsPerSecond.toFixed(0)} rows/sec`);
+        console.log(msg.duration.replace('{duration}', this.formatDuration(summary.duration)));
+        console.log(msg.speed.replace('{speed}', summary.performance.avgRowsPerSecond.toFixed(0)));
         if (summary.performance.estimatedTimeRemaining > 0) {
-            console.log(`ETA: ${this.formatDuration(summary.performance.estimatedTimeRemaining)}`);
+            console.log(msg.eta.replace('{eta}', this.formatDuration(summary.performance.estimatedTimeRemaining)));
         }
         if (summary.errors > 0) {
-            console.log(`⚠️  Errors: ${summary.errors}`);
+            console.log(msg.errors.replace('{count}', summary.errors));
         }
         console.log('='.repeat(80));
     }
@@ -521,12 +576,11 @@ class ProgressManager {
                 })
                 .sort((a, b) => b.lastModified - a.lastModified);
         } catch (error) {
-            console.error('Failed to list progress files:', error.message);
+            console.error(msg.listProgressFailed.replace('{message}', error.message));
             return [];
         }
     }
 
-    // 진행 상황 파일 정리 (완료된 것 중 오래된 것들)
     static cleanupOldProgress(daysToKeep = 7) {
         try {
             const progressFiles = ProgressManager.listProgressFiles();
@@ -539,14 +593,16 @@ class ProgressManager {
                         fs.unlinkSync(progress.filePath);
                         deletedCount++;
                     } catch (error) {
-                        console.error(`Failed to delete ${progress.filePath}:`, error.message);
+                        console.error(msg.deleteFailed
+                            .replace('{path}', progress.filePath)
+                            .replace('{message}', error.message));
                     }
                 }
             });
             
             return deletedCount;
         } catch (error) {
-            console.error('Failed to cleanup old progress files:', error.message);
+            console.error(msg.cleanupFailed.replace('{message}', error.message));
             return 0;
         }
     }

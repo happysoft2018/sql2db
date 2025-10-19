@@ -101,8 +101,9 @@ REM run.bat (English version)
     echo @echo off
     echo chcp 65001 ^>nul
     echo cls
+    echo set LANGUAGE=en
     echo echo.
-    echo sql2db-v%VERSION%.exe --lang=en
+    echo sql2db-v%VERSION%.exe
     echo pause
 ) > "%RELEASE_DIR%\run.bat"
 echo ✅ run.bat created (English)
@@ -112,8 +113,9 @@ REM 실행하기.bat (Korean version)
     echo @echo off
     echo chcp 65001 ^>nul
     echo cls
+    echo set LANGUAGE=kr
     echo echo.
-    echo sql2db-v%VERSION%.exe --lang=kr
+    echo sql2db-v%VERSION%.exe
     echo pause
 ) > "%RELEASE_DIR%\실행하기.bat"
 echo ✅ 실행하기.bat created (Korean)

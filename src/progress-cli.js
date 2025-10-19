@@ -2,18 +2,319 @@ const ProgressManager = require('./progress-manager');
 const fs = require('fs');
 const path = require('path');
 
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지  
+const messages = {
+    en: {
+        // Help menu
+        helpTitle: 'Progress Management Commands:',
+        helpList: '  list                    - List progress files',
+        helpShow: '  show <migration-id>     - Show detailed progress for a specific migration',
+        helpMonitor: '  monitor <migration-id>  - Real-time progress monitoring',
+        helpResume: '  resume <migration-id>   - Show resume information for interrupted migration',
+        helpCleanup: '  cleanup [days]          - Clean up completed progress files (default: 7 days)',
+        helpSummary: '  summary                 - Recent migration summary',
+        helpExamples: 'Examples:',
+        
+        // List progress
+        noProgressFiles: 'No progress files found.',
+        progressList: '📊 Migration Progress List',
+        status: 'Status',
+        start: 'Start',
+        end: 'End',
+        modified: 'Modified',
+        queries: 'Queries',
+        failed: 'Failed',
+        listError: 'Failed to list progress:',
+        
+        // Show progress detail
+        progressNotFound: 'Progress not found: {id}',
+        progressDetail: '📊 Migration Detailed Progress: {id}',
+        basicInfo: '📋 Basic Information',
+        idLabel: 'ID',
+        statusLabel: 'Status',
+        currentPhase: 'Current Phase',
+        currentQuery: 'Current Query',
+        startTime: 'Start Time',
+        endTime: 'End Time',
+        executionTime: 'Execution Time',
+        progressRate: '📈 Progress',
+        performance: '⚡ Performance',
+        avgSpeed: 'Average Speed',
+        estimatedRemaining: 'Estimated Remaining',
+        phaseStatus: '🔄 Phase Status',
+        queryStatus: '📝 Query Status',
+        description: 'Description',
+        processed: 'Processed',
+        batch: 'Batch',
+        errors: 'Errors',
+        errorInfo: '⚠️  Error Information',
+        detailError: 'Failed to show progress detail:',
+        
+        // Monitor
+        monitorNotFound: 'Progress not found: {id}',
+        monitorStart: '🔍 Real-time Monitoring Started: {id}',
+        keyboardCommands: '⌨️  Keyboard Commands:',
+        keyQuit: '[q] Quit',
+        keyPause: '[p] Pause/Resume',
+        keyDetailed: '[d] Detailed/Simple mode',
+        keyError: '[e] Error log',
+        keyStats: '[s] Statistics',
+        keyLogStream: '[l] Log stream',
+        keyFaster: '[+] Faster refresh',
+        keySlower: '[-] Slower refresh',
+        keyRefresh: '[r] Refresh now',
+        keyClear: '[c] Clear screen',
+        keyNotifications: '[n] Toggle notifications',
+        keyHelp: '[h] Help',
+        keyEsc: '[ESC] Menu',
+        monitoringQuit: '\n👋 Monitoring stopped.',
+        migrationComplete: '🎉 Migration completed successfully!',
+        migrationFailed: '❌ Migration failed.',
+        processedRows: '📊 Processed rows',
+        executionTimeLabel: '⏱️  Execution time',
+        errorCount: '⚠️  Errors',
+        pressAnyKey: 'Press any key to exit...',
+        monitorError: 'Real-time monitoring failed:',
+        
+        // Statistics
+        statisticsTitle: '📊 Detailed Statistics and Analysis',
+        basicStats: '📈 Basic Statistics',
+        migrationId: 'Migration ID',
+        currentStatus: 'Current Status',
+        queryStats: '📝 Query Statistics',
+        totalQueries: 'Total Queries',
+        completed: 'Completed',
+        running: 'Running',
+        failedQuery: 'Failed',
+        waiting: 'Waiting',
+        rowStats: '📊 Row Processing Statistics',
+        totalRows: 'Total Rows',
+        processedRowsLabel: 'Processed Rows',
+        remainingRows: 'Remaining Rows',
+        performanceStats: '⚡ Performance Statistics',
+        expectedCompletion: 'Expected Completion',
+        estimatedCompletionTime: 'Estimated Completion Time',
+        phaseStats: '🔄 Phase Statistics',
+        topPerformance: '🏆 Top Performance Queries (by processed rows)',
+        errorSummary: '⚠️  Error Summary',
+        totalErrors: 'Total Errors',
+        recentErrors: 'Recent Errors',
+        
+        // Cleanup
+        cleanupSuccess: 'Deleted {count} completed progress files older than {days} days.',
+        cleanupError: 'Failed to clean up progress files:',
+        
+        // Summary
+        summaryTitle: '📊 Migration Summary',
+        overallStats: '📈 Overall Statistics',
+        totalMigrations: 'Total Migrations',
+        completedLabel: 'Completed',
+        failedLabel: 'Failed',
+        runningLabel: 'Running',
+        pausedLabel: 'Paused',
+        initializingLabel: 'Initializing',
+        totalQueriesLabel: 'Total Queries',
+        totalProcessedRows: 'Total Processed Rows',
+        totalExecutionTime: 'Total Execution Time',
+        recentMigrations: '🕒 Recent Migrations',
+        summaryError: 'Failed to show summary:',
+        
+        // Resume
+        resumeTitle: '🔄 Migration Resume Information: {id}',
+        resumeStatus: '📋 Resume Status',
+        canResume: 'Can Resume',
+        isStale: 'Stale',
+        resumeCount: 'Resume Count',
+        completedQueries: 'Completed Queries',
+        failedQueries: 'Failed Queries',
+        remainingQueries: 'Remaining Queries',
+        completionRate: 'Completion Rate',
+        lastActivity: '🕒 Last Activity',
+        time: 'Time',
+        elapsed: 'Elapsed',
+        completedQueriesList: '✅ Completed Queries',
+        failedQueriesList: '❌ Failed Queries',
+        resumeCommand: '🚀 Resume Command',
+        resumeNote: '💡 Note: When resuming, completed queries will be skipped and failed queries will be re-executed.',
+        cannotResume: '⚠️  Cannot Resume',
+        cannotResumeReason: 'This migration cannot be resumed.',
+        reasonCompleted: 'Reason: Migration already completed.',
+        reasonRunning: 'Reason: Migration currently running.',
+        resumeError: 'Failed to show resume information:',
+        
+        // Common
+        rows: 'rows',
+        yes: 'Yes',
+        no: 'No',
+        none: 'None',
+        staleWarning: '⚠️ Yes (no update for more than 5 minutes)',
+        times: 'times'
+    },
+    kr: {
+        // Help menu
+        helpTitle: '진행 상황 관리 명령어:',
+        helpList: '  list                    - 진행 상황 파일 목록 조회',
+        helpShow: '  show <migration-id>     - 특정 마이그레이션 진행 상황 상세 조회',
+        helpMonitor: '  monitor <migration-id>  - 실시간 진행 상황 모니터링',
+        helpResume: '  resume <migration-id>   - 중단된 마이그레이션 재시작 정보 조회',
+        helpCleanup: '  cleanup [days]          - 완료된 진행 상황 파일 정리 (기본: 7일)',
+        helpSummary: '  summary                 - 최근 마이그레이션 요약',
+        helpExamples: '예시:',
+        
+        // List progress
+        noProgressFiles: '진행 상황 파일이 없습니다.',
+        progressList: '📊 마이그레이션 진행 상황 목록',
+        status: '상태',
+        start: '시작',
+        end: '종료',
+        modified: '수정',
+        queries: '쿼리',
+        failed: '실패',
+        listError: '진행 상황 목록 조회 실패:',
+        
+        // Show progress detail
+        progressNotFound: '진행 상황을 찾을 수 없습니다: {id}',
+        progressDetail: '📊 마이그레이션 상세 진행 상황: {id}',
+        basicInfo: '📋 기본 정보',
+        idLabel: 'ID',
+        statusLabel: '상태',
+        currentPhase: '현재 페이즈',
+        currentQuery: '현재 쿼리',
+        startTime: '시작 시간',
+        endTime: '종료 시간',
+        executionTime: '실행 시간',
+        progressRate: '📈 진행률',
+        performance: '⚡ 성능',
+        avgSpeed: '평균 속도',
+        estimatedRemaining: '예상 남은 시간',
+        phaseStatus: '🔄 페이즈별 상태',
+        queryStatus: '📝 쿼리별 상태',
+        description: '설명',
+        processed: '처리',
+        batch: '배치',
+        errors: '오류',
+        errorInfo: '⚠️  오류 정보',
+        detailError: '진행 상황 상세 조회 실패:',
+        
+        // Monitor
+        monitorNotFound: '진행 상황을 찾을 수 없습니다: {id}',
+        monitorStart: '🔍 실시간 모니터링 시작: {id}',
+        keyboardCommands: '⌨️  키보드 명령어:',
+        keyQuit: '[q] 종료',
+        keyPause: '[p] 일시정지/재개',
+        keyDetailed: '[d] 상세/간단 모드',
+        keyError: '[e] 오류 로그',
+        keyStats: '[s] 통계 보기',
+        keyLogStream: '[l] 로그 스트림',
+        keyFaster: '[+] 빠르게 새로고침',
+        keySlower: '[-] 느리게 새로고침',
+        keyRefresh: '[r] 즉시 새로고침',
+        keyClear: '[c] 화면 클리어',
+        keyNotifications: '[n] 알림 토글',
+        keyHelp: '[h] 도움말',
+        keyEsc: '[ESC] 메뉴',
+        monitoringQuit: '\n👋 모니터링을 종료합니다.',
+        migrationComplete: '🎉 마이그레이션이 성공적으로 완료되었습니다!',
+        migrationFailed: '❌ 마이그레이션이 실패했습니다.',
+        processedRows: '📊 처리된 행',
+        executionTimeLabel: '⏱️  실행 시간',
+        errorCount: '⚠️  오류 수',
+        pressAnyKey: '아무 키나 누르면 종료됩니다...',
+        monitorError: '실시간 모니터링 실패:',
+        
+        // Statistics
+        statisticsTitle: '📊 상세 통계 및 분석',
+        basicStats: '📈 기본 통계',
+        migrationId: '마이그레이션 ID',
+        currentStatus: '현재 상태',
+        queryStats: '📝 쿼리 통계',
+        totalQueries: '총 쿼리',
+        completed: '완료',
+        running: '실행 중',
+        failedQuery: '실패',
+        waiting: '대기',
+        rowStats: '📊 행 처리 통계',
+        totalRows: '총 행',
+        processedRowsLabel: '처리된 행',
+        remainingRows: '남은 행',
+        performanceStats: '⚡ 성능 통계',
+        expectedCompletion: '예상 완료',
+        estimatedCompletionTime: '완료 예정 시간',
+        phaseStats: '🔄 페이즈별 통계',
+        topPerformance: '🏆 상위 성능 쿼리 (처리 행 수 기준)',
+        errorSummary: '⚠️  오류 요약',
+        totalErrors: '총 오류',
+        recentErrors: '최근 오류',
+        
+        // Cleanup
+        cleanupSuccess: '{days}일 이전의 완료된 진행 상황 파일 {count}개를 삭제했습니다.',
+        cleanupError: '진행 상황 파일 정리 실패:',
+        
+        // Summary
+        summaryTitle: '📊 마이그레이션 요약',
+        overallStats: '📈 전체 통계',
+        totalMigrations: '총 마이그레이션',
+        completedLabel: '완료',
+        failedLabel: '실패',
+        runningLabel: '실행 중',
+        pausedLabel: '일시정지',
+        initializingLabel: '초기화 중',
+        totalQueriesLabel: '총 쿼리 수',
+        totalProcessedRows: '총 처리 행',
+        totalExecutionTime: '총 실행 시간',
+        recentMigrations: '🕒 최근 마이그레이션',
+        summaryError: '요약 조회 실패:',
+        
+        // Resume
+        resumeTitle: '🔄 마이그레이션 재시작 정보: {id}',
+        resumeStatus: '📋 재시작 상태',
+        canResume: '재시작 가능',
+        isStale: '오래된 상태',
+        resumeCount: '재시작 횟수',
+        completedQueries: '완료된 쿼리',
+        failedQueries: '실패한 쿼리',
+        remainingQueries: '남은 쿼리',
+        completionRate: '완료율',
+        lastActivity: '🕒 마지막 활동',
+        time: '시간',
+        elapsed: '경과',
+        completedQueriesList: '✅ 완료된 쿼리',
+        failedQueriesList: '❌ 실패한 쿼리',
+        resumeCommand: '🚀 재시작 명령어',
+        resumeNote: '💡 참고: 재시작 시 완료된 쿼리는 건너뛰고 실패한 쿼리부터 재실행됩니다.',
+        cannotResume: '⚠️  재시작 불가',
+        cannotResumeReason: '이 마이그레이션은 재시작할 수 없습니다.',
+        reasonCompleted: '이유: 이미 완료된 마이그레이션입니다.',
+        reasonRunning: '이유: 현재 실행 중인 마이그레이션입니다.',
+        resumeError: '재시작 정보 조회 실패:',
+        
+        // Common
+        rows: '행',
+        yes: '예',
+        no: '아니오',
+        none: 'None',
+        staleWarning: '⚠️ 예 (5분 이상 업데이트 없음)',
+        times: '회'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 class ProgressCLI {
     static showHelp() {
-        console.log('진행 상황 관리 명령어:');
+        console.log(msg.helpTitle);
         console.log('');
-        console.log('  list                    - 진행 상황 파일 목록 조회');
-        console.log('  show <migration-id>     - 특정 마이그레이션 진행 상황 상세 조회');
-        console.log('  monitor <migration-id>  - 실시간 진행 상황 모니터링');
-        console.log('  resume <migration-id>   - 중단된 마이그레이션 재시작 정보 조회');
-        console.log('  cleanup [days]          - 완료된 진행 상황 파일 정리 (기본: 7일)');
-        console.log('  summary                 - 최근 마이그레이션 요약');
+        console.log(msg.helpList);
+        console.log(msg.helpShow);
+        console.log(msg.helpMonitor);
+        console.log(msg.helpResume);
+        console.log(msg.helpCleanup);
+        console.log(msg.helpSummary);
         console.log('');
-        console.log('예시:');
+        console.log(msg.helpExamples);
         console.log('  node src/progress-cli.js list');
         console.log('  node src/progress-cli.js show migration-2024-12-01-15-30-00');
         console.log('  node src/progress-cli.js monitor migration-2024-12-01-15-30-00');
@@ -26,12 +327,12 @@ class ProgressCLI {
             const progressFiles = ProgressManager.listProgressFiles();
             
             if (progressFiles.length === 0) {
-                console.log('진행 상황 파일이 없습니다.');
+                console.log(msg.noProgressFiles);
                 return;
             }
 
             console.log('='.repeat(80));
-            console.log('📊 마이그레이션 진행 상황 목록');
+            console.log(msg.progressList);
             console.log('='.repeat(80));
             console.log();
 
@@ -41,26 +342,27 @@ class ProgressCLI {
                 const lastModified = progress.lastModified.toLocaleString('ko-KR');
                 
                 console.log(`${index + 1}. ${progress.migrationId}`);
-                console.log(`   상태: ${this.getStatusIcon(progress.status)} ${progress.status}`);
-                console.log(`   시작: ${startTime}`);
-                console.log(`   종료: ${endTime}`);
-                console.log(`   수정: ${lastModified}`);
+                console.log(`   ${msg.status}: ${this.getStatusIcon(progress.status)} ${progress.status}`);
+                console.log(`   ${msg.start}: ${startTime}`);
+                console.log(`   ${msg.end}: ${endTime}`);
+                console.log(`   ${msg.modified}: ${lastModified}`);
                 
                 if (progress.totalQueries) {
                     const completionRate = progress.totalQueries > 0 
                         ? (progress.completedQueries / progress.totalQueries * 100).toFixed(1)
                         : 0;
-                    console.log(`   쿼리: ${progress.completedQueries}/${progress.totalQueries} (${completionRate}%)`);
+                    console.log(`   ${msg.queries}: ${progress.completedQueries}/${progress.totalQueries} (${completionRate}%)`);
                 }
                 
                 if (progress.failedQueries > 0) {
-                    console.log(`   ⚠️  실패: ${progress.failedQueries}개`);
+                    const failedLabel = LANGUAGE === 'kr' ? `${progress.failedQueries}개` : `${progress.failedQueries}`;
+                    console.log(`   ⚠️  ${msg.failed}: ${failedLabel}`);
                 }
                 
                 console.log();
             });
         } catch (error) {
-            console.error('진행 상황 목록 조회 실패:', error.message);
+            console.error(msg.listError, error.message);
         }
     }
 
@@ -69,7 +371,7 @@ class ProgressCLI {
             const progressManager = ProgressManager.loadProgress(migrationId);
             
             if (!progressManager) {
-                console.log(`진행 상황을 찾을 수 없습니다: ${migrationId}`);
+                console.log(msg.progressNotFound.replace('{id}', migrationId));
                 return;
             }
 
@@ -77,25 +379,25 @@ class ProgressCLI {
             const detailed = progressManager.getDetailedProgress();
 
             console.log('='.repeat(80));
-            console.log(`📊 마이그레이션 상세 진행 상황: ${migrationId}`);
+            console.log(msg.progressDetail.replace('{id}', migrationId));
             console.log('='.repeat(80));
             console.log();
 
             // 기본 정보
-            console.log('📋 기본 정보');
-            console.log(`   ID: ${summary.migrationId}`);
-            console.log(`   상태: ${this.getStatusIcon(summary.status)} ${summary.status}`);
-            console.log(`   현재 페이즈: ${summary.currentPhase}`);
-            console.log(`   현재 쿼리: ${summary.currentQuery || 'None'}`);
-            console.log(`   시작 시간: ${new Date(detailed.startTime).toLocaleString('ko-KR')}`);
+            console.log(msg.basicInfo);
+            console.log(`   ${msg.idLabel}: ${summary.migrationId}`);
+            console.log(`   ${msg.statusLabel}: ${this.getStatusIcon(summary.status)} ${summary.status}`);
+            console.log(`   ${msg.currentPhase}: ${summary.currentPhase}`);
+            console.log(`   ${msg.currentQuery}: ${summary.currentQuery || msg.none}`);
+            console.log(`   ${msg.startTime}: ${new Date(detailed.startTime).toLocaleString('ko-KR')}`);
             if (detailed.endTime) {
-                console.log(`   종료 시간: ${new Date(detailed.endTime).toLocaleString('ko-KR')}`);
+                console.log(`   ${msg.endTime}: ${new Date(detailed.endTime).toLocaleString('ko-KR')}`);
             }
-            console.log(`   실행 시간: ${this.formatDuration(summary.duration)}`);
+            console.log(`   ${msg.executionTime}: ${this.formatDuration(summary.duration)}`);
             console.log();
 
             // 진행률
-            console.log('📈 진행률');
+            console.log(msg.progressRate);
             const queryProgressBar = this.createProgressBar(summary.totalProgress);
             const rowProgressBar = this.createProgressBar(summary.rowProgress);
             console.log(`   쿼리: ${queryProgressBar} ${summary.totalProgress.toFixed(1)}% (${summary.queries.completed}/${summary.queries.total})`);
@@ -103,16 +405,16 @@ class ProgressCLI {
             console.log();
 
             // 성능
-            console.log('⚡ 성능');
-            console.log(`   평균 속도: ${summary.performance.avgRowsPerSecond.toFixed(0)} rows/sec`);
+            console.log(msg.performance);
+            console.log(`   ${msg.avgSpeed}: ${summary.performance.avgRowsPerSecond.toFixed(0)} rows/sec`);
             if (summary.performance.estimatedTimeRemaining > 0) {
-                console.log(`   예상 남은 시간: ${this.formatDuration(summary.performance.estimatedTimeRemaining)}`);
+                console.log(`   ${msg.estimatedRemaining}: ${this.formatDuration(summary.performance.estimatedTimeRemaining)}`);
             }
             console.log();
 
             // 페이즈별 상태
             if (Object.keys(detailed.phases).length > 0) {
-                console.log('🔄 페이즈별 상태');
+                console.log(msg.phaseStatus);
                 Object.values(detailed.phases).forEach(phase => {
                     const duration = phase.endTime ? (phase.endTime - phase.startTime) / 1000 : 0;
                     console.log(`   ${this.getStatusIcon(phase.status)} ${phase.name}: ${phase.status} ${duration > 0 ? `(${duration.toFixed(1)}s)` : ''}`);
@@ -125,20 +427,22 @@ class ProgressCLI {
 
             // 쿼리별 상태
             if (Object.keys(detailed.queries).length > 0) {
-                console.log('📝 쿼리별 상태');
+                console.log(msg.queryStatus);
                 Object.values(detailed.queries).forEach(query => {
                     const duration = query.endTime ? (query.endTime - query.startTime) / 1000 : 0;
                     console.log(`   ${this.getStatusIcon(query.status)} ${query.id}: ${query.status}`);
-                    console.log(`     설명: ${query.description}`);
-                    console.log(`     처리: ${query.processedRows.toLocaleString()}행 ${duration > 0 ? `(${duration.toFixed(1)}s)` : ''}`);
+                    console.log(`     ${msg.description}: ${query.description}`);
+                    const rowsText = LANGUAGE === 'kr' ? `${query.processedRows.toLocaleString()}행` : `${query.processedRows.toLocaleString()} ${msg.rows}`;
+                    console.log(`     ${msg.processed}: ${rowsText} ${duration > 0 ? `(${duration.toFixed(1)}s)` : ''}`);
                     
                     if (query.currentBatch && query.totalBatches) {
                         const batchProgress = (query.currentBatch / query.totalBatches * 100).toFixed(1);
-                        console.log(`     배치: ${query.currentBatch}/${query.totalBatches} (${batchProgress}%)`);
+                        console.log(`     ${msg.batch}: ${query.currentBatch}/${query.totalBatches} (${batchProgress}%)`);
                     }
                     
                     if (query.errors && query.errors.length > 0) {
-                        console.log(`     ⚠️  오류: ${query.errors.length}개`);
+                        const errorLabel = LANGUAGE === 'kr' ? `${query.errors.length}개` : `${query.errors.length}`;
+                        console.log(`     ⚠️  ${msg.errors}: ${errorLabel}`);
                         query.errors.forEach(error => {
                             console.log(`       - ${error.message}`);
                         });
@@ -149,7 +453,7 @@ class ProgressCLI {
 
             // 오류 정보
             if (summary.errors > 0) {
-                console.log('⚠️  오류 정보');
+                console.log(msg.errorInfo);
                 detailed.errors.forEach(error => {
                     const timestamp = new Date(error.timestamp).toLocaleString('ko-KR');
                     console.log(`   [${timestamp}] ${error.queryId || 'GLOBAL'}: ${error.error}`);
@@ -158,7 +462,7 @@ class ProgressCLI {
             }
 
         } catch (error) {
-            console.error('진행 상황 상세 조회 실패:', error.message);
+            console.error(msg.detailError, error.message);
         }
     }
 
@@ -167,7 +471,7 @@ class ProgressCLI {
             let progressManager = ProgressManager.loadProgress(migrationId);
             
             if (!progressManager) {
-                console.log(`진행 상황을 찾을 수 없습니다: ${migrationId}`);
+                console.log(msg.monitorNotFound.replace('{id}', migrationId));
                 return;
             }
 
@@ -196,14 +500,19 @@ class ProgressCLI {
             let lastProgressTime = Date.now();
             let notificationHistory = [];
 
-            console.log(`🔍 실시간 모니터링 시작: ${migrationId}`);
+            console.log(msg.monitorStart.replace('{id}', migrationId));
             console.log('━'.repeat(80));
-            console.log('⌨️  키보드 명령어:');
-            console.log('   [q] 종료           [p] 일시정지/재개     [d] 상세/간단 모드');
-            console.log('   [+] 빠르게 새로고침  [-] 느리게 새로고침    [r] 즉시 새로고침');
-            console.log('   [e] 오류 로그       [s] 통계 보기         [h] 도움말');
-            console.log('   [c] 화면 클리어     [n] 알림 토글         [l] 로그 스트림');
-            console.log('   [ESC] 메뉴');
+            console.log(msg.keyboardCommands);
+            const line1 = `   ${msg.keyQuit}           ${msg.keyPause}     ${msg.keyDetailed}`;
+            const line2 = `   ${msg.keyFaster}  ${msg.keySlower}    ${msg.keyRefresh}`;
+            const line3 = `   ${msg.keyError}       ${msg.keyStats}         ${msg.keyHelp}`;
+            const line4 = `   ${msg.keyClear}     ${msg.keyNotifications}         ${msg.keyLogStream}`;
+            const line5 = `   ${msg.keyEsc}`;
+            console.log(line1);
+            console.log(line2);
+            console.log(line3);
+            console.log(line4);
+            console.log(line5);
             console.log('━'.repeat(80));
             console.log();
 
@@ -907,9 +1216,9 @@ class ProgressCLI {
     static async cleanupOldProgress(days = 7) {
         try {
             const deletedCount = ProgressManager.cleanupOldProgress(days);
-            console.log(`${days}일 이전의 완료된 진행 상황 파일 ${deletedCount}개를 삭제했습니다.`);
+            console.log(msg.cleanupSuccess.replace('{days}', days).replace('{count}', deletedCount));
         } catch (error) {
-            console.error('진행 상황 파일 정리 실패:', error.message);
+            console.error(msg.cleanupError, error.message);
         }
     }
 
@@ -918,12 +1227,12 @@ class ProgressCLI {
             const progressFiles = ProgressManager.listProgressFiles();
             
             if (progressFiles.length === 0) {
-                console.log('진행 상황 파일이 없습니다.');
+                console.log(msg.noProgressFiles);
                 return;
             }
 
             console.log('='.repeat(80));
-            console.log('📊 마이그레이션 요약');
+            console.log(msg.summaryTitle);
             console.log('='.repeat(80));
             console.log();
 
@@ -963,28 +1272,31 @@ class ProgressCLI {
                 }
             });
 
-            console.log('📈 전체 통계');
-            console.log(`   총 마이그레이션: ${progressFiles.length}개`);
-            console.log(`   완료: ${statusCounts.COMPLETED}개`);
-            console.log(`   실패: ${statusCounts.FAILED}개`);
-            console.log(`   실행 중: ${statusCounts.RUNNING}개`);
-            console.log(`   일시정지: ${statusCounts.PAUSED}개`);
-            console.log(`   초기화 중: ${statusCounts.INITIALIZING}개`);
+            console.log(msg.overallStats);
+            const itemSuffix = LANGUAGE === 'kr' ? '개' : '';
+            console.log(`   ${msg.totalMigrations}: ${progressFiles.length}${itemSuffix}`);
+            console.log(`   ${msg.completedLabel}: ${statusCounts.COMPLETED}${itemSuffix}`);
+            console.log(`   ${msg.failedLabel}: ${statusCounts.FAILED}${itemSuffix}`);
+            console.log(`   ${msg.runningLabel}: ${statusCounts.RUNNING}${itemSuffix}`);
+            console.log(`   ${msg.pausedLabel}: ${statusCounts.PAUSED}${itemSuffix}`);
+            console.log(`   ${msg.initializingLabel}: ${statusCounts.INITIALIZING}${itemSuffix}`);
             console.log();
-            console.log(`   총 쿼리 수: ${totalQueries.toLocaleString()}개`);
-            console.log(`   총 처리 행: ${totalRows.toLocaleString()}행`);
-            console.log(`   총 실행 시간: ${this.formatDuration(totalDuration)}`);
+            const querySuffix = LANGUAGE === 'kr' ? '개' : '';
+            const rowSuffix = LANGUAGE === 'kr' ? '행' : ` ${msg.rows}`;
+            console.log(`   ${msg.totalQueriesLabel}: ${totalQueries.toLocaleString()}${querySuffix}`);
+            console.log(`   ${msg.totalProcessedRows}: ${totalRows.toLocaleString()}${rowSuffix}`);
+            console.log(`   ${msg.totalExecutionTime}: ${this.formatDuration(totalDuration)}`);
             console.log();
 
             // 최근 마이그레이션 (최대 5개)
-            console.log('🕒 최근 마이그레이션');
+            console.log(msg.recentMigrations);
             progressFiles.slice(0, 5).forEach((progress, index) => {
                 const startTime = new Date(progress.startTime).toLocaleString('ko-KR');
                 console.log(`   ${index + 1}. ${progress.migrationId} - ${this.getStatusIcon(progress.status)} ${progress.status} (${startTime})`);
             });
 
         } catch (error) {
-            console.error('요약 조회 실패:', error.message);
+            console.error(msg.summaryError, error.message);
         }
     }
 
@@ -993,7 +1305,7 @@ class ProgressCLI {
             const progressManager = ProgressManager.loadProgress(migrationId);
             
             if (!progressManager) {
-                console.log(`진행 상황을 찾을 수 없습니다: ${migrationId}`);
+                console.log(msg.progressNotFound.replace('{id}', migrationId));
                 return;
             }
 
@@ -1001,41 +1313,45 @@ class ProgressCLI {
             const detailed = progressManager.getDetailedProgress();
 
             console.log('='.repeat(80));
-            console.log(`🔄 마이그레이션 재시작 정보: ${migrationId}`);
+            console.log(msg.resumeTitle.replace('{id}', migrationId));
             console.log('='.repeat(80));
             console.log();
 
             // 재시작 가능 여부
-            console.log('📋 재시작 상태');
-            console.log(`   재시작 가능: ${resumeInfo.canResume ? '✅ 예' : '❌ 아니오'}`);
-            console.log(`   현재 상태: ${this.getStatusIcon(resumeInfo.status)} ${resumeInfo.status}`);
-            console.log(`   오래된 상태: ${resumeInfo.isStale ? '⚠️ 예 (5분 이상 업데이트 없음)' : '✅ 아니오'}`);
-            console.log(`   재시작 횟수: ${resumeInfo.resumeCount}회`);
+            console.log(msg.resumeStatus);
+            const canResumeText = resumeInfo.canResume ? `✅ ${msg.yes}` : `❌ ${msg.no}`;
+            const isStaleText = resumeInfo.isStale ? msg.staleWarning : `✅ ${msg.no}`;
+            const countSuffix = LANGUAGE === 'kr' ? '회' : ` ${msg.times}`;
+            console.log(`   ${msg.canResume}: ${canResumeText}`);
+            console.log(`   ${msg.statusLabel}: ${this.getStatusIcon(resumeInfo.status)} ${resumeInfo.status}`);
+            console.log(`   ${msg.isStale}: ${isStaleText}`);
+            console.log(`   ${msg.resumeCount}: ${resumeInfo.resumeCount}${countSuffix}`);
             console.log();
 
             // 진행 상황
-            console.log('📊 진행 상황');
-            console.log(`   완료된 쿼리: ${resumeInfo.completedQueries.length}개`);
-            console.log(`   실패한 쿼리: ${resumeInfo.failedQueries.length}개`);
-            console.log(`   남은 쿼리: ${resumeInfo.remainingQueries}개`);
-            console.log(`   전체 쿼리: ${resumeInfo.totalQueries}개`);
+            const itemSuffix = LANGUAGE === 'kr' ? '개' : '';
+            console.log(msg.progressRate);
+            console.log(`   ${msg.completedQueries}: ${resumeInfo.completedQueries.length}${itemSuffix}`);
+            console.log(`   ${msg.failedQueries}: ${resumeInfo.failedQueries.length}${itemSuffix}`);
+            console.log(`   ${msg.remainingQueries}: ${resumeInfo.remainingQueries}${itemSuffix}`);
+            console.log(`   ${msg.totalQueries}: ${resumeInfo.totalQueries}${itemSuffix}`);
             
             const completionRate = resumeInfo.totalQueries > 0 
                 ? (resumeInfo.completedQueries.length / resumeInfo.totalQueries * 100).toFixed(1)
                 : 0;
-            console.log(`   완료율: ${completionRate}%`);
+            console.log(`   ${msg.completionRate}: ${completionRate}%`);
             console.log();
 
             // 마지막 활동
             const lastActivity = new Date(resumeInfo.lastActivity);
-            console.log('🕒 마지막 활동');
-            console.log(`   시간: ${lastActivity.toLocaleString('ko-KR')}`);
-            console.log(`   경과: ${this.formatTimeSince(resumeInfo.lastActivity)}`);
+            console.log(msg.lastActivity);
+            console.log(`   ${msg.time}: ${lastActivity.toLocaleString('ko-KR')}`);
+            console.log(`   ${msg.elapsed}: ${this.formatTimeSince(resumeInfo.lastActivity)}`);
             console.log();
 
             // 완료된 쿼리 목록
             if (resumeInfo.completedQueries.length > 0) {
-                console.log('✅ 완료된 쿼리');
+                console.log(msg.completedQueriesList);
                 resumeInfo.completedQueries.forEach((queryId, index) => {
                     const queryData = detailed.queries[queryId];
                     const duration = queryData && queryData.duration ? (queryData.duration / 1000).toFixed(1) + 's' : 'N/A';
@@ -1047,7 +1363,7 @@ class ProgressCLI {
 
             // 실패한 쿼리 목록
             if (resumeInfo.failedQueries.length > 0) {
-                console.log('❌ 실패한 쿼리');
+                console.log(msg.failedQueriesList);
                 resumeInfo.failedQueries.forEach((queryId, index) => {
                     const queryData = detailed.queries[queryId];
                     const lastError = queryData && queryData.errors && queryData.errors.length > 0 
@@ -1060,22 +1376,22 @@ class ProgressCLI {
 
             // 재시작 명령어
             if (resumeInfo.canResume) {
-                console.log('🚀 재시작 명령어');
+                console.log(msg.resumeCommand);
                 console.log(`   node src/migrate-cli.js resume ${migrationId}`);
                 console.log();
-                console.log('💡 참고: 재시작 시 완료된 쿼리는 건너뛰고 실패한 쿼리부터 재실행됩니다.');
+                console.log(msg.resumeNote);
             } else {
-                console.log('⚠️  재시작 불가');
-                console.log('   이 마이그레이션은 재시작할 수 없습니다.');
+                console.log(msg.cannotResume);
+                console.log(`   ${msg.cannotResumeReason}`);
                 if (resumeInfo.status === 'COMPLETED') {
-                    console.log('   이유: 이미 완료된 마이그레이션입니다.');
+                    console.log(`   ${msg.reasonCompleted}`);
                 } else if (resumeInfo.status === 'RUNNING' && !resumeInfo.isStale) {
-                    console.log('   이유: 현재 실행 중인 마이그레이션입니다.');
+                    console.log(`   ${msg.reasonRunning}`);
                 }
             }
 
         } catch (error) {
-            console.error('재시작 정보 조회 실패:', error.message);
+            console.error(msg.resumeError, error.message);
         }
     }
 

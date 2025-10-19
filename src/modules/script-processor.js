@@ -1,5 +1,72 @@
 const logger = require('../logger');
 
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        noActiveGroups: 'No active global {phase} groups.',
+        executingGroups: '\n=== Executing Global {phase} Groups ({count}) ===',
+        executingGroup: '\n--- [{id}] Executing {description} ---',
+        tempTableDetected: '⚠️  Temp table detected in global {phase} group [{id}], executing in session management mode.',
+        groupFailed: 'Global {phase} group [{id}] execution failed: {error}',
+        groupCompleted: '--- [{id}] {description} Completed ---',
+        executionStats: '  📈 Execution statistics: {executed}/{total} SQL statements succeeded',
+        errorsOccurred: '  ⚠️  Warning: Errors occurred in {count} SQL statements',
+        errorContinuing: 'Warning: {error} - Continuing with next group',
+        groupsCompleted: '=== Global {phase} Groups Completed ===\n',
+        noScript: 'No script to execute.',
+        executing: 'Executing {description}...',
+        noStatements: 'No SQL statements to execute.',
+        executingSqlCount: 'Executing {count} SQL statements...',
+        executingStatement: 'Executing SQL statement {current}/{total}: {preview}',
+        statementSuccess: '  ✓ SQL statement {index} executed successfully: {rows} rows affected',
+        sqlExecutionWarning: 'SQL execution warning (continuing): {error}',
+        totalErrors: 'Total of {count} SQL execution errors occurred.',
+        executionResult: '\n📊 {description} Execution Result:',
+        totalStatements: '  • Total SQL Statements: {count}',
+        successful: '  • Successful: {count}',
+        failed: '  • Failed: {count}',
+        executionFailed: '{description} execution failed: {error}',
+        sessionCleanupComplete: '{description} session cleanup complete',
+        sessionCleanupError: '{description} session cleanup error: {error}',
+        preProcess: 'pre-processing',
+        postProcess: 'post-processing'
+    },
+    kr: {
+        noActiveGroups: '활성화된 전역 {phase} 그룹이 없습니다.',
+        executingGroups: '\n=== 전역 {phase} 그룹 실행 ({count}개) ===',
+        executingGroup: '\n--- [{id}] {description} 실행 중 ---',
+        tempTableDetected: '⚠️  전역 {phase} 그룹 [{id}]에서 temp 테이블이 감지되어 세션 관리 모드로 실행합니다.',
+        groupFailed: '전역 {phase} 그룹 [{id}] 실행 실패: {error}',
+        groupCompleted: '--- [{id}] {description} 완료 ---',
+        executionStats: '  📈 실행 통계: {executed}/{total}개 SQL 문 성공',
+        errorsOccurred: '  ⚠️  경고: {count}개 SQL 문에서 오류 발생',
+        errorContinuing: '경고: {error} - 다음 그룹 계속 진행',
+        groupsCompleted: '=== 전역 {phase} 그룹 완료 ===\n',
+        noScript: '실행할 스크립트가 없습니다.',
+        executing: '{description} 실행 중...',
+        noStatements: '실행할 SQL 문이 없습니다.',
+        executingSqlCount: '총 {count}개의 SQL 문 실행 중...',
+        executingStatement: 'SQL 문 {current}/{total} 실행: {preview}',
+        statementSuccess: '  ✓ SQL 문 {index} 실행 성공: {rows}행 영향받음',
+        sqlExecutionWarning: 'SQL 실행 경고 (계속 진행): {error}',
+        totalErrors: '총 {count}개의 SQL 실행 오류가 발생했습니다.',
+        executionResult: '\n📊 {description} 실행 결과:',
+        totalStatements: '  • 총 SQL 문: {count}개',
+        successful: '  • 성공 실행: {count}개',
+        failed: '  • 실패: {count}개',
+        executionFailed: '{description} 실행 실패: {error}',
+        sessionCleanupComplete: '{description} 세션 정리 완료',
+        sessionCleanupError: '{description} 세션 정리 중 오류: {error}',
+        preProcess: '전처리',
+        postProcess: '후처리'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 /**
  * 전/후처리 스크립트 실행 담당 모듈
  */
@@ -20,13 +87,14 @@ class ScriptProcessor {
             : config.globalProcesses.postProcessGroups;
         
         const enabledGroups = groups.filter(group => group.enabled);
+        const phaseText = phase === 'preProcess' ? msg.preProcess : msg.postProcess;
         
         if (enabledGroups.length === 0) {
-            this.log(`활성화된 전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹이 없습니다.`);
+            this.log(msg.noActiveGroups.replace('{phase}', phaseText));
             return;
         }
         
-        this.log(`\n=== 전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 실행 (${enabledGroups.length}개) ===`);
+        this.log(msg.executingGroups.replace('{phase}', phaseText).replace('{count}', enabledGroups.length));
         progressManager.updatePhase(
             phase === 'preProcess' ? 'PRE_PROCESSING' : 'POST_PROCESSING', 
             'RUNNING', 
@@ -34,7 +102,7 @@ class ScriptProcessor {
         );
         
         for (const group of enabledGroups) {
-            this.log(`\n--- [${group.id}] ${group.description} 실행 중 ---`);
+            this.log(msg.executingGroup.replace('{id}', group.id).replace('{description}', group.description));
             
             try {
                 const scriptConfig = {
@@ -45,39 +113,39 @@ class ScriptProcessor {
                 const hasTempTables = this.detectTempTableUsageInScript(group.script);
                 
                 if (hasTempTables) {
-                    this.log(`⚠️  전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}]에서 temp 테이블이 감지되어 세션 관리 모드로 실행합니다.`);
+                    this.log(msg.tempTableDetected.replace('{phase}', phaseText).replace('{id}', group.id));
                 }
                 
                 const result = await this.executeProcessScript(scriptConfig, 'target', hasTempTables);
                 
                 if (!result.success) {
-                    const errorMsg = `전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}] 실행 실패: ${result.error}`;
+                    const errorMsg = msg.groupFailed.replace('{phase}', phaseText).replace('{id}', group.id).replace('{error}', result.error);
                     this.log(errorMsg);
                     
                     if (phase === 'preProcess') {
                         progressManager.updatePhase('PRE_PROCESSING', 'FAILED', errorMsg);
                         throw new Error(errorMsg);
                     } else {
-                        this.log(`경고: ${errorMsg} - 다음 그룹 계속 진행`);
+                        this.log(msg.errorContinuing.replace('{error}', errorMsg));
                     }
                 } else {
-                    this.log(`--- [${group.id}] ${group.description} 완료 ---`);
+                    this.log(msg.groupCompleted.replace('{id}', group.id).replace('{description}', group.description));
                     if (result.executedCount !== undefined) {
-                        this.log(`  📈 실행 통계: ${result.executedCount}/${result.totalStatements}개 SQL 문 성공`);
+                        this.log(msg.executionStats.replace('{executed}', result.executedCount).replace('{total}', result.totalStatements));
                         if (result.errors && result.errors.length > 0) {
-                            this.log(`  ⚠️  경고: ${result.errors.length}개 SQL 문에서 오류 발생`);
+                            this.log(msg.errorsOccurred.replace('{count}', result.errors.length));
                         }
                     }
                 }
             } catch (error) {
-                const errorMsg = `전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 [${group.id}] 실행 중 오류: ${error.message}`;
+                const errorMsg = msg.groupFailed.replace('{phase}', phaseText).replace('{id}', group.id).replace('{error}', error.message);
                 this.log(errorMsg);
                 
                 if (phase === 'preProcess') {
                     progressManager.updatePhase('PRE_PROCESSING', 'FAILED', errorMsg);
                     throw new Error(errorMsg);
                 } else {
-                    this.log(`경고: ${errorMsg} - 다음 그룹 계속 진행`);
+                    this.log(msg.errorContinuing.replace('{error}', errorMsg));
                 }
             }
         }
@@ -87,7 +155,7 @@ class ScriptProcessor {
             'COMPLETED', 
             `Global ${phase === 'preProcess' ? 'pre' : 'post'}-processing groups completed`
         );
-        this.log(`=== 전역 ${phase === 'preProcess' ? '전처리' : '후처리'} 그룹 완료 ===\n`);
+        this.log(msg.groupsCompleted.replace('{phase}', phaseText));
     }
 
     /**
@@ -98,11 +166,11 @@ class ScriptProcessor {
         
         try {
             if (!scriptConfig || !scriptConfig.script) {
-                this.log('실행할 스크립트가 없습니다.');
+                this.log(msg.noScript);
                 return { success: true };
             }
             
-            this.log(`${scriptConfig.description} 실행 중...`);
+            this.log(msg.executing.replace('{description}', scriptConfig.description));
             
             if (useSession) {
                 await this.connectionManager.beginSession(database);
@@ -130,11 +198,11 @@ class ScriptProcessor {
                 .filter(sql => sql.length > 0);
             
             if (sqlStatements.length === 0) {
-                this.log('실행할 SQL 문이 없습니다.');
+                this.log(msg.noStatements);
                 return { success: true };
             }
             
-            this.log(`총 ${sqlStatements.length}개의 SQL 문 실행 중...`);
+            this.log(msg.executingSqlCount.replace('{count}', sqlStatements.length));
             
             let executedCount = 0;
             const errors = [];
@@ -143,7 +211,11 @@ class ScriptProcessor {
                 const sql = sqlStatements[i];
                 try {
                     if (debugScripts) {
-                        this.log(`SQL 문 ${i + 1}/${sqlStatements.length} 실행: ${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`);
+                        const preview = `${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`;
+                        this.log(msg.executingStatement
+                            .replace('{current}', i + 1)
+                            .replace('{total}', sqlStatements.length)
+                            .replace('{preview}', preview));
                     }
                     
                     let result;
@@ -161,12 +233,12 @@ class ScriptProcessor {
                     if (result && result.rowsAffected && result.rowsAffected.length > 0) {
                         const affectedRows = result.rowsAffected.reduce((sum, count) => sum + count, 0);
                         if (affectedRows > 0) {
-                            this.log(`  ✓ SQL 문 ${i + 1} 실행 성공: ${affectedRows}행 영향받음`);
+                            this.log(msg.statementSuccess.replace('{index}', i + 1).replace('{rows}', affectedRows));
                         }
                     }
                     
                 } catch (sqlError) {
-                    const errorMsg = `SQL 실행 경고 (계속 진행): ${sqlError.message}`;
+                    const errorMsg = msg.sqlExecutionWarning.replace('{error}', sqlError.message);
                     this.log(errorMsg);
                     
                     errors.push({
@@ -178,14 +250,14 @@ class ScriptProcessor {
             }
             
             if (errors.length > 0) {
-                this.log(`총 ${errors.length}개의 SQL 실행 오류가 발생했습니다.`);
+                this.log(msg.totalErrors.replace('{count}', errors.length));
             }
             
-            this.log(`\n📊 ${scriptConfig.description} 실행 결과:`);
-            this.log(`  • 총 SQL 문: ${sqlStatements.length}개`);
-            this.log(`  • 성공 실행: ${executedCount}개`);
+            this.log(msg.executionResult.replace('{description}', scriptConfig.description));
+            this.log(msg.totalStatements.replace('{count}', sqlStatements.length));
+            this.log(msg.successful.replace('{count}', executedCount));
             if (errors.length > 0) {
-                this.log(`  • 실패: ${errors.length}개`);
+                this.log(msg.failed.replace('{count}', errors.length));
             }
             
             return { 
@@ -196,15 +268,15 @@ class ScriptProcessor {
             };
             
         } catch (error) {
-            this.log(`${scriptConfig.description} 실행 실패: ${error.message}`);
+            this.log(msg.executionFailed.replace('{description}', scriptConfig.description).replace('{error}', error.message));
             return { success: false, error: error.message };
         } finally {
             if (sessionStarted) {
                 try {
                     await this.connectionManager.endSession(database);
-                    this.log(`${scriptConfig.description} 세션 정리 완료`);
+                    this.log(msg.sessionCleanupComplete.replace('{description}', scriptConfig.description));
                 } catch (sessionError) {
-                    this.log(`${scriptConfig.description} 세션 정리 중 오류: ${sessionError.message}`);
+                    this.log(msg.sessionCleanupError.replace('{description}', scriptConfig.description).replace('{error}', sessionError.message));
                 }
             }
         }

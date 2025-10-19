@@ -12,6 +12,247 @@ const ScriptProcessor = require('./modules/script-processor');
 
 require('dotenv').config();
 
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        migrationStart: 'Data migration started:',
+        logsDirectoryError: 'Could not create logs directory:',
+        dbConfigFound: 'DB connection information found in query definition file.',
+        sourceDbConfig: 'Source DB configuration (DB ID)',
+        targetDbConfig: 'Target DB configuration (DB ID)',
+        targetDbReadOnly: 'Target DB',
+        targetDbReadOnlyError: 'is read-only database. Only DB with isWritable=true can be used as target.',
+        directConfiguredSource: 'Directly configured source database',
+        directConfiguredTarget: 'Directly configured target database',
+        usingEnvVars: 'Using DB connection information from environment variables (.env).',
+        configLoadFailed: 'Query definition file load failed:',
+        globalColumnApplied: 'Global column override applied',
+        globalColumnAppliedAll: 'all',
+        globalColumnNotApplied: 'Global column override not applied',
+        globalColumnSelected: 'Global column override selected',
+        globalColumnNotFound: 'Global column override: requested column',
+        globalColumnNotFoundEnd: 'not found in global configuration',
+        queryMigrationStart: '=== Query migration started:',
+        queryDescription: 'Description:',
+        preProcessStart: '--- Pre-process execution ---',
+        preProcessFailed: 'Pre-process execution failed:',
+        preProcessComplete: '--- Pre-process completed ---',
+        postProcessStart: '--- Post-process execution ---',
+        postProcessFailed: 'Post-process execution failed:',
+        postProcessComplete: '--- Post-process completed ---',
+        sourceQueryValidated: '✅ sourceQuery validation passed:',
+        sourceQueryValidationFailed: 'sourceQuery validation failed:',
+        deletingBeforeInsert: 'Deleting data from target table based on PK before migration:',
+        noDataToMigrate: 'No data retrieved. Skipping migration.',
+        queryMigrationComplete: '=== Query migration completed:',
+        rowsProcessed: 'rows processed',
+        queryMigrationFailed: '=== Query migration failed:',
+        noDataToInsert: 'No data to insert.',
+        totalRows: 'Total',
+        totalRowsBatch: 'rows to be inserted in batches of',
+        batchProcessing: 'Processing batch',
+        progress: 'Progress:',
+        totalInserted: 'Total',
+        totalInsertedEnd: 'rows inserted',
+        batchInsertFailed: 'Batch insertion failed:',
+        migrationProcessStart: 'MSSQL data migration process started',
+        cannotResumeMigration: 'Cannot resume migration:',
+        cannotResumeMigrationStatus: 'Migration cannot be resumed. Status:',
+        resumingMigration: 'Resuming migration:',
+        migrationId: 'Migration ID:',
+        connectingToDb: 'Connecting to databases...',
+        extractingVariables: 'Dynamic variable extraction started:',
+        extractingVariablesComplete: 'All dynamic variable extraction completed',
+        enabledQueries: 'Enabled queries:',
+        totalQueriesToExecute: 'Total queries to execute:',
+        estimatingRowCount: '🔍 Estimating row count for each query...',
+        totalEstimatedRows: '📊 Total estimated rows to migrate:',
+        existingEstimatedRows: 'Existing estimated rows:',
+        transactionStart: 'Transaction started',
+        transactionRollback: 'Transaction rollback due to error',
+        transactionCommit: 'Transaction committed',
+        transactionRollbackComplete: 'Transaction rollback completed',
+        transactionRollbackFailed: 'Transaction rollback failed:',
+        migrationProcessError: 'Migration process error:',
+        migrationProcessComplete: '\n=== Migration process completed ===',
+        totalExecutionTime: 'Total execution time:',
+        secondsSuffix: 'seconds',
+        successfulQueries: 'Successful queries:',
+        failedQueries: 'Failed queries:',
+        totalProcessedRows: 'Total processed rows:',
+        progressSummary: '\n=== Progress summary ===',
+        finalStatus: 'Final status:',
+        totalProgress: 'Total progress:',
+        success: 'success',
+        failed: 'failed',
+        detailedLog: '\nDetailed log:',
+        progressFile: 'Progress file:',
+        dryRunMode: '🧪 DRY RUN mode: Data migration simulation\n',
+        connectingToSource: '📡 Connecting to source database...',
+        dynamicVarSimulation: '\n🔍 Dynamic variable extraction simulation:',
+        items: 'items',
+        noDescription: 'no description',
+        extractionComplete: '✅ Extraction completed → Variable:',
+        extractionFailed: '❌ Extraction failed:',
+        querySimulation: '\n📋 Migration query simulation:',
+        queryId: 'Query ID:',
+        description: 'Description:',
+        targetTable: 'Target table:',
+        dataToMigrate: '📊 Data to migrate:',
+        rows: 'rows',
+        simulationSuccess: '✅ Simulation successful',
+        simulationFailed: '❌ Simulation failed:',
+        dryRunSummary: '\n🎯 DRY RUN simulation summary',
+        executionTime: '⏱️  Execution time:',
+        totalQueriesCount: '📊 Total queries:',
+        totalDataToMigrate: '📈 Total data to migrate:',
+        dryRunNote: '\n💡 Note: DRY RUN mode does not modify actual data.',
+        dryRunError: '❌ Error during DRY RUN:',
+        configValidated: '✅ Configuration validation completed',
+        totalQueriesFound: '- Total queries:',
+        enabledQueriesFound: '- Enabled queries:',
+        dynamicVariablesFound: '- Dynamic variables:',
+        configValidationFailed: '❌ Configuration validation failed:',
+        connectionSuccess: 'connection successful',
+        requiredEnvVarsNotSet: 'Required environment variables not set:',
+        unknownAttributesInSettings: '⚠️ Unknown attributes in settings:',
+        allowedAttributesSettings: 'Allowed attributes:',
+        noEnabledQueries: '⚠️ No enabled queries. (Query definition file structure validation successful)',
+        invalidAttributesInQuery: '❌ Invalid attributes in queries[',
+        idNotSpecified: 'not specified',
+        allowedAttributesQuery: 'Allowed attributes:',
+        invalidAttributeError: 'Query has invalid attribute names:',
+        missingIdInQuery: 'queries[',
+        missingIdEnd: '] does not have id attribute.',
+        missingSourceQuery: 'Query',
+        missingSourceQueryEnd: 'does not have sourceQuery or sourceQueryFile.',
+        missingTargetTable: 'does not have targetTable attribute.',
+        invalidPreProcessAttrs: 'has invalid attributes in preProcess:',
+        invalidPostProcessAttrs: 'has invalid attributes in postProcess:'
+    },
+    kr: {
+        migrationStart: '데이터 이관 시작:',
+        logsDirectoryError: '로그 디렉토리 생성 실패:',
+        dbConfigFound: '쿼리문정의 파일에서 DB 연결 정보를 발견했습니다.',
+        sourceDbConfig: '소스 DB 설정(DB ID)',
+        targetDbConfig: '타겟 DB 설정 (DB ID)',
+        targetDbReadOnly: '타겟 DB',
+        targetDbReadOnlyError: '는 읽기 전용 데이터베이스입니다. isWritable=true인 DB만 타겟으로 사용할 수 있습니다.',
+        directConfiguredSource: '직접 설정된 소스 데이터베이스',
+        directConfiguredTarget: '직접 설정된 타겟 데이터베이스',
+        usingEnvVars: '환경 변수(.env)에서 DB 연결 정보를 사용합니다.',
+        configLoadFailed: '쿼리문정의 파일 로드 실패:',
+        globalColumnApplied: '전역 컬럼 오버라이드 적용',
+        globalColumnAppliedAll: 'all',
+        globalColumnNotApplied: '전역 컬럼 오버라이드 적용 안 함',
+        globalColumnSelected: '전역 컬럼 오버라이드 선택 적용:',
+        globalColumnNotFound: '전역 컬럼 오버라이드: 요청된 컬럼',
+        globalColumnNotFoundEnd: '이 전역 설정에 없음',
+        queryMigrationStart: '=== 쿼리 이관 시작:',
+        queryDescription: '설명:',
+        preProcessStart: '--- 전처리 실행 ---',
+        preProcessFailed: '전처리 실행 실패:',
+        preProcessComplete: '--- 전처리 완료 ---',
+        postProcessStart: '--- 후처리 실행 ---',
+        postProcessFailed: '후처리 실행 실패:',
+        postProcessComplete: '--- 후처리 완료 ---',
+        sourceQueryValidated: '✅ sourceQuery 검증 통과:',
+        sourceQueryValidationFailed: 'sourceQuery 검증 실패:',
+        deletingBeforeInsert: '이관 전 대상 테이블 PK 기준 데이터 삭제:',
+        noDataToMigrate: '조회된 데이터가 없습니다. 이관을 건너뜁니다.',
+        queryMigrationComplete: '=== 쿼리 이관 완료:',
+        rowsProcessed: '행 처리',
+        queryMigrationFailed: '=== 쿼리 이관 실패:',
+        noDataToInsert: '삽입할 데이터가 없습니다.',
+        totalRows: '총',
+        totalRowsBatch: '행을',
+        batchProcessing: '배치',
+        progress: '진행률:',
+        totalInserted: '총',
+        totalInsertedEnd: '행 삽입 완료',
+        batchInsertFailed: '배치 삽입 실패:',
+        migrationProcessStart: 'MSSQL 데이터 이관 프로세스 시작',
+        cannotResumeMigration: '재시작할 마이그레이션을 찾을 수 없습니다:',
+        cannotResumeMigrationStatus: '마이그레이션을 재시작할 수 없습니다. 상태:',
+        resumingMigration: '마이그레이션 재시작:',
+        migrationId: 'Migration ID:',
+        connectingToDb: '데이터베이스 연결 중...',
+        extractingVariables: '동적 변수 추출 시작:',
+        extractingVariablesComplete: '모든 동적 변수 추출 완료',
+        enabledQueries: '활성화된 쿼리:',
+        totalQueriesToExecute: '실행할 쿼리 수:',
+        estimatingRowCount: '🔍 쿼리별 행 수 추정 시작...',
+        totalEstimatedRows: '📊 총 예상 이관 행 수:',
+        existingEstimatedRows: '기존 예상 행 수:',
+        transactionStart: '트랜잭션 시작',
+        transactionRollback: '오류 발생으로 인한 트랜잭션 롤백',
+        transactionCommit: '트랜잭션 커밋',
+        transactionRollbackComplete: '트랜잭션 롤백 완료',
+        transactionRollbackFailed: '트랜잭션 롤백 실패:',
+        migrationProcessError: '이관 프로세스 오류:',
+        migrationProcessComplete: '\n=== 이관 프로세스 완료 ===',
+        totalExecutionTime: '총 실행 시간:',
+        secondsSuffix: '초',
+        successfulQueries: '성공한 쿼리:',
+        failedQueries: '실패한 쿼리:',
+        totalProcessedRows: '총 처리된 행:',
+        progressSummary: '\n=== 진행 상황 요약 ===',
+        finalStatus: '최종 상태:',
+        totalProgress: '전체 진행률:',
+        success: '성공',
+        failed: '실패',
+        detailedLog: '\n상세 로그:',
+        progressFile: '진행 상황 파일:',
+        dryRunMode: '🧪 DRY RUN 모드: 데이터 마이그레이션 시뮬레이션\n',
+        connectingToSource: '📡 소스 데이터베이스 연결 중...',
+        dynamicVarSimulation: '\n🔍 동적 변수 추출 시뮬레이션:',
+        items: '개',
+        noDescription: '설명 없음',
+        extractionComplete: '✅ 추출 완료 → 변수:',
+        extractionFailed: '❌ 추출 실패:',
+        querySimulation: '\n📋 마이그레이션 쿼리 시뮬레이션:',
+        queryId: '쿼리 ID:',
+        description: '설명:',
+        targetTable: '대상 테이블:',
+        dataToMigrate: '📊 이관 예정 데이터:',
+        rows: '행',
+        simulationSuccess: '✅ 시뮬레이션 성공',
+        simulationFailed: '❌ 시뮬레이션 실패:',
+        dryRunSummary: '\n🎯 DRY RUN 시뮬레이션 결과 요약',
+        executionTime: '⏱️  실행 시간:',
+        totalQueriesCount: '📊 총 쿼리 수:',
+        totalDataToMigrate: '📈 총 이관 예정 데이터:',
+        dryRunNote: '\n💡 참고: DRY RUN 모드에서는 실제 데이터 변경이 일어나지 않습니다.',
+        dryRunError: '❌ DRY RUN 실행 중 오류:',
+        configValidated: '✅ 설정 검증 완료',
+        totalQueriesFound: '- 전체 쿼리 수:',
+        enabledQueriesFound: '- 활성화된 쿼리 수:',
+        dynamicVariablesFound: '- 동적 변수 수:',
+        configValidationFailed: '❌ 설정 검증 실패:',
+        connectionSuccess: '연결 성공',
+        requiredEnvVarsNotSet: '필수 환경 변수가 설정되지 않았습니다:',
+        unknownAttributesInSettings: '⚠️ settings에 알 수 없는 속성이 있습니다:',
+        allowedAttributesSettings: '허용되는 속성:',
+        noEnabledQueries: '⚠️ 활성화된 쿼리가 없습니다. (쿼리문정의 파일 구조 검증은 성공)',
+        invalidAttributesInQuery: '❌ queries[',
+        idNotSpecified: '미지정',
+        allowedAttributesQuery: '허용되는 속성:',
+        invalidAttributeError: '쿼리에 잘못된 속성명이 있습니다:',
+        missingIdInQuery: 'queries[',
+        missingIdEnd: ']에 id 속성이 없습니다.',
+        missingSourceQuery: '쿼리',
+        missingSourceQueryEnd: '에 sourceQuery 또는 sourceQueryFile이 없습니다.',
+        missingTargetTable: '에 targetTable 속성이 없습니다.',
+        invalidPreProcessAttrs: '의 preProcess에 잘못된 속성이 있습니다:',
+        invalidPostProcessAttrs: '의 postProcess에 잘못된 속성이 있습니다:'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 /**
  * 모듈화된 MSSQL 데이터 마이그레이터
  */
@@ -19,6 +260,7 @@ class MSSQLDataMigrator {
     constructor(queryFilePath, dryRun = false) {
         this.queryFilePath = queryFilePath;
         this.dryRun = dryRun;
+        this.msg = msg;
         this.enableLogging = process.env.ENABLE_LOGGING === 'true';
         this.enableTransaction = process.env.ENABLE_TRANSACTION === 'true';
         
@@ -84,10 +326,10 @@ class MSSQLDataMigrator {
                 fs.mkdirSync(logsDir, { recursive: true });
             }
         } catch (error) {
-            console.warn(`Could not create logs directory: ${error.message}`);
+            console.warn(`${this.msg.logsDirectoryError} ${error.message}`);
         }
         
-        this.log(`데이터 이관 시작: ${new Date().toISOString()}`);
+        this.log(`${this.msg.migrationStart} ${new Date().toISOString()}`);
     }
 
     /**
@@ -118,7 +360,7 @@ class MSSQLDataMigrator {
             
             // DB 연결 정보 설정
             if (this.config.settings) {
-                logger.info('쿼리문정의 파일에서 DB 연결 정보를 발견했습니다.');
+                logger.info(this.msg.dbConfigFound);
                 
                 let sourceConfig = null;
                 let targetConfig = null;
@@ -126,10 +368,10 @@ class MSSQLDataMigrator {
                 if (typeof this.config.settings.sourceDatabase === 'string') {
                     const sourceId = this.config.settings.sourceDatabase;
                     sourceConfig = this.getDbConfigById(sourceId);
-                    logger.info('소스 DB 설정(DB ID)', sourceConfig);
+                    logger.info(this.msg.sourceDbConfig, sourceConfig);
                 } else if (this.config.settings.sourceDatabase) {
                     sourceConfig = this.config.settings.sourceDatabase;
-                    sourceConfig.description = sourceConfig.description || '직접 설정된 소스 데이터베이스';
+                    sourceConfig.description = sourceConfig.description || this.msg.directConfiguredSource;
                 }
                 
                 if (typeof this.config.settings.targetDatabase === 'string') {
@@ -137,25 +379,25 @@ class MSSQLDataMigrator {
                     targetConfig = this.getDbConfigById(targetId);
                     
                     if (!targetConfig.isWritable) {
-                        throw new Error(`타겟 DB '${targetId}'는 읽기 전용 데이터베이스입니다. isWritable=true인 DB만 타겟으로 사용할 수 있습니다.`);
+                        throw new Error(`${this.msg.targetDbReadOnly} '${targetId}'${this.msg.targetDbReadOnlyError}`);
                     }
                     
-                    logger.info('타겟 DB 설정 (DB ID)', targetConfig);
+                    logger.info(this.msg.targetDbConfig, targetConfig);
                 } else if (this.config.settings.targetDatabase) {
                     targetConfig = this.config.settings.targetDatabase;
                     targetConfig.isWritable = targetConfig.isWritable ?? true;
-                    targetConfig.description = targetConfig.description || '직접 설정된 타겟 데이터베이스';
+                    targetConfig.description = targetConfig.description || this.msg.directConfiguredTarget;
                 }
                 
                 this.connectionManager.setCustomDatabaseConfigs(sourceConfig, targetConfig);
             } else {
-                logger.info('환경 변수(.env)에서 DB 연결 정보를 사용합니다.');
+                logger.info(this.msg.usingEnvVars);
             }
             
             return this.config;
         } catch (error) {
-            logger.error('쿼리문정의 파일 로드 실패', error);
-            throw new Error(`쿼리문정의 파일 로드 실패: ${error.message}`);
+            logger.error(this.msg.configLoadFailed, error);
+            throw new Error(`${this.msg.configLoadFailed} ${error.message}`);
         }
     }
 
@@ -205,7 +447,7 @@ class MSSQLDataMigrator {
                     
                     const appliedColumns = Object.keys(existingOverrides);
                     if (appliedColumns.length > 0) {
-                        this.log(`전역 컬럼 오버라이드 적용 (all): ${appliedColumns.join(', ')}`);
+                        this.log(`${this.msg.globalColumnApplied} (${this.msg.globalColumnAppliedAll}): ${appliedColumns.join(', ')}`);
                     }
                     
                     return existingOverrides;
@@ -224,7 +466,7 @@ class MSSQLDataMigrator {
                 }
                 
             case 'none':
-                this.log(`전역 컬럼 오버라이드 적용 안 함 (none)`);
+                this.log(`${this.msg.globalColumnNotApplied} (none)`);
                 return {};
                 
             default:
@@ -245,9 +487,9 @@ class MSSQLDataMigrator {
                     
                     const appliedColumns = Object.keys(selectedOverrides);
                     if (appliedColumns.length > 0) {
-                        this.log(`전역 컬럼 오버라이드 선택 적용: ${appliedColumns.join(', ')}`);
+                        this.log(`${this.msg.globalColumnSelected} ${appliedColumns.join(', ')}`);
                     } else {
-                        this.log(`전역 컬럼 오버라이드: 요청된 컬럼(${applyGlobalColumns})이 전역 설정에 없음`);
+                        this.log(`${this.msg.globalColumnNotFound} (${applyGlobalColumns}) ${this.msg.globalColumnNotFoundEnd}`);
                     }
                     
                     return selectedOverrides;
@@ -258,12 +500,12 @@ class MSSQLDataMigrator {
                             tableName: tableName,
                             database: database
                         });
-                        this.log(`전역 컬럼 오버라이드 적용: ${columnInfo.originalColumn}`);
+                        this.log(`${this.msg.globalColumnApplied}: ${columnInfo.originalColumn}`);
                         return { 
                             [columnInfo.originalColumn]: resolvedValue
                         };
                     }
-                    this.log(`전역 컬럼 오버라이드: 요청된 컬럼 '${applyGlobalColumns}'이 전역 설정에 없음`);
+                    this.log(`${this.msg.globalColumnNotFound} '${applyGlobalColumns}' ${this.msg.globalColumnNotFoundEnd}`);
                     return {};
                 }
         }
@@ -274,12 +516,12 @@ class MSSQLDataMigrator {
      */
     async executeQueryMigration(queryConfig) {
         try {
-            this.log(`\n=== 쿼리 이관 시작: ${queryConfig.id} ===`);
-            this.log(`설명: ${queryConfig.description}`);
+            this.log(`\n${this.msg.queryMigrationStart} ${queryConfig.id} ===`);
+            this.log(`${this.msg.queryDescription} ${queryConfig.description}`);
             
             // 전처리 실행
             if (queryConfig.preProcess) {
-                this.log(`--- ${queryConfig.id} 전처리 실행 ---`);
+                this.log(`${this.msg.preProcessStart}`);
                 const preProcessHasTempTables = this.scriptProcessor.detectTempTableUsageInScript(queryConfig.preProcess.script);
                 const preResult = await this.scriptProcessor.executeProcessScript(
                     queryConfig.preProcess, 
@@ -288,9 +530,9 @@ class MSSQLDataMigrator {
                 );
                 
                 if (!preResult.success) {
-                    throw new Error(`${queryConfig.id} 전처리 실행 실패: ${preResult.error}`);
+                    throw new Error(`${queryConfig.id} ${this.msg.preProcessFailed} ${preResult.error}`);
                 }
-                this.log(`--- ${queryConfig.id} 전처리 완료 ---`);
+                this.log(`${this.msg.preProcessComplete}`);
             }
             
             // 배치 크기 결정
@@ -303,16 +545,16 @@ class MSSQLDataMigrator {
             // sourceQuery 검증
             const validationResult = this.queryProcessor.validateSingleSqlStatement(queryConfig.sourceQuery);
             if (!validationResult.isValid) {
-                throw new Error(`sourceQuery 검증 실패: ${validationResult.message}`);
+                throw new Error(`${this.msg.sourceQueryValidationFailed} ${validationResult.message}`);
             }
-            this.log(`✅ sourceQuery 검증 통과: ${validationResult.message}`);
+            this.log(`${this.msg.sourceQueryValidated} ${validationResult.message}`);
 
             // 소스 데이터 조회
             const sourceData = await this.connectionManager.querySource(queryConfig.sourceQuery);
             
             // PK 기준 삭제 처리
             if (queryConfig.sourceQueryDeleteBeforeInsert) {
-                this.log(`이관 전 대상 테이블 PK 기준 데이터 삭제: ${queryConfig.targetTable}`);
+                this.log(`${this.msg.deletingBeforeInsert} ${queryConfig.targetTable}`);
                 if (sourceData && sourceData.length > 0) {
                     const identityColumns = typeof queryConfig.identityColumns === 'string' && queryConfig.identityColumns.includes(',')
                         ? queryConfig.identityColumns.split(',').map(pk => pk.trim())
@@ -322,7 +564,7 @@ class MSSQLDataMigrator {
             }
             
             if (sourceData.length === 0) {
-                this.log('조회된 데이터가 없습니다. 이관을 건너뜁니다.');
+                this.log(this.msg.noDataToMigrate);
                 return { success: true, rowsProcessed: 0 };
             }
             
@@ -340,7 +582,7 @@ class MSSQLDataMigrator {
             
             // 후처리 실행
             if (queryConfig.postProcess) {
-                this.log(`--- ${queryConfig.id} 후처리 실행 ---`);
+                this.log(`${this.msg.postProcessStart}`);
                 const postProcessHasTempTables = this.scriptProcessor.detectTempTableUsageInScript(queryConfig.postProcess.script);
                 const postResult = await this.scriptProcessor.executeProcessScript(
                     queryConfig.postProcess, 
@@ -349,16 +591,16 @@ class MSSQLDataMigrator {
                 );
                 
                 if (!postResult.success) {
-                    this.log(`${queryConfig.id} 후처리 실행 실패: ${postResult.error}`);
+                    this.log(`${queryConfig.id} ${this.msg.postProcessFailed} ${postResult.error}`);
                 }
-                this.log(`--- ${queryConfig.id} 후처리 완료 ---`);
+                this.log(`${this.msg.postProcessComplete}`);
             }
             
-            this.log(`=== 쿼리 이관 완료: ${queryConfig.id} (${insertedRows}행 처리) ===\n`);
+            this.log(`${this.msg.queryMigrationComplete} ${queryConfig.id} (${insertedRows}${this.msg.rowsProcessed}) ===\n`);
             
             return { success: true, rowsProcessed: insertedRows };
         } catch (error) {
-            this.log(`=== 쿼리 이관 실패: ${queryConfig.id} - ${error.message} ===\n`);
+            this.log(`${this.msg.queryMigrationFailed} ${queryConfig.id} - ${error.message} ===\n`);
             return { success: false, error: error.message, rowsProcessed: 0 };
         }
     }
@@ -369,28 +611,31 @@ class MSSQLDataMigrator {
     async insertDataInBatches(tableName, columns, data, batchSize, queryId = null) {
         try {
             if (!data || data.length === 0) {
-                this.log('삽입할 데이터가 없습니다.');
+                this.log(this.msg.noDataToInsert);
                 return 0;
             }
 
             const totalRows = data.length;
             let insertedRows = 0;
             
-            this.log(`총 ${totalRows}행을 ${batchSize}개씩 배치로 삽입 시작`);
+            const batchLabel = LANGUAGE === 'kr' ? `${batchSize}개씩 배치로 삽입 시작` : `${this.msg.totalRowsBatch} ${batchSize}`;
+            this.log(`${this.msg.totalRows} ${totalRows} ${batchLabel}`);
             
             for (let i = 0; i < totalRows; i += batchSize) {
                 const batch = data.slice(i, i + batchSize);
                 const batchNumber = Math.floor(i / batchSize) + 1;
                 const totalBatches = Math.ceil(totalRows / batchSize);
              
-                this.log(`배치 ${batchNumber}/${totalBatches} 처리 중 (${batch.length}행)`);
+                const processingLabel = LANGUAGE === 'kr' ? '처리 중' : 'processing';
+                const rowsLabel = LANGUAGE === 'kr' ? `${batch.length}${this.msg.rows}` : `${batch.length} ${this.msg.rows}`;
+                this.log(`${this.msg.batchProcessing} ${batchNumber}/${totalBatches} ${processingLabel} (${rowsLabel})`);
                 
                 const result = await this.connectionManager.insertToTarget(tableName, columns, batch);
                 const batchInsertedRows = result.rowsAffected[0];
                 insertedRows += batchInsertedRows;
                 
                 const progress = ((i + batch.length) / totalRows * 100).toFixed(1);
-                this.log(`진행률: ${progress}% (${i + batch.length}/${totalRows})`);
+                this.log(`${this.msg.progress} ${progress}% (${i + batch.length}/${totalRows})`);
                 
                 if (this.progressManager && queryId) {
                     this.progressManager.updateBatchProgress(
@@ -403,10 +648,10 @@ class MSSQLDataMigrator {
                 }
             }
             
-            this.log(`총 ${insertedRows}행 삽입 완료`);
+            this.log(`${this.msg.totalInserted} ${insertedRows}${this.msg.totalInsertedEnd}`);
             return insertedRows;
         } catch (error) {
-            this.log(`배치 삽입 실패: ${error.message}`);
+            this.log(`${this.msg.batchInsertFailed} ${error.message}`);
             throw error;
         }
     }
@@ -425,32 +670,32 @@ class MSSQLDataMigrator {
         
         try {
             this.initializeLogging();
-            this.log('MSSQL 데이터 이관 프로세스 시작');
+            this.log(this.msg.migrationProcessStart);
             
             // 진행 상황 관리자 초기화
             if (resumeMigrationId) {
                 this.progressManager = ProgressManager.loadProgress(resumeMigrationId);
                 if (!this.progressManager) {
-                    throw new Error(`재시작할 마이그레이션을 찾을 수 없습니다: ${resumeMigrationId}`);
+                    throw new Error(`${this.msg.cannotResumeMigration} ${resumeMigrationId}`);
                 }
                 
                 if (!this.progressManager.canResume()) {
-                    throw new Error(`마이그레이션을 재시작할 수 없습니다. 상태: ${this.progressManager.progressData.status}`);
+                    throw new Error(`${this.msg.cannotResumeMigrationStatus} ${this.progressManager.progressData.status}`);
                 }
                 
                 isResuming = true;
                 this.progressManager.prepareForResume();
-                this.log(`마이그레이션 재시작: ${this.progressManager.migrationId}`);
+                this.log(`${this.msg.resumingMigration} ${this.progressManager.migrationId}`);
             } else {
                 this.progressManager = new ProgressManager();
-                this.log(`Migration ID: ${this.progressManager.migrationId}`);
+                this.log(`${this.msg.migrationId} ${this.progressManager.migrationId}`);
             }
             
             // 쿼리문정의 파일 로드
             await this.loadConfig();
             
             // 데이터베이스 연결
-            this.log('데이터베이스 연결 중...');
+            this.log(this.msg.connectingToDb);
             this.progressManager.updatePhase('CONNECTING', 'RUNNING', 'Connecting to databases');
             await this.connectionManager.connectBoth();
             
@@ -461,7 +706,7 @@ class MSSQLDataMigrator {
             
             // 동적 변수 추출 실행
             if (this.config.dynamicVariables && this.config.dynamicVariables.length > 0) {
-                this.log(`동적 변수 추출 시작: ${this.config.dynamicVariables.length}개`);
+                this.log(`${this.msg.extractingVariables} ${this.config.dynamicVariables.length}${this.msg.items || '개'}`);
                 this.progressManager.updatePhase('EXTRACTING_VARIABLES', 'RUNNING', `Extracting ${this.config.dynamicVariables.length} dynamic variables`);
                 
                 for (const extractConfig of this.config.dynamicVariables) {
@@ -471,7 +716,7 @@ class MSSQLDataMigrator {
                 }
                 
                 this.progressManager.updatePhase('EXTRACTING_VARIABLES', 'COMPLETED', 'Dynamic variable extraction completed');
-                this.log('모든 동적 변수 추출 완료');
+                this.log(this.msg.extractingVariablesComplete);
             }
             
             // 활성화된 쿼리 필터링
@@ -482,7 +727,9 @@ class MSSQLDataMigrator {
                 const completedQueries = this.progressManager.getCompletedQueries();
                 const originalCount = enabledQueries.length;
                 enabledQueries = enabledQueries.filter(query => !completedQueries.includes(query.id));
-                this.log(`전체 쿼리: ${originalCount}개, 완료된 쿼리: ${completedQueries.length}개, 실행할 쿼리: ${enabledQueries.length}개`);
+                const itemSuffix = LANGUAGE === 'kr' ? '개' : '';
+                const completedLabel = LANGUAGE === 'kr' ? '완료된 쿼리' : 'completed queries';
+                this.log(`${this.msg.enabledQueries} ${originalCount}${itemSuffix}, ${completedLabel}: ${completedQueries.length}${itemSuffix}, ${this.msg.totalQueriesToExecute} ${enabledQueries.length}${itemSuffix}`);
                 
                 completedQueries.forEach(queryId => {
                     const queryData = this.progressManager.progressData.queries[queryId];
@@ -498,28 +745,28 @@ class MSSQLDataMigrator {
                     }
                 });
             } else {
-                this.log(`실행할 쿼리 수: ${enabledQueries.length}`);
+                this.log(`${this.msg.totalQueriesToExecute} ${enabledQueries.length}`);
             }
             
             // 전체 행 수 추정
             let totalEstimatedRows = 0;
             if (!isResuming) {
-                this.log('🔍 쿼리별 행 수 추정 시작...');
+                this.log(this.msg.estimatingRowCount);
                 for (const query of enabledQueries) {
                     const rowCount = await this.queryProcessor.estimateQueryRowCount(query, this.queryFilePath);
                     totalEstimatedRows += rowCount;
                 }
-                this.log(`📊 총 예상 이관 행 수: ${totalEstimatedRows.toLocaleString()}`);
+                this.log(`${this.msg.totalEstimatedRows} ${totalEstimatedRows.toLocaleString()}`);
                 this.progressManager.startMigration(this.config.queries.filter(query => query.enabled).length, totalEstimatedRows);
             } else {
                 totalEstimatedRows = this.progressManager.progressData.totalRows || 0;
-                this.log(`기존 예상 행 수: ${totalEstimatedRows.toLocaleString()}행`);
+                this.log(`${this.msg.existingEstimatedRows} ${totalEstimatedRows.toLocaleString()}${this.msg.rows}`);
             }
             
             // 트랜잭션 시작
             let transaction = null;
             if (this.enableTransaction) {
-                this.log('트랜잭션 시작');
+                this.log(this.msg.transactionStart);
                 transaction = await this.connectionManager.beginTransaction();
             }
             
@@ -562,9 +809,10 @@ class MSSQLDataMigrator {
                         this.progressManager.failQuery(queryConfig.id, new Error(result.error || 'Unknown error'));
                         
                         if (this.enableTransaction && transaction) {
-                            this.log('오류 발생으로 인한 트랜잭션 롤백');
+                            this.log(this.msg.transactionRollback);
                             await transaction.rollback();
-                            throw new Error(`쿼리 실행 실패: ${queryConfig.id}`);
+                            const errorMsg = LANGUAGE === 'kr' ? `쿼리 실행 실패: ${queryConfig.id}` : `Query execution failed: ${queryConfig.id}`;
+                            throw new Error(errorMsg);
                         }
                     }
                     
@@ -573,7 +821,7 @@ class MSSQLDataMigrator {
                 
                 // 트랜잭션 커밋
                 if (this.enableTransaction && transaction) {
-                    this.log('트랜잭션 커밋');
+                    this.log(this.msg.transactionCommit);
                     await transaction.commit();
                 }
                 
@@ -586,16 +834,16 @@ class MSSQLDataMigrator {
                 if (this.enableTransaction && transaction) {
                     try {
                         await transaction.rollback();
-                        this.log('트랜잭션 롤백 완료');
+                        this.log(this.msg.transactionRollbackComplete);
                     } catch (rollbackError) {
-                        this.log(`트랜잭션 롤백 실패: ${rollbackError.message}`);
+                        this.log(`${this.msg.transactionRollbackFailed} ${rollbackError.message}`);
                     }
                 }
                 throw error;
             }
             
         } catch (error) {
-            this.log(`이관 프로세스 오류: ${error.message}`);
+            this.log(`${this.msg.migrationProcessError} ${error.message}`);
             
             if (this.progressManager) {
                 this.progressManager.failMigration(error);
@@ -613,31 +861,33 @@ class MSSQLDataMigrator {
                 this.progressManager.completeMigration();
             }
             
-            this.log('\n=== 이관 프로세스 완료 ===');
-            this.log(`총 실행 시간: ${duration.toFixed(2)}초`);
-            this.log(`성공한 쿼리: ${successCount}`);
-            this.log(`실패한 쿼리: ${failureCount}`);
-            this.log(`총 처리된 행: ${totalProcessed}`);
+            this.log(this.msg.migrationProcessComplete);
+            this.log(`${this.msg.totalExecutionTime} ${duration.toFixed(2)}${this.msg.secondsSuffix}`);
+            const itemSuffix = LANGUAGE === 'kr' ? '' : '';
+            this.log(`${this.msg.successfulQueries} ${successCount}${itemSuffix}`);
+            this.log(`${this.msg.failedQueries} ${failureCount}${itemSuffix}`);
+            this.log(`${this.msg.totalProcessedRows} ${totalProcessed}`);
             
             if (this.progressManager) {
                 const summary = this.progressManager.getProgressSummary();
-                this.log(`\n=== 진행 상황 요약 ===`);
-                this.log(`Migration ID: ${summary.migrationId}`);
-                this.log(`최종 상태: ${summary.status}`);
-                this.log(`전체 진행률: ${summary.totalProgress.toFixed(1)}%`);
+                this.log(this.msg.progressSummary);
+                this.log(`${this.msg.migrationId} ${summary.migrationId}`);
+                this.log(`${this.msg.finalStatus} ${summary.status}`);
+                this.log(`${this.msg.totalProgress} ${summary.totalProgress.toFixed(1)}%`);
             }
             
             results.forEach(result => {
-                const status = result.success ? '성공' : '실패';
-                this.log(`${result.queryId}: ${status} (${result.rowsProcessed}행) - ${result.description}`);
+                const status = result.success ? this.msg.success : this.msg.failed;
+                const rowsText = LANGUAGE === 'kr' ? `${result.rowsProcessed}행` : `${result.rowsProcessed} ${this.msg.rows}`;
+                this.log(`${result.queryId}: ${status} (${rowsText}) - ${result.description}`);
             });
             
             if (this.enableLogging) {
-                this.log(`\n상세 로그: ${this.logFile}`);
+                this.log(`${this.msg.detailedLog} ${this.logFile}`);
             }
             
             if (this.progressManager) {
-                this.log(`진행 상황 파일: ${this.progressManager.progressFile}`);
+                this.log(`${this.msg.progressFile} ${this.progressManager.progressFile}`);
             }
         }
         
@@ -663,7 +913,7 @@ class MSSQLDataMigrator {
      * DRY RUN 모드
      */
     async executeDryRun() {
-        console.log('🧪 DRY RUN 모드: 데이터 마이그레이션 시뮬레이션\n');
+        console.log(this.msg.dryRunMode);
         
         const startTime = Date.now();
         let totalQueries = 0;
@@ -673,22 +923,23 @@ class MSSQLDataMigrator {
         try {
             await this.loadConfig();
             
-            console.log('📡 소스 데이터베이스 연결 중...');
+            console.log(this.msg.connectingToSource);
             await this.connectionManager.connectSource();
             
             // 동적 변수 추출
             if (this.config.dynamicVariables && this.config.dynamicVariables.length > 0) {
-                console.log(`\n🔍 동적 변수 추출 시뮬레이션: ${this.config.dynamicVariables.length}개`);
+                const itemSuffix = LANGUAGE === 'kr' ? '개' : ` ${this.msg.items}`;
+                console.log(`${this.msg.dynamicVarSimulation} ${this.config.dynamicVariables.length}${itemSuffix}`);
                 
                 for (const extractConfig of this.config.dynamicVariables) {
                     if (extractConfig.enabled !== false) {
-                        console.log(`  • ${extractConfig.id}: ${extractConfig.description || '설명 없음'}`);
+                        console.log(`  • ${extractConfig.id}: ${extractConfig.description || this.msg.noDescription}`);
                         
                         try {
                             await this.variableManager.extractDataToVariable(extractConfig);
-                            console.log(`    ✅ 추출 완료 → 변수: ${extractConfig.variableName}`);
+                            console.log(`    ${this.msg.extractionComplete} ${extractConfig.variableName}`);
                         } catch (error) {
-                            console.log(`    ❌ 추출 실패: ${error.message}`);
+                            console.log(`    ${this.msg.extractionFailed} ${error.message}`);
                         }
                     }
                 }
@@ -696,21 +947,23 @@ class MSSQLDataMigrator {
             
             // 쿼리 시뮬레이션
             const enabledQueries = this.config.queries.filter(q => q.enabled !== false);
-            console.log(`\n📋 마이그레이션 쿼리 시뮬레이션: ${enabledQueries.length}개`);
+            const querySuffix = LANGUAGE === 'kr' ? '개' : ` ${this.msg.items}`;
+            console.log(`${this.msg.querySimulation} ${enabledQueries.length}${querySuffix}`);
             console.log('='.repeat(80));
             
             for (let i = 0; i < enabledQueries.length; i++) {
                 const queryConfig = enabledQueries[i];
-                console.log(`\n${i + 1}. 쿼리 ID: ${queryConfig.id}`);
-                console.log(`   설명: ${queryConfig.description || '설명 없음'}`);
-                console.log(`   대상 테이블: ${queryConfig.targetTable}`);
+                console.log(`\n${i + 1}. ${this.msg.queryId} ${queryConfig.id}`);
+                console.log(`   ${this.msg.description} ${queryConfig.description || this.msg.noDescription}`);
+                console.log(`   ${this.msg.targetTable} ${queryConfig.targetTable}`);
                 
                 try {
                     const rowCount = await this.queryProcessor.estimateQueryRowCount(queryConfig, this.queryFilePath);
                     totalRows += rowCount;
                     totalQueries++;
                     
-                    console.log(`   📊 이관 예정 데이터: ${rowCount.toLocaleString()}행`);
+                    const rowsLabel = LANGUAGE === 'kr' ? `${rowCount.toLocaleString()}행` : `${rowCount.toLocaleString()} ${this.msg.rows}`;
+                    console.log(`   ${this.msg.dataToMigrate} ${rowsLabel}`);
                     
                     results.push({
                         id: queryConfig.id,
@@ -719,10 +972,10 @@ class MSSQLDataMigrator {
                         status: 'success'
                     });
                     
-                    console.log(`   ✅ 시뮬레이션 성공`);
+                    console.log(`   ${this.msg.simulationSuccess}`);
                     
                 } catch (error) {
-                    console.log(`   ❌ 시뮬레이션 실패: ${error.message}`);
+                    console.log(`   ${this.msg.simulationFailed} ${error.message}`);
                     results.push({
                         id: queryConfig.id,
                         targetTable: queryConfig.targetTable,
@@ -739,22 +992,28 @@ class MSSQLDataMigrator {
             const failureCount = results.filter(r => r.status === 'error').length;
             
             console.log('\n' + '='.repeat(80));
-            console.log('🎯 DRY RUN 시뮬레이션 결과 요약');
+            console.log(this.msg.dryRunSummary);
             console.log('='.repeat(80));
-            console.log(`⏱️  실행 시간: ${duration}초`);
-            console.log(`📊 총 쿼리 수: ${totalQueries}개`);
-            console.log(`📈 총 이관 예정 데이터: ${totalRows.toLocaleString()}행`);
-            console.log(`✅ 성공한 쿼리: ${successCount}개`);
-            console.log(`❌ 실패한 쿼리: ${failureCount}개`);
+            const timeSuffix = LANGUAGE === 'kr' ? '초' : 's';
+            const countSuffix = LANGUAGE === 'kr' ? '개' : '';
+            const rowsLabel = LANGUAGE === 'kr' ? `${totalRows.toLocaleString()}행` : `${totalRows.toLocaleString()} ${this.msg.rows}`;
+            console.log(`${this.msg.executionTime} ${duration}${timeSuffix}`);
+            console.log(`${this.msg.totalQueriesCount} ${totalQueries}${countSuffix}`);
+            console.log(`${this.msg.totalDataToMigrate} ${rowsLabel}`);
+            const successLabel = LANGUAGE === 'kr' ? '성공한 쿼리' : 'successful queries';
+            const failureLabel = LANGUAGE === 'kr' ? '실패한 쿼리' : 'failed queries';
+            console.log(`✅ ${successLabel}: ${successCount}${countSuffix}`);
+            console.log(`❌ ${failureLabel}: ${failureCount}${countSuffix}`);
             
             if (failureCount > 0) {
-                console.log('\n❌ 실패한 쿼리 목록:');
+                const failedListLabel = LANGUAGE === 'kr' ? '\n❌ 실패한 쿼리 목록:' : '\n❌ Failed queries:';
+                console.log(failedListLabel);
                 results.filter(r => r.status === 'error').forEach(r => {
                     console.log(`  • ${r.id} (${r.targetTable}): ${r.error}`);
                 });
             }
             
-            console.log('\n💡 참고: DRY RUN 모드에서는 실제 데이터 변경이 일어나지 않습니다.');
+            console.log(this.msg.dryRunNote);
             
             return {
                 success: failureCount === 0,
@@ -767,7 +1026,7 @@ class MSSQLDataMigrator {
             };
             
         } catch (error) {
-            console.error('❌ DRY RUN 실행 중 오류:', error.message);
+            console.error(`${this.msg.dryRunError} ${error.message}`);
             return {
                 success: false,
                 error: error.message,
@@ -824,7 +1083,7 @@ class MSSQLDataMigrator {
                 
                 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
                 if (missingVars.length > 0) {
-                    throw new Error(`필수 환경 변수가 설정되지 않았습니다: ${missingVars.join(', ')}`);
+                    throw new Error(`${this.msg.requiredEnvVarsNotSet} ${missingVars.join(', ')}`);
                 }
             } else {
                 // settings 속성명 검증
@@ -832,8 +1091,8 @@ class MSSQLDataMigrator {
                     attr => !validSettingsAttributes.includes(attr)
                 );
                 if (invalidSettingsAttrs.length > 0) {
-                    console.warn(`⚠️ settings에 알 수 없는 속성이 있습니다: ${invalidSettingsAttrs.join(', ')}`);
-                    console.warn(`   허용되는 속성: ${validSettingsAttributes.join(', ')}`);
+                    console.warn(`${this.msg.unknownAttributesInSettings} ${invalidSettingsAttrs.join(', ')}`);
+                    console.warn(`   ${this.msg.allowedAttributesSettings} ${validSettingsAttributes.join(', ')}`);
                 }
             }
             
@@ -846,9 +1105,11 @@ class MSSQLDataMigrator {
                     );
                     
                     if (invalidAttrs.length > 0) {
-                        console.error(`❌ dynamicVariables[${i}] (id: ${dynVar.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
-                        console.error(`   허용되는 속성: ${validDynamicVarAttributes.join(', ')}`);
-                        throw new Error(`dynamicVariables에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                        const errorMsg = `❌ dynamicVariables[${i}] (id: ${dynVar.id || this.msg.idNotSpecified})`;
+                        console.error(`${errorMsg}: ${invalidAttrs.join(', ')}`);
+                        console.error(`   ${this.msg.allowedAttributesSettings} ${validDynamicVarAttributes.join(', ')}`);
+                        const errorText = LANGUAGE === 'kr' ? `dynamicVariables에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}` : `Invalid attributes in dynamicVariables: ${invalidAttrs.join(', ')}`;
+                        throw new Error(errorText);
                     }
                 }
             }
@@ -858,7 +1119,7 @@ class MSSQLDataMigrator {
             const enabledQueries = allQueries.filter(q => q.enabled !== false);
             
             if (enabledQueries.length === 0) {
-                console.log('⚠️ 활성화된 쿼리가 없습니다. (쿼리문정의 파일 구조 검증은 성공)');
+                console.log(this.msg.noEnabledQueries);
             }
             
             for (let i = 0; i < allQueries.length; i++) {
@@ -870,22 +1131,22 @@ class MSSQLDataMigrator {
                 );
                 
                 if (invalidAttrs.length > 0) {
-                    console.error(`❌ queries[${i}] (id: ${query.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
-                    console.error(`   허용되는 속성: ${validQueryAttributes.join(', ')}`);
-                    throw new Error(`쿼리에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                    console.error(`${this.msg.invalidAttributesInQuery}${i}] (id: ${query.id || this.msg.idNotSpecified}): ${invalidAttrs.join(', ')}`);
+                    console.error(`   ${this.msg.allowedAttributesQuery} ${validQueryAttributes.join(', ')}`);
+                    throw new Error(`${this.msg.invalidAttributeError} ${invalidAttrs.join(', ')}`);
                 }
                 
                 // 필수 속성 검증
                 if (!query.id) {
-                    throw new Error(`queries[${i}]에 id 속성이 없습니다.`);
+                    throw new Error(`${this.msg.missingIdInQuery}${i}${this.msg.missingIdEnd}`);
                 }
                 
                 if (!query.sourceQuery && !query.sourceQueryFile) {
-                    throw new Error(`쿼리 '${query.id}'에 sourceQuery 또는 sourceQueryFile이 없습니다.`);
+                    throw new Error(`${this.msg.missingSourceQuery} '${query.id}' ${this.msg.missingSourceQueryEnd}`);
                 }
                 
                 if (!query.targetTable) {
-                    throw new Error(`쿼리 '${query.id}'에 targetTable 속성이 없습니다.`);
+                    throw new Error(`${this.msg.missingSourceQuery} '${query.id}' ${this.msg.missingTargetTable}`);
                 }
                 
                 // preProcess/postProcess 속성명 검증
@@ -894,9 +1155,10 @@ class MSSQLDataMigrator {
                         attr => !validPrePostProcessAttributes.includes(attr)
                     );
                     if (invalidPreAttrs.length > 0) {
-                        console.error(`❌ 쿼리 '${query.id}'의 preProcess에 잘못된 속성이 있습니다: ${invalidPreAttrs.join(', ')}`);
-                        console.error(`   허용되는 속성: ${validPrePostProcessAttributes.join(', ')}`);
-                        throw new Error(`preProcess에 잘못된 속성명이 있습니다: ${invalidPreAttrs.join(', ')}`);
+                        console.error(`❌ ${this.msg.missingSourceQuery} '${query.id}'${this.msg.invalidPreProcessAttrs} ${invalidPreAttrs.join(', ')}`);
+                        console.error(`   ${this.msg.allowedAttributesQuery} ${validPrePostProcessAttributes.join(', ')}`);
+                        const errorText = LANGUAGE === 'kr' ? `preProcess에 잘못된 속성명이 있습니다: ${invalidPreAttrs.join(', ')}` : `Invalid attributes in preProcess: ${invalidPreAttrs.join(', ')}`;
+                        throw new Error(errorText);
                     }
                 }
                 
@@ -905,9 +1167,10 @@ class MSSQLDataMigrator {
                         attr => !validPrePostProcessAttributes.includes(attr)
                     );
                     if (invalidPostAttrs.length > 0) {
-                        console.error(`❌ 쿼리 '${query.id}'의 postProcess에 잘못된 속성이 있습니다: ${invalidPostAttrs.join(', ')}`);
-                        console.error(`   허용되는 속성: ${validPrePostProcessAttributes.join(', ')}`);
-                        throw new Error(`postProcess에 잘못된 속성명이 있습니다: ${invalidPostAttrs.join(', ')}`);
+                        console.error(`❌ ${this.msg.missingSourceQuery} '${query.id}'${this.msg.invalidPostProcessAttrs} ${invalidPostAttrs.join(', ')}`);
+                        console.error(`   ${this.msg.allowedAttributesQuery} ${validPrePostProcessAttributes.join(', ')}`);
+                        const errorText = LANGUAGE === 'kr' ? `postProcess에 잘못된 속성명이 있습니다: ${invalidPostAttrs.join(', ')}` : `Invalid attributes in postProcess: ${invalidPostAttrs.join(', ')}`;
+                        throw new Error(errorText);
                     }
                 }
             }
@@ -922,9 +1185,11 @@ class MSSQLDataMigrator {
                         );
                         
                         if (invalidAttrs.length > 0) {
-                            console.error(`❌ preProcessGroups[${i}] (id: ${group.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
-                            console.error(`   허용되는 속성: ${validGlobalProcessGroupAttributes.join(', ')}, script`);
-                            throw new Error(`preProcessGroups에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                            const errorMsg = `❌ preProcessGroups[${i}] (id: ${group.id || this.msg.idNotSpecified})`;
+                            console.error(`${errorMsg}: ${invalidAttrs.join(', ')}`);
+                            console.error(`   ${this.msg.allowedAttributesSettings} ${validGlobalProcessGroupAttributes.join(', ')}, script`);
+                            const errorText = LANGUAGE === 'kr' ? `preProcessGroups에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}` : `Invalid attributes in preProcessGroups: ${invalidAttrs.join(', ')}`;
+                            throw new Error(errorText);
                         }
                     }
                 }
@@ -937,25 +1202,27 @@ class MSSQLDataMigrator {
                         );
                         
                         if (invalidAttrs.length > 0) {
-                            console.error(`❌ postProcessGroups[${i}] (id: ${group.id || '미지정'})에 잘못된 속성이 있습니다: ${invalidAttrs.join(', ')}`);
-                            console.error(`   허용되는 속성: ${validGlobalProcessGroupAttributes.join(', ')}, script`);
-                            throw new Error(`postProcessGroups에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}`);
+                            const errorMsg = `❌ postProcessGroups[${i}] (id: ${group.id || this.msg.idNotSpecified})`;
+                            console.error(`${errorMsg}: ${invalidAttrs.join(', ')}`);
+                            console.error(`   ${this.msg.allowedAttributesSettings} ${validGlobalProcessGroupAttributes.join(', ')}, script`);
+                            const errorText = LANGUAGE === 'kr' ? `postProcessGroups에 잘못된 속성명이 있습니다: ${invalidAttrs.join(', ')}` : `Invalid attributes in postProcessGroups: ${invalidAttrs.join(', ')}`;
+                            throw new Error(errorText);
                         }
                     }
                 }
             }
             
-            console.log('✅ 설정 검증 완료');
-            console.log(`   - 전체 쿼리 수: ${allQueries.length}`);
-            console.log(`   - 활성화된 쿼리 수: ${enabledQueries.length}`);
+            console.log(this.msg.configValidated);
+            console.log(`   ${this.msg.totalQueriesFound} ${allQueries.length}`);
+            console.log(`   ${this.msg.enabledQueriesFound} ${enabledQueries.length}`);
             if (this.config.dynamicVariables) {
-                console.log(`   - 동적 변수 수: ${this.config.dynamicVariables.length}`);
+                console.log(`   ${this.msg.dynamicVariablesFound} ${this.config.dynamicVariables.length}`);
             }
             
             return true;
             
         } catch (error) {
-            console.error('❌ 설정 검증 실패:', error.message);
+            console.error(`${this.msg.configValidationFailed} ${error.message}`);
             return false;
         }
     }
@@ -974,7 +1241,7 @@ class MSSQLDataMigrator {
             
             return {
                 success: true,
-                message: '연결 성공',
+                message: this.msg.connectionSuccess,
                 responseTime: null
             };
         } catch (error) {

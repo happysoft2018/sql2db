@@ -1,6 +1,53 @@
 const fs = require('fs');
 const path = require('path');
 
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        logDirCreateFailed: 'Could not create logs directory: {message}',
+        logDirCreateFailedFallback: 'Could not create logs directory even in fallback location: {message}',
+        logFileWriteFailed: 'Failed to write to log file: {message}',
+        queryExecution: 'Query execution: {queryId}',
+        dbConnectionSuccess: 'Database connection successful: {database}@{server}',
+        dbConnectionFailed: 'Database connection failed: {database}@{server}',
+        configLoadSuccess: 'Query definition file loaded successfully: {path}',
+        configLoadFailed: 'Query definition file load failed: {path}',
+        batchProcessing: 'Batch processing: {batch}/{totalBatches} ({batchPct}%) - {processed}/{total} rows ({pct}%)',
+        operationCompleted: '{operation} completed ({duration}ms)',
+        variableReplacement: 'Variable replacement',
+        dynamicVariableExtraction: 'Dynamic variable extraction: {name}',
+        fkAnalysis: 'FK relationship analysis: {table}',
+        transactionSuccess: 'Transaction {action} successful',
+        transactionFailed: 'Transaction {action} failed',
+        memoryUsage: 'Memory usage',
+        loggerInitialized: 'Logger initialized'
+    },
+    kr: {
+        logDirCreateFailed: '로그 디렉토리 생성 실패: {message}',
+        logDirCreateFailedFallback: '대체 위치에서도 로그 디렉토리 생성 실패: {message}',
+        logFileWriteFailed: '로그 파일 쓰기 실패: {message}',
+        queryExecution: '쿼리 실행: {queryId}',
+        dbConnectionSuccess: '데이터베이스 연결 성공: {database}@{server}',
+        dbConnectionFailed: '데이터베이스 연결 실패: {database}@{server}',
+        configLoadSuccess: '쿼리문정의 파일 로드 성공: {path}',
+        configLoadFailed: '쿼리문정의 파일 로드 실패: {path}',
+        batchProcessing: '배치 처리: {batch}/{totalBatches} ({batchPct}%) - {processed}/{total} 행 ({pct}%)',
+        operationCompleted: '{operation} 완료 ({duration}ms)',
+        variableReplacement: '변수 치환',
+        dynamicVariableExtraction: '동적 변수 추출: {name}',
+        fkAnalysis: 'FK 관계 분석: {table}',
+        transactionSuccess: '트랜잭션 {action} 성공',
+        transactionFailed: '트랜잭션 {action} 실패',
+        memoryUsage: '메모리 사용량',
+        loggerInitialized: '로거 초기화 완료'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 class Logger {
     constructor() {
         this.logLevel = this.getLogLevel();
@@ -21,15 +68,14 @@ class Logger {
         };
         
         this.colors = {
-            ERROR: '\x1b[31m', // 빨간색
-            WARN: '\x1b[33m',  // 노란색
-            INFO: '\x1b[36m',  // 청록색
-            DEBUG: '\x1b[35m', // 자홍색
-            TRACE: '\x1b[90m', // 회색
-            RESET: '\x1b[0m'   // 리셋
+            ERROR: '\x1b[31m',
+            WARN: '\x1b[33m',
+            INFO: '\x1b[36m',
+            DEBUG: '\x1b[35m',
+            TRACE: '\x1b[90m',
+            RESET: '\x1b[0m'
         };
         
-        // 로그 디렉토리 생성 (pkg 환경 고려)
         const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
         this.logDir = path.join(appRoot, 'logs');
         
@@ -38,19 +84,17 @@ class Logger {
                 fs.mkdirSync(this.logDir, { recursive: true });
             }
         } catch (error) {
-            console.warn(`Could not create logs directory: ${error.message}`);
-            // Fallback to current working directory
+            console.warn(msg.logDirCreateFailed.replace('{message}', error.message));
             this.logDir = path.join(process.cwd(), 'logs');
             try {
                 if (!fs.existsSync(this.logDir)) {
                     fs.mkdirSync(this.logDir, { recursive: true });
                 }
             } catch (fallbackError) {
-                console.error(`Could not create logs directory even in fallback location: ${fallbackError.message}`);
+                console.error(msg.logDirCreateFailedFallback.replace('{message}', fallbackError.message));
             }
         }
         
-        // 현지 시각으로 로그 파일명 생성
         const now = new Date();
         const localDate = now.getFullYear() + '-' + 
                          String(now.getMonth() + 1).padStart(2, '0') + '-' + 
@@ -131,10 +175,10 @@ class Logger {
     
     writeToFile(message) {
         try {
-            const fileMessage = message.replace(/\x1b\[[0-9;]*m/g, ''); // ANSI 색상 코드 제거
+            const fileMessage = message.replace(/\x1b\[[0-9;]*m/g, '');
             fs.appendFileSync(this.logFile, fileMessage + '\n');
         } catch (error) {
-            console.error('로그 파일 쓰기 실패:', error.message);
+            console.error(msg.logFileWriteFailed.replace('{message}', error.message));
         }
     }
     
@@ -187,83 +231,85 @@ class Logger {
         return `[${filled}${empty}]`;
     }
     
-    // 쿼리 실행 로깅
     logQuery(queryId, query, params = null) {
-        this.debug(`쿼리 실행: ${queryId}`, {
+        this.debug(msg.queryExecution.replace('{queryId}', queryId), {
             query: query,
             params: params
         });
     }
     
-    // 데이터베이스 연결 로깅
     logConnection(server, database, success, error = null) {
         if (success) {
-            this.info(`데이터베이스 연결 성공: ${database}@${server}`);
+            this.info(msg.dbConnectionSuccess
+                .replace('{database}', database)
+                .replace('{server}', server));
         } else {
-            this.error(`데이터베이스 연결 실패: ${database}@${server}`, error);
+            this.error(msg.dbConnectionFailed
+                .replace('{database}', database)
+                .replace('{server}', server), error);
         }
     }
     
-    // 쿼리문정의 파일 로깅
     logConfig(queryFilePath, success, error = null) {
         if (success) {
-            this.info(`쿼리문정의 파일 로드 성공: ${queryFilePath}`);
+            this.info(msg.configLoadSuccess.replace('{path}', queryFilePath));
         } else {
-            this.error(`쿼리문정의 파일 로드 실패: ${queryFilePath}`, error);
+            this.error(msg.configLoadFailed.replace('{path}', queryFilePath), error);
         }
     }
     
-    // 배치 처리 로깅
     logBatch(batchNumber, totalBatches, processedRows, totalRows) {
         const percentage = Math.round((processedRows / totalRows) * 100);
         const batchPercentage = Math.round((batchNumber / totalBatches) * 100);
-        this.debug(`배치 처리: ${batchNumber}/${totalBatches} (${batchPercentage}%) - ${processedRows}/${totalRows} 행 (${percentage}%)`);
+        this.debug(msg.batchProcessing
+            .replace('{batch}', batchNumber)
+            .replace('{totalBatches}', totalBatches)
+            .replace('{batchPct}', batchPercentage)
+            .replace('{processed}', processedRows)
+            .replace('{total}', totalRows)
+            .replace('{pct}', percentage));
     }
     
-    // 성능 측정 로깅
     logPerformance(operation, startTime, endTime, additionalInfo = null) {
         const duration = endTime - startTime;
-        const message = `${operation} 완료 (${duration}ms)`;
+        const message = msg.operationCompleted
+            .replace('{operation}', operation)
+            .replace('{duration}', duration);
         this.info(message, additionalInfo);
     }
     
-    // 변수 치환 로깅
     logVariableReplacement(original, replaced, variables) {
-        this.trace('변수 치환', {
+        this.trace(msg.variableReplacement, {
             original: original,
             replaced: replaced,
             variables: variables
         });
     }
     
-    // 동적 변수 추출 로깅
     logDynamicVariableExtraction(variableName, query, extractedValue) {
-        this.debug(`동적 변수 추출: ${variableName}`, {
+        this.debug(msg.dynamicVariableExtraction.replace('{name}', variableName), {
             query: query,
             extractedValue: extractedValue
         });
     }
     
-    // FK 관계 분석 로깅
     logFkAnalysis(table, fkRelations) {
-        this.debug(`FK 관계 분석: ${table}`, {
+        this.debug(msg.fkAnalysis.replace('{table}', table), {
             fkRelations: fkRelations
         });
     }
     
-    // 트랜잭션 로깅
     logTransaction(action, success, error = null) {
         if (success) {
-            this.info(`트랜잭션 ${action} 성공`);
+            this.info(msg.transactionSuccess.replace('{action}', action));
         } else {
-            this.error(`트랜잭션 ${action} 실패`, error);
+            this.error(msg.transactionFailed.replace('{action}', action), error);
         }
     }
     
-    // 메모리 사용량 로깅
     logMemoryUsage() {
         const memUsage = process.memoryUsage();
-        this.debug('메모리 사용량', {
+        this.debug(msg.memoryUsage, {
             rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
             heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
             heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
@@ -271,9 +317,8 @@ class Logger {
         });
     }
     
-    // 로그 레벨 정보 출력
     logLevelInfo() {
-        this.info('로거 초기화 완료', {
+        this.info(msg.loggerInitialized, {
             currentLevel: this.logLevelNames[this.logLevel],
             logFile: this.logFile,
             availableLevels: this.logLevelNames

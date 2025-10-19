@@ -3,9 +3,39 @@ const path = require('path');
 const xml2js = require('xml2js');
 const logger = require('../logger');
 
-/**
- * 설정 파일 로드 및 파싱 담당 모듈
- */
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        dbInfoNotFound: 'DB info file not found: {path}',
+        dbInfoLoadSuccess: 'DB info file loaded',
+        dbInfoLoadFailed: 'Failed to load DB info file',
+        dbIdNotFound: 'DB ID \'{id}\' not found in dbinfo.json. Available DBs: {dbs}',
+        dbDescription: '{id} database',
+        queryFileNotFound: 'Query definition file not found: {path}',
+        unsupportedFileType: 'Unsupported file format. Only XML files are supported: {path}',
+        queryFileLoadSuccess: 'Query definition file loaded',
+        queryFileLoadFailed: 'Failed to load query definition file: {message}',
+        xmlParseError: 'XML parsing failed: {message}'
+    },
+    kr: {
+        dbInfoNotFound: 'DB 정보 파일을 찾을 수 없습니다: {path}',
+        dbInfoLoadSuccess: 'DB 정보 파일 로드 완료',
+        dbInfoLoadFailed: 'DB 정보 파일 로드 실패',
+        dbIdNotFound: 'DB ID \'{id}\'를 dbinfo.json에서 찾을 수 없습니다. 사용 가능한 DB: {dbs}',
+        dbDescription: '{id} 데이터베이스',
+        queryFileNotFound: '쿼리문정의 파일을 찾을 수 없습니다: {path}',
+        unsupportedFileType: '지원되지 않는 파일 형식입니다. XML 파일만 사용 가능합니다: {path}',
+        queryFileLoadSuccess: '쿼리문정의 파일 로드 완료',
+        queryFileLoadFailed: '쿼리문정의 파일 로드 실패: {message}',
+        xmlParseError: 'XML 파싱 실패: {message}'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 class ConfigManager {
     constructor() {
         // pkg 환경 고려
@@ -20,31 +50,30 @@ class ConfigManager {
     async loadDbInfo() {
         try {
             if (!fs.existsSync(this.dbInfoPath)) {
-                logger.warn(`DB 정보 파일을 찾을 수 없습니다: ${this.dbInfoPath}`);
+                logger.warn(msg.dbInfoNotFound.replace('{path}', this.dbInfoPath));
                 return null;
             }
 
             const dbInfoData = fs.readFileSync(this.dbInfoPath, 'utf8');
             this.dbInfo = JSON.parse(dbInfoData);
             
-            logger.info('DB 정보 파일 로드 완료', {
+            logger.info(msg.dbInfoLoadSuccess, {
                 path: this.dbInfoPath,
                 availableDbs: Object.keys(this.dbInfo || {})
             });
             
             return this.dbInfo;
         } catch (error) {
-            logger.error('DB 정보 파일 로드 실패', error);
+            logger.error(msg.dbInfoLoadFailed, error);
             return null;
         }
     }
 
-    /**
-     * DB ID로 연결 정보 조회
-     */
     getDbConfigById(dbId) {
         if (!this.dbInfo || !this.dbInfo[dbId]) {
-            throw new Error(`DB ID '${dbId}'를 dbinfo.json에서 찾을 수 없습니다. 사용 가능한 DB: ${Object.keys(this.dbInfo || {}).join(', ')}`);
+            throw new Error(msg.dbIdNotFound
+                .replace('{id}', dbId)
+                .replace('{dbs}', Object.keys(this.dbInfo || {}).join(', ')));
         }
         
         const dbConfig = this.dbInfo[dbId];
@@ -56,7 +85,7 @@ class ConfigManager {
             user: dbConfig.user,
             password: dbConfig.password,
             isWritable: dbConfig.isWritable ?? false,
-            description: dbConfig.description || `${dbId} 데이터베이스`,
+            description: dbConfig.description || msg.dbDescription.replace('{id}', dbId),
             options: {
                 encrypt: dbConfig.options?.encrypt ?? true,
                 trustServerCertificate: dbConfig.options?.trustServerCertificate ?? true,
@@ -75,19 +104,18 @@ class ConfigManager {
             await this.loadDbInfo();
             
             if (!fs.existsSync(queryFilePath)) {
-                throw new Error(`쿼리문정의 파일을 찾을 수 없습니다: ${queryFilePath}`);
+                throw new Error(msg.queryFileNotFound.replace('{path}', queryFilePath));
             }
 
             const configData = fs.readFileSync(queryFilePath, 'utf8');
             
-            // XML 파일만 지원
             if (!queryFilePath.toLowerCase().endsWith('.xml')) {
-                throw new Error(`지원되지 않는 파일 형식입니다. XML 파일만 사용 가능합니다: ${queryFilePath}`);
+                throw new Error(msg.unsupportedFileType.replace('{path}', queryFilePath));
             }
             
             const config = await this.parseXmlConfig(configData);
             
-            logger.info('쿼리문정의 파일 로드 완료', {
+            logger.info(msg.queryFileLoadSuccess, {
                 path: queryFilePath,
                 format: 'XML',
                 enabledQueries: config.queries.filter(q => q.enabled).length
@@ -95,8 +123,8 @@ class ConfigManager {
             
             return config;
         } catch (error) {
-            logger.error('쿼리문정의 파일 로드 실패', error);
-            throw new Error(`쿼리문정의 파일 로드 실패: ${error.message}`);
+            logger.error(msg.queryFileLoadFailed.replace('{message}', error.message), error);
+            throw new Error(msg.queryFileLoadFailed.replace('{message}', error.message));
         }
     }
 

@@ -2,6 +2,91 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../logger');
 
+// 언어 설정 (환경 변수 사용, 기본값 영어)
+const LANGUAGE = process.env.LANGUAGE || 'en';
+
+// 다국어 메시지
+const messages = {
+    en: {
+        cacheCleared: '🗑️ Table column cache cleared',
+        cacheUsed: '📋 Using cached table column info: {table} ({db})',
+        columnQuery: '🔍 Querying table column info from database: {table} ({db}) - Excluding Identity Columns',
+        cacheSaved: '💾 Table column info cached: {table} ({db}) - {count} columns',
+        columnQueryFailed: '⚠️ Failed to query table columns ({table}): {error}',
+        identityQueryComplete: 'Identity column query completed ({table}): {columns}',
+        identityQueryFailed: '⚠️ Failed to query identity columns ({table}): {error}',
+        loadingSqlFile: 'Loading query from SQL file: {path}',
+        sqlFileLoadComplete: 'SQL file loaded: {preview}',
+        sqlFileLoadFailed: 'Failed to load SQL file: {file} - {error}',
+        commentRemovalError: 'Error while removing comments: {error}',
+        usingExternalSql: 'Using external SQL file: {file}',
+        fileQueryWithVars: 'Query loaded from file (after variable substitution): {preview}',
+        sourceQueryRequired: 'Either sourceQuery or sourceQueryFile must be specified.',
+        selectAllDetected: 'SELECT * detected. Automatically fetching column info for table {table}{alias}',
+        targetTableNotFound: 'Cannot find column info for target table {table}.',
+        identityExcluded: 'Identity columns automatically excluded: {columns}',
+        autoColumns: 'Auto-configured columns ({count}, excluding identity): {columns}',
+        modifiedSourceQuery: 'Modified source query: {query}',
+        queryConfigError: 'Error processing query config: {error}',
+        sourceQueryValidation: 'sourceQuery validated as single SQL statement.',
+        sourceQueryEmpty: 'sourceQuery is empty or not a string.',
+        semicolonNotAllowed: 'Semicolons (;) are not allowed in sourceQuery. (Only one SELECT statement allowed)',
+        nonSelectKeywords: 'Keywords other than SELECT are not allowed in sourceQuery.',
+        estimatingRowCount: 'Loading SQL file for row count estimation: {file}',
+        dynamicVarsNotExtracted: 'Dynamic variables not yet extracted: {vars}. Skipping row count estimation.',
+        countQueryFailed: 'COUNT query failed, falling back to original query: {error}',
+        estimatedRows: 'Query {id} estimated row count: {count}',
+        rowEstimationError: 'Error estimating row count for query {id}: {error}',
+        insertSelectProcessing: 'Processing INSERT SELECT column alignment: {count} patterns found',
+        insertTableNotFound: '⚠️ Cannot find column info for INSERT table {table}.',
+        columnCountMismatch: '⚠️ SELECT column count ({select}) exceeds INSERT table column count ({insert}).',
+        insertSelectComplete: '✅ INSERT SELECT column alignment completed: {table} table',
+        insertSelectProcessError: '⚠️ INSERT SELECT column alignment failed: {error}',
+        insertSelectError: 'Error during INSERT SELECT column alignment: {error}',
+        emptyOrInvalidSql: 'SQL file is empty or contains no valid query: {file}'
+    },
+    kr: {
+        cacheCleared: '🗑️ 테이블 컬럼 캐시 초기화 완료',
+        cacheUsed: '📋 캐시에서 테이블 컬럼 정보 사용: {table} ({db})',
+        columnQuery: '🔍 데이터베이스에서 테이블 컬럼 정보 조회: {table} ({db}) - Identity Column 제외',
+        cacheSaved: '💾 테이블 컬럼 정보 캐시 저장: {table} ({db}) - {count}개 컬럼',
+        columnQueryFailed: '⚠️ 테이블 컬럼 조회 실패 ({table}): {error}',
+        identityQueryComplete: 'IDENTITY 컬럼 조회 완료 ({table}): {columns}',
+        identityQueryFailed: '⚠️ IDENTITY 컬럼 조회 실패 ({table}): {error}',
+        loadingSqlFile: 'SQL 파일에서 쿼리 로드 중: {path}',
+        sqlFileLoadComplete: 'SQL 파일 로드 완료: {preview}',
+        sqlFileLoadFailed: 'SQL 파일 로드 실패: {file} - {error}',
+        commentRemovalError: '주석 제거 중 오류 발생: {error}',
+        usingExternalSql: '외부 SQL 파일 사용: {file}',
+        fileQueryWithVars: '파일에서 로드된 쿼리 (변수 치환 후): {preview}',
+        sourceQueryRequired: 'sourceQuery 또는 sourceQueryFile 중 하나는 반드시 지정해야 합니다.',
+        selectAllDetected: 'SELECT * 감지됨. 테이블 {table}{alias}의 컬럼 정보를 자동으로 가져옵니다.',
+        targetTableNotFound: '대상 테이블 {table}의 컬럼 정보를 찾을 수 없습니다.',
+        identityExcluded: 'IDENTITY 컬럼 자동 제외: {columns}',
+        autoColumns: '자동 설정된 컬럼 목록 ({count}개, IDENTITY 제외): {columns}',
+        modifiedSourceQuery: '변경된 소스 쿼리: {query}',
+        queryConfigError: '쿼리 설정 처리 중 오류: {error}',
+        sourceQueryValidation: 'sourceQuery가 단일 SQL 문으로 검증되었습니다.',
+        sourceQueryEmpty: 'sourceQuery가 비어있거나 문자열이 아닙니다.',
+        semicolonNotAllowed: 'sourceQuery에는 세미콜론(;)이 허용되지 않습니다.(단 하나의 SELECT문만 허용)',
+        nonSelectKeywords: 'sourceQuery에 SELECT 외 키워드는 허용되지 않습니다.',
+        estimatingRowCount: '행 수 추정용 SQL 파일 로드: {file}',
+        dynamicVarsNotExtracted: '동적 변수가 아직 추출되지 않음: {vars}. 행 수 추정을 건너뜁니다.',
+        countQueryFailed: 'COUNT 쿼리 실패, 원본 쿼리로 fallback: {error}',
+        estimatedRows: '쿼리 {id} 예상 행 수: {count}',
+        rowEstimationError: '쿼리 {id} 행 수 추정 중 오류: {error}',
+        insertSelectProcessing: 'INSERT SELECT 컬럼 맞춤 처리 중: {count}개 패턴 발견',
+        insertTableNotFound: '⚠️ INSERT 테이블 {table}의 컬럼 정보를 찾을 수 없습니다.',
+        columnCountMismatch: '⚠️ SELECT 컬럼 수({select})가 INSERT 테이블 컬럼 수({insert})보다 많습니다.',
+        insertSelectComplete: '✅ INSERT SELECT 컬럼 맞춤 완료: {table} 테이블',
+        insertSelectProcessError: '⚠️ INSERT SELECT 컬럼 맞춤 처리 실패: {error}',
+        insertSelectError: 'INSERT SELECT 컬럼 맞춤 처리 중 오류: {error}',
+        emptyOrInvalidSql: 'SQL 파일이 비어있거나 유효한 쿼리가 없습니다: {file}'
+    }
+};
+
+const msg = messages[LANGUAGE] || messages.en;
+
 /**
  * 쿼리 처리 및 변환 담당 모듈
  */
@@ -18,7 +103,7 @@ class QueryProcessor {
      */
     clearTableColumnCache() {
         this.tableColumnCache = {};
-        this.log('🗑️ 테이블 컬럼 캐시 초기화 완료');
+        this.log(msg.cacheCleared);
     }
 
     /**
@@ -29,11 +114,11 @@ class QueryProcessor {
             const cacheKey = `${tableName}_${database}`;
             
             if (this.tableColumnCache[cacheKey]) {
-                this.log(`📋 캐시에서 테이블 컬럼 정보 사용: ${tableName} (${database})`);
+                this.log(msg.cacheUsed.replace('{table}', tableName).replace('{db}', database));
                 return this.tableColumnCache[cacheKey];
             }
             
-            this.log(`🔍 데이터베이스에서 테이블 컬럼 정보 조회: ${tableName} (${database}) - Identity Column 제외`);
+            this.log(msg.columnQuery.replace('{table}', tableName).replace('{db}', database));
             
             const query = `
                 SELECT c.COLUMN_NAME 
@@ -57,13 +142,13 @@ class QueryProcessor {
             if (result && result.recordset) {
                 const columns = result.recordset.map(row => row.COLUMN_NAME);
                 this.tableColumnCache[cacheKey] = columns;
-                this.log(`💾 테이블 컬럼 정보 캐시 저장: ${tableName} (${database}) - ${columns.length}개 컬럼`);
+                this.log(msg.cacheSaved.replace('{table}', tableName).replace('{db}', database).replace('{count}', columns.length));
                 return columns;
             }
             
             return [];
         } catch (error) {
-            this.log(`⚠️ 테이블 컬럼 조회 실패 (${tableName}): ${error.message}`);
+            this.log(msg.columnQueryFailed.replace('{table}', tableName).replace('{error}', error.message));
             return [];
         }
     }
@@ -91,13 +176,13 @@ class QueryProcessor {
             
             if (result && result.recordset) {
                 const identityColumns = result.recordset.map(row => row.COLUMN_NAME);
-                this.log(`IDENTITY 컬럼 조회 완료 (${tableName}): ${identityColumns.join(', ')}`);
+                this.log(msg.identityQueryComplete.replace('{table}', tableName).replace('{columns}', identityColumns.join(', ')));
                 return identityColumns;
             }
             
             return [];
         } catch (error) {
-            this.log(`⚠️ IDENTITY 컬럼 조회 실패 (${tableName}): ${error.message}`);
+            this.log(msg.identityQueryFailed.replace('{table}', tableName).replace('{error}', error.message));
             return [];
         }
     }
@@ -111,20 +196,21 @@ class QueryProcessor {
                 ? filePath 
                 : path.resolve(path.dirname(queryFilePath), filePath);
             
-            this.log(`SQL 파일에서 쿼리 로드 중: ${fullPath}`);
+            this.log(msg.loadingSqlFile.replace('{path}', fullPath));
             const queryContent = fs.readFileSync(fullPath, 'utf8');
             
             const cleanedQuery = this.removeComments(queryContent);
             
             if (!cleanedQuery) {
-                throw new Error(`SQL 파일이 비어있거나 유효한 쿼리가 없습니다: ${filePath}`);
+                throw new Error(msg.emptyOrInvalidSql.replace('{file}', filePath));
             }
             
-            this.log(`SQL 파일 로드 완료: ${cleanedQuery.substring(0, 100)}${cleanedQuery.length > 100 ? '...' : ''}`);
+            const preview = `${cleanedQuery.substring(0, 100)}${cleanedQuery.length > 100 ? '...' : ''}`;
+            this.log(msg.sqlFileLoadComplete.replace('{preview}', preview));
             return cleanedQuery;
         } catch (error) {
-            this.log(`SQL 파일 로드 실패: ${filePath} - ${error.message}`);
-            throw new Error(`SQL 파일 로드 실패: ${error.message}`);
+            this.log(msg.sqlFileLoadFailed.replace('{file}', filePath).replace('{error}', error.message));
+            throw new Error(msg.sqlFileLoadFailed.replace('{file}', filePath).replace('{error}', error.message));
         }
     }
 
@@ -172,7 +258,7 @@ class QueryProcessor {
             result = result.trim();
             
         } catch (error) {
-            this.log(`주석 제거 중 오류 발생: ${error.message}`);
+            this.log(msg.commentRemovalError.replace('{error}', error.message));
             return script;
         }
         
@@ -186,14 +272,15 @@ class QueryProcessor {
         try {
             // SQL 파일에서 쿼리 로드
             if (queryConfig.sourceQueryFile) {
-                this.log(`외부 SQL 파일 사용: ${queryConfig.sourceQueryFile}`);
+                this.log(msg.usingExternalSql.replace('{file}', queryConfig.sourceQueryFile));
                 const fileQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile, queryFilePath);
                 queryConfig.sourceQuery = this.variableManager.replaceVariables(fileQuery);
-                this.log(`파일에서 로드된 쿼리 (변수 치환 후): ${queryConfig.sourceQuery.substring(0, 200)}${queryConfig.sourceQuery.length > 200 ? '...' : ''}`);
+                const preview = `${queryConfig.sourceQuery.substring(0, 200)}${queryConfig.sourceQuery.length > 200 ? '...' : ''}`;
+                this.log(msg.fileQueryWithVars.replace('{preview}', preview));
             } else if (queryConfig.sourceQuery) {
                 queryConfig.sourceQuery = this.variableManager.replaceVariables(queryConfig.sourceQuery);
             } else {
-                throw new Error('sourceQuery 또는 sourceQueryFile 중 하나는 반드시 지정해야 합니다.');
+                throw new Error(msg.sourceQueryRequired);
             }
             
             // SELECT * 패턴 감지 및 처리
@@ -203,12 +290,13 @@ class QueryProcessor {
             if (match) {
                 const tableName = match[1];
                 const tableAlias = match[2];
-                this.log(`SELECT * 감지됨. 테이블 ${tableName}${tableAlias ? ` (별칭: ${tableAlias})` : ''}의 컬럼 정보를 자동으로 가져옵니다.`);
+                const aliasText = tableAlias ? ` (${LANGUAGE === 'kr' ? '별칭: ' : 'alias: '}${tableAlias})` : '';
+                this.log(msg.selectAllDetected.replace('{table}', tableName).replace('{alias}', aliasText));
                 
                 const columns = await this.connectionManager.getTableColumns(queryConfig.targetTable, false);
                 
                 if (columns.length === 0) {
-                    throw new Error(`대상 테이블 ${queryConfig.targetTable}의 컬럼 정보를 찾을 수 없습니다.`);
+                    throw new Error(msg.targetTableNotFound.replace('{table}', queryConfig.targetTable));
                 }
                 
                 const identityColumns = await this.getIdentityColumns(queryConfig.targetTable, false);
@@ -216,11 +304,11 @@ class QueryProcessor {
                 const filteredColumnNames = columnNames.filter(col => !identityColumns.includes(col));
                 
                 if (identityColumns.length > 0) {
-                    this.log(`IDENTITY 컬럼 자동 제외: ${identityColumns.join(', ')}`);
+                    this.log(msg.identityExcluded.replace('{columns}', identityColumns.join(', ')));
                 }
                 
                 queryConfig.targetColumns = filteredColumnNames;
-                this.log(`자동 설정된 컬럼 목록 (${filteredColumnNames.length}개, IDENTITY 제외): ${filteredColumnNames.join(', ')}`);
+                this.log(msg.autoColumns.replace('{count}', filteredColumnNames.length).replace('{columns}', filteredColumnNames.join(', ')));
                 
                 // sourceQuery도 컬럼명으로 변경
                 let explicitColumns;
@@ -232,12 +320,12 @@ class QueryProcessor {
                 
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/[;]+$/, '');
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/SELECT\s+\*/i, `SELECT ${explicitColumns}`);
-                this.log(`변경된 소스 쿼리: ${queryConfig.sourceQuery}`);
+                this.log(msg.modifiedSourceQuery.replace('{query}', queryConfig.sourceQuery));
             }
             
             return queryConfig;
         } catch (error) {
-            this.log(`쿼리 설정 처리 중 오류: ${error.message}`);
+            this.log(msg.queryConfigError.replace('{error}', error.message));
             throw error;
         }
     }
@@ -247,7 +335,7 @@ class QueryProcessor {
      */
     validateSingleSqlStatement(sourceQuery) {
         if (!sourceQuery || typeof sourceQuery !== 'string') {
-            return { isValid: true, message: 'sourceQuery가 비어있거나 문자열이 아닙니다.' };
+            return { isValid: true, message: msg.sourceQueryEmpty };
         }
 
         sourceQuery = sourceQuery.trim().replace(/[;]+$/, '');
@@ -277,8 +365,8 @@ class QueryProcessor {
 
         if (statementCount > 0 || keywordCount > 1) {
             const errorMsg = statementCount > 0
-                ? `sourceQuery에는 세미콜론(;)이 허용되지 않습니다.(단 하나의 SELECT문만 허용)`
-                : `sourceQuery에 SELECT 외 키워드는 허용되지 않습니다.`;
+                ? msg.semicolonNotAllowed
+                : msg.nonSelectKeywords;
             
             return {
                 isValid: false,
@@ -288,7 +376,7 @@ class QueryProcessor {
             };
         }
 
-        return { isValid: true, message: 'sourceQuery가 단일 SQL 문으로 검증되었습니다.' };
+        return { isValid: true, message: msg.sourceQueryValidation };
     }
 
     /**
@@ -299,13 +387,13 @@ class QueryProcessor {
             let sourceQuery;
             
             if (queryConfig.sourceQueryFile) {
-                this.log(`행 수 추정용 SQL 파일 로드: ${queryConfig.sourceQueryFile}`);
+                this.log(msg.estimatingRowCount.replace('{file}', queryConfig.sourceQueryFile));
                 const fileQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile, queryFilePath);
                 sourceQuery = this.variableManager.replaceVariables(fileQuery);
             } else if (queryConfig.sourceQuery) {
                 sourceQuery = this.variableManager.replaceVariables(queryConfig.sourceQuery);
             } else {
-                throw new Error('sourceQuery 또는 sourceQueryFile 중 하나는 반드시 지정해야 합니다.');
+                throw new Error(msg.sourceQueryRequired);
             }
             
             // 동적 변수가 아직 추출되지 않은 경우 확인
@@ -317,7 +405,7 @@ class QueryProcessor {
             );
             
             if (missingDynamicVars.length > 0) {
-                this.log(`동적 변수가 아직 추출되지 않음: ${missingDynamicVars.join(', ')}. 행 수 추정을 건너뜁니다.`);
+                this.log(msg.dynamicVarsNotExtracted.replace('{vars}', missingDynamicVars.join(', ')));
                 return 0;
             }
             
@@ -325,16 +413,16 @@ class QueryProcessor {
                 const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery.trim().replace(/[;]+$/, '')}) as sub_query`;
                 const countData = await this.connectionManager.querySource(countQuery);
                 const rowCount = countData[0]?.row_count || 0;
-                this.log(`쿼리 ${queryConfig.id} 예상 행 수: ${rowCount.toLocaleString()}`);
+                this.log(msg.estimatedRows.replace('{id}', queryConfig.id).replace('{count}', rowCount.toLocaleString()));
                 return rowCount;
             } catch (countError) {
-                this.log(`COUNT 쿼리 실패, 원본 쿼리로 fallback: ${countError.message}`);
+                this.log(msg.countQueryFailed.replace('{error}', countError.message));
                 const sourceData = await this.connectionManager.querySource(sourceQuery);
                 return sourceData.length;
             }
             
         } catch (error) {
-            this.log(`쿼리 ${queryConfig.id} 행 수 추정 중 오류: ${error.message}`);
+            this.log(msg.rowEstimationError.replace('{id}', queryConfig.id).replace('{error}', error.message));
             return 0;
         }
     }
@@ -352,7 +440,7 @@ class QueryProcessor {
                 return script;
             }
             
-            this.log(`INSERT SELECT 컬럼 맞춤 처리 중: ${matches.length}개 패턴 발견`);
+            this.log(msg.insertSelectProcessing.replace('{count}', matches.length));
             
             for (const match of matches) {
                 const fullMatch = match[0];
@@ -369,7 +457,7 @@ class QueryProcessor {
                     const insertColumnNames = insertTableColumns.map(col => col.name);
                     
                     if (insertColumnNames.length === 0) {
-                        this.log(`⚠️ INSERT 테이블 ${insertTableName}의 컬럼 정보를 찾을 수 없습니다.`);
+                        this.log(msg.insertTableNotFound.replace('{table}', insertTableName));
                         continue;
                     }
                     
@@ -382,7 +470,7 @@ class QueryProcessor {
                         if (selectColumns.length <= insertColumnNames.length) {
                             alignedInsertColumns = insertColumnNames.slice(0, selectColumns.length);
                         } else {
-                            this.log(`⚠️ SELECT 컬럼 수(${selectColumns.length})가 INSERT 테이블 컬럼 수(${insertColumnNames.length})보다 많습니다.`);
+                            this.log(msg.columnCountMismatch.replace('{select}', selectColumns.length).replace('{insert}', insertColumnNames.length));
                             alignedInsertColumns = insertColumnNames;
                         }
                         
@@ -390,18 +478,18 @@ class QueryProcessor {
                         const result = `INSERT INTO ${insertTableName} (${alignedInsertColumnsPart}) SELECT ${selectColumnsPart}${fromPart}`;
                         
                         processedScript = processedScript.replace(fullMatch, result);
-                        this.log(`✅ INSERT SELECT 컬럼 맞춤 완료: ${insertTableName} 테이블`);
+                        this.log(msg.insertSelectComplete.replace('{table}', insertTableName));
                     }
                     
                 } catch (error) {
-                    this.log(`⚠️ INSERT SELECT 컬럼 맞춤 처리 실패: ${error.message}`);
+                    this.log(msg.insertSelectProcessError.replace('{error}', error.message));
                 }
             }
             
             return processedScript;
             
         } catch (error) {
-            this.log(`INSERT SELECT 컬럼 맞춤 처리 중 오류: ${error.message}`);
+            this.log(msg.insertSelectError.replace('{error}', error.message));
             return script;
         }
     }
