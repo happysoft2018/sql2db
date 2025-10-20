@@ -60,13 +60,13 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - Node.js에 익숙하지 않은 사용자
 
 **설치 단계:**
-1. 릴리스 페이지에서 `sql2db-v0.8.1-bin.zip` 다운로드
+1. 릴리스 페이지에서 `sql2db-v0.8.4-bin.zip` 다운로드
 2. 원하는 위치에 압축 해제 (예: `C:\Tools\sql2db\`)
 3. 추가 설치 불필요 - 바로 사용 가능!
 
 **패키지 내용:**
 ```
-sql2db-v0.8.1/
+sql2db-v0.8.4/
 ├── sql2db.exe              # 메인 실행 파일 (Node.js 불필요)
 ├── run.bat                 # 영문 실행 스크립트
 ├── 실행하기.bat             # 한글 실행 스크립트
@@ -118,7 +118,7 @@ sql2db-v0.8.1/
    cd sql2db
    
    # 방법 B: 소스 zip 다운로드 및 압축 해제
-   # sql2db-source-v0.8.0.zip 압축 해제
+   # sql2db-source-v0.8.4.zip 압축 해제
    cd sql2db
    ```
 
@@ -238,16 +238,16 @@ run.bat
 # 한글 버전
 실행하기.bat
 
-# 또는 언어 옵션으로 실행 파일 직접 실행
-sql2db.exe --lang=en
-sql2db.exe --lang=kr
+# 또는 환경 변수로 언어 설정하여 직접 실행
+set LANGUAGE=en && sql2db.exe
+set LANGUAGE=kr && sql2db.exe
 ```
 
 ### 대화형 메뉴
 ```
 =========================================
   MSSQL 데이터 이관 도구
-  버전 0.8.0
+  버전 0.8.4
 =========================================
 
 1. 쿼리문정의 파일 Syntax검증

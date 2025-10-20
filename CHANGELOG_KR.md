@@ -1,5 +1,33 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.4 - 언어 설정 통일 및 환경 변수 기반 구성 (2025-10-19)
+
+### 🔧 개선사항
+- **언어 설정 통일**: 모든 모듈에서 환경 변수(`LANGUAGE`)로 언어 설정 통일
+  - `app.js`: 명령줄 인수 대신 환경 변수 사용
+  - `src/mssql-data-migrator-modular.js`: 환경 변수 기반 언어 설정
+  - `src/modules/config-manager.js`: 기본값 'kr' → 'en' 변경
+  - `src/mssql-connection-manager.js`: 기본값 'kr' → 'en' 변경
+  - `src/progress-manager.js`: 기본값 'kr' → 'en' 변경
+  - `src/logger.js`: 기본값 'kr' → 'en' 변경
+
+- **배치 파일 개선**: 환경 변수 설정 추가, `--lang` 파라미터 제거
+  - `run.bat`: `set LANGUAGE=en` 추가
+  - `실행하기.bat`: `set LANGUAGE=kr` 추가
+  - `release.bat`: 릴리스 배치 파일 템플릿에 환경 변수 설정 추가
+  - `package.json`: `start:kr` 스크립트를 배치 파일 사용 안내로 변경
+
+### 📝 문서
+- 모든 언어 설정이 환경 변수 `LANGUAGE`를 통해 제어됨
+- 기본값은 영어 ('en')로 통일
+- 개발자 및 사용자 모두에게 일관된 언어 설정 경험 제공
+
+### 🔄 마이그레이션 가이드
+- 기존에 `node app.js --lang=kr` 형태로 실행하던 경우:
+  - Windows: `set LANGUAGE=kr && node app.js`
+  - 또는 `실행하기.bat` 사용 (자동으로 환경 변수 설정됨)
+- 개발 환경에서는 `.env` 파일에 `LANGUAGE=kr` 설정 가능
+
 ## 🚀 v0.8.3 - 대소문자 구분 없는 컬럼 매칭 및 디버깅 강화 (2025-10-17)
 
 ### ✨ 새로운 기능

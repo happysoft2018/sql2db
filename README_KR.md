@@ -26,7 +26,7 @@
 ### 옵션 1: 독립 실행 파일 사용 (권장)
 
 1. **배포 패키지 다운로드**
-   - `sql2db-v0.8.1-bin.zip` 다운로드
+   - `sql2db-v0.8.4-bin.zip` 다운로드
    - 원하는 위치에 압축 해제
 
 2. **데이터베이스 연결 설정**
@@ -41,9 +41,9 @@
    # 한글 버전
    실행하기.bat
    
-   # 또는 직접 실행
-   sql2db.exe --lang=en
-   sql2db.exe --lang=kr
+   # 또는 직접 실행 (환경 변수로 언어 설정)
+   set LANGUAGE=en && sql2db.exe
+   set LANGUAGE=kr && sql2db.exe
    ```
 
 ### 옵션 2: Node.js 사용
@@ -101,7 +101,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
 =========================================
   MSSQL 데이터 이관 도구
-  버전 0.8.1
+  버전 0.8.4
 =========================================
 
 1. 쿼리문정의 파일 Syntax검증
@@ -311,11 +311,12 @@ npm run build
 
 ### 실행 파일 실행
 ```bash
-# 실행 파일 직접 실행
+# 실행 파일 직접 실행 (기본: 영어)
 dist\sql2db.exe
 
-# 또는 언어 옵션과 함께 실행
-dist\sql2db.exe --lang=kr
+# 또는 언어 옵션과 함께 실행 (환경 변수 사용)
+set LANGUAGE=kr && dist\sql2db.exe
+set LANGUAGE=en && dist\sql2db.exe
 ```
 
 독립 실행 파일은 Node.js 설치 없이 애플리케이션을 실행하는 데 필요한 모든 것을 포함합니다.
