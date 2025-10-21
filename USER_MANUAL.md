@@ -674,25 +674,205 @@ WHERE CustomerID IN (${customer_data.CustomerID})
 
 ## 🎨 Advanced Features
 
-### 1. Column Overrides
+### 1. Global Timezone System & Date/Time Variables
+
+The tool supports comprehensive date/time variables with global timezone support, allowing you to use timestamps in 22 different timezones worldwide.
+
+#### Basic Syntax
+
+**Timezone-Specific Format:**
+```
+${DATE.TIMEZONE:format}
+```
+
+**Local Time Format:**
+```
+${DATE:format}
+```
+
+**Note:** When timezone is not specified, the server's local timezone is used. For global consistency, it's recommended to explicitly specify a timezone.
+
+#### Supported Timezones (22 Total)
+
+| Timezone | Description | UTC Offset | Region |
+|----------|-------------|------------|--------|
+| **UTC** | Coordinated Universal Time | UTC+0 | Global Standard |
+| **GMT** | Greenwich Mean Time | UTC+0 | United Kingdom |
+| **KST** | Korea Standard Time | UTC+9 | South Korea |
+| **JST** | Japan Standard Time | UTC+9 | Japan |
+| **CST** | China Standard Time | UTC+8 | China |
+| **SGT** | Singapore Time | UTC+8 | Singapore |
+| **PHT** | Philippine Time | UTC+8 | Philippines |
+| **AEST** | Australian Eastern Time | UTC+10 | Australia (East) |
+| **ICT** | Indochina Time | UTC+7 | Thailand, Vietnam |
+| **IST** | India Standard Time | UTC+5:30 | India |
+| **GST** | Gulf Standard Time | UTC+4 | UAE, Oman |
+| **CET** | Central European Time | UTC+1 | Germany, France, Italy, Poland |
+| **EET** | Eastern European Time | UTC+2 | Eastern Europe |
+| **EST** | Eastern Standard Time | UTC-5 | US East Coast |
+| **AST** | Atlantic Standard Time | UTC-4 | Eastern Canada |
+| **CST_US** | Central Standard Time | UTC-6 | US, Canada, Mexico Central |
+| **MST** | Mountain Standard Time | UTC-7 | US Mountain |
+| **PST** | Pacific Standard Time | UTC-8 | US West Coast |
+| **AKST** | Alaska Standard Time | UTC-9 | Alaska |
+| **HST** | Hawaii Standard Time | UTC-10 | Hawaii |
+| **BRT** | Brasilia Time | UTC-3 | Brazil |
+| **ART** | Argentina Time | UTC-3 | Argentina |
+
+#### Format Tokens
+
+Supports both uppercase and lowercase tokens:
+
+| Token | Description | Example |
+|-------|-------------|---------|
+| `yyyy` or `YYYY` | 4-digit year | 2025 |
+| `yy` or `YY` | 2-digit year | 25 |
+| `MM` | 2-digit month | 01, 12 |
+| `M` | Month (1-2 digits) | 1, 12 |
+| `dd` or `DD` | 2-digit day | 01, 31 |
+| `d` or `D` | Day (1-2 digits) | 1, 31 |
+| `HH` | 2-digit hour (24h) | 00, 23 |
+| `H` | Hour (1-2 digits) | 0, 23 |
+| `mm` | 2-digit minute | 00, 59 |
+| `m` | Minute (1-2 digits) | 0, 59 |
+| `ss` | 2-digit second | 00, 59 |
+| `s` | Second (1-2 digits) | 0, 59 |
+| `SSS` | Milliseconds | 000, 999 |
+
+#### Usage Examples
+
+**1. Table Names with Timezone:**
+```xml
+<query id="backup_data" targetTable="users_backup_${DATE.UTC:yyyyMMdd}" enabled="true">
+  <sourceQuery>SELECT * FROM users</sourceQuery>
+</query>
+
+<query id="log_migration" targetTable="migration_log_${DATE.KST:yyyy_MM_dd}" enabled="true">
+  <sourceQuery>SELECT * FROM migration_data</sourceQuery>
+</query>
+```
+
+**2. Column Overrides with Multiple Timezones:**
+```xml
+<columnOverrides>
+  <override column="created_at_utc">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="created_at_kst">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="created_at_est">${DATE.EST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="migration_id">${DATE.UTC:yyyyMMddHHmmss}</override>
+</columnOverrides>
+```
+
+**3. Local Time (Server Timezone):**
+```xml
+<columnOverrides>
+  <override column="processed_at">${DATE:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="batch_id">${DATE:yyyyMMdd_HHmmss}</override>
+</columnOverrides>
+```
+
+**4. WHERE Conditions with Timezone:**
+```xml
+<sourceQuery>
+  <![CDATA[
+    SELECT * FROM orders 
+    WHERE order_date >= '${DATE.KST:yyyy-MM-DD}' 
+      AND status = 'COMPLETED'
+  ]]>
+</sourceQuery>
+```
+
+**5. Global Column Overrides:**
+```xml
+<globalColumnOverrides>
+  <override column="migration_date_utc">${DATE.UTC:yyyy-MM-DD}</override>
+  <override column="migration_timestamp">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="created_by">MIGRATION_TOOL</override>
+</globalColumnOverrides>
+```
+
+**6. Pre/Post Processing:**
+```xml
+<preProcess description="Backup with timestamp">
+  <![CDATA[
+    INSERT INTO backup_table_${DATE.UTC:yyyyMMdd} 
+    SELECT *, '${DATE.UTC:yyyy-MM-DD HH:mm:ss}' as backup_time 
+    FROM target_table;
+  ]]>
+</preProcess>
+
+<postProcess description="Log completion">
+  <![CDATA[
+    INSERT INTO migration_log (table_name, completed_at_kst, completed_at_utc)
+    VALUES ('target_table', '${DATE.KST:yyyy-MM-DD HH:mm:ss}', '${DATE.UTC:yyyy-MM-DD HH:mm:ss}');
+  ]]>
+</postProcess>
+```
+
+**7. Multi-Timezone Migration Example:**
+```xml
+<query id="global_migration" targetTable="users_${DATE.UTC:yyyyMMdd}" enabled="true">
+  <sourceQuery>
+    <![CDATA[
+      SELECT user_id, user_name, email 
+      FROM users 
+      WHERE created_at >= '${DATE.KST:yyyy-MM-DD 00:00:00}'
+    ]]>
+  </sourceQuery>
+  
+  <columnOverrides>
+    <override column="migration_timestamp_utc">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+    <override column="migration_timestamp_kst">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+    <override column="migration_timestamp_est">${DATE.EST:yyyy-MM-DD HH:mm:ss}</override>
+    <override column="migration_timestamp_cet">${DATE.CET:yyyy-MM-DD HH:mm:ss}</override>
+  </columnOverrides>
+</query>
+```
+
+#### Legacy Timestamp Functions
+
+These functions are still supported for backward compatibility:
+
+| Function | Description | Format |
+|----------|-------------|--------|
+| `${CURRENT_TIMESTAMP}` | Current timestamp | 2025-10-21 14:30:45 |
+| `${CURRENT_DATETIME}` | Current datetime | 2025-10-21 14:30:45 |
+| `${NOW}` | Current datetime | 2025-10-21 14:30:45 |
+| `${CURRENT_DATE}` | Current date only | 2025-10-21 |
+| `${CURRENT_TIME}` | Current time only | 14:30:45 |
+| `${UNIX_TIMESTAMP}` | Unix timestamp (seconds) | 1729507845 |
+| `${TIMESTAMP_MS}` | Unix timestamp (milliseconds) | 1729507845123 |
+| `${ISO_TIMESTAMP}` | ISO 8601 format | 2025-10-21T14:30:45.123Z |
+| `${GETDATE}` | SQL Server format | 2025-10-21 14:30:45 |
+
+**Migration Example:**
+```xml
+<!-- Old Format (still works) -->
+<override column="created_at">${CURRENT_TIMESTAMP}</override>
+
+<!-- New Format (recommended) -->
+<override column="created_at">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+<override column="created_at_kst">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+```
+
+### 2. Column Overrides
 ```xml
 <columnOverrides>
   <override column="migration_flag">1</override>
   <override column="updated_by">MIGRATION_TOOL</override>
-  <override column="processed_at">${CURRENT_TIMESTAMP}</override>
-  <override column="migration_date">${CURRENT_DATE}</override>
+  <override column="processed_at">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="migration_date">${DATE.KST:yyyy-MM-DD}</override>
 </columnOverrides>
 ```
 
-### 2. Global Column Overrides
+### 3. Global Column Overrides
 ```xml
 <globalColumnOverrides>
   <override column="created_by">SYSTEM</override>
-  <override column="created_date">${CURRENT_TIMESTAMP}</override>
+  <override column="created_date">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
 </globalColumnOverrides>
 ```
 
-### 3. Pre/Post Processing
+### 4. Pre/Post Processing
 ```xml
 <preProcess description="Backup and cleanup">
   <![CDATA[

@@ -17,6 +17,7 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 - ✅ **Detailed Logging**: 5-level log system with password masking
 - ✅ **DRY RUN Mode**: Simulation without actual changes
 - ✅ **SELECT * Auto Processing**: Automatic IDENTITY column exclusion
+- 🆕 **Global Timezone System**: Support for 22 timezones worldwide with ${DATE.TIMEZONE:format}
 - 🆕 **Case-Insensitive Column Matching**: No need to worry about column name case
 - 🆕 **Large Dataset Support**: Handles SQL Server 2100 parameter limit automatically
 - 🆕 **Enhanced Debugging**: Detailed diagnostics for delete operations
@@ -26,7 +27,7 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 ### Option 1: Using Standalone Executable (Recommended)
 
 1. **Download Release Package**
-   - Download `sql2db-v0.8.4-bin.zip`
+   - Download `sql2db-v0.8.5-bin.zip`
    - Extract to your desired location
 
 2. **Configure Database Connection**

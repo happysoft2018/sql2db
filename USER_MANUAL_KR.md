@@ -682,7 +682,187 @@ v0.2부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
 
 ## 🚀 고급 기능
 
-### 1. 전역 컬럼 오버라이드 (globalColumnOverrides)
+### 1. 글로벌 타임존 시스템 및 날짜/시간 변수
+
+도구는 전 세계 22개 타임존을 지원하는 포괄적인 날짜/시간 변수를 지원하여 다양한 타임존의 타임스탬프를 사용할 수 있습니다.
+
+#### 기본 구문
+
+**타임존 지정 형식:**
+```
+${DATE.TIMEZONE:format}
+```
+
+**로컬 시간 형식:**
+```
+${DATE:format}
+```
+
+**참고:** 타임존을 지정하지 않으면 서버의 로컬 타임존이 사용됩니다. 글로벌 일관성을 위해 타임존을 명시적으로 지정하는 것을 권장합니다.
+
+#### 지원 타임존 (총 22개)
+
+| 타임존 | 설명 | UTC 오프셋 | 지역 |
+|--------|------|------------|------|
+| **UTC** | 협정 세계시 | UTC+0 | 글로벌 표준 |
+| **GMT** | 그리니치 표준시 | UTC+0 | 영국 |
+| **KST** | 한국 표준시 | UTC+9 | 대한민국 |
+| **JST** | 일본 표준시 | UTC+9 | 일본 |
+| **CST** | 중국 표준시 | UTC+8 | 중국 |
+| **SGT** | 싱가포르 표준시 | UTC+8 | 싱가포르 |
+| **PHT** | 필리핀 표준시 | UTC+8 | 필리핀 |
+| **AEST** | 호주 동부 표준시 | UTC+10 | 호주 (동부) |
+| **ICT** | 인도차이나 표준시 | UTC+7 | 태국, 베트남 |
+| **IST** | 인도 표준시 | UTC+5:30 | 인도 |
+| **GST** | 걸프 표준시 | UTC+4 | UAE, 오만 |
+| **CET** | 중앙 유럽 표준시 | UTC+1 | 독일, 프랑스, 이탈리아, 폴란드 |
+| **EET** | 동유럽 표준시 | UTC+2 | 동유럽 |
+| **EST** | 미국 동부 표준시 | UTC-5 | 미국 동부 해안 |
+| **AST** | 대서양 표준시 | UTC-4 | 캐나다 동부 |
+| **CST_US** | 미국 중부 표준시 | UTC-6 | 미국, 캐나다, 멕시코 중부 |
+| **MST** | 미국 산악 표준시 | UTC-7 | 미국 산악 지역 |
+| **PST** | 미국 서부 표준시 | UTC-8 | 미국 서부 해안 |
+| **AKST** | 알래스카 표준시 | UTC-9 | 알래스카 |
+| **HST** | 하와이 표준시 | UTC-10 | 하와이 |
+| **BRT** | 브라질 표준시 | UTC-3 | 브라질 |
+| **ART** | 아르헨티나 표준시 | UTC-3 | 아르헨티나 |
+
+#### 포맷 토큰
+
+대문자 및 소문자 토큰 모두 지원:
+
+| 토큰 | 설명 | 예시 |
+|------|------|------|
+| `yyyy` 또는 `YYYY` | 4자리 연도 | 2025 |
+| `yy` 또는 `YY` | 2자리 연도 | 25 |
+| `MM` | 2자리 월 | 01, 12 |
+| `M` | 월 (1-2자리) | 1, 12 |
+| `dd` 또는 `DD` | 2자리 일 | 01, 31 |
+| `d` 또는 `D` | 일 (1-2자리) | 1, 31 |
+| `HH` | 2자리 시간 (24시간) | 00, 23 |
+| `H` | 시간 (1-2자리) | 0, 23 |
+| `mm` | 2자리 분 | 00, 59 |
+| `m` | 분 (1-2자리) | 0, 59 |
+| `ss` | 2자리 초 | 00, 59 |
+| `s` | 초 (1-2자리) | 0, 59 |
+| `SSS` | 밀리초 | 000, 999 |
+
+#### 사용 예시
+
+**1. 타임존이 포함된 테이블명:**
+```xml
+<query id="backup_data" targetTable="users_backup_${DATE.UTC:yyyyMMdd}" enabled="true">
+  <sourceQuery>SELECT * FROM users</sourceQuery>
+</query>
+
+<query id="log_migration" targetTable="migration_log_${DATE.KST:yyyy_MM_dd}" enabled="true">
+  <sourceQuery>SELECT * FROM migration_data</sourceQuery>
+</query>
+```
+
+**2. 여러 타임존을 사용한 컬럼 오버라이드:**
+```xml
+<columnOverrides>
+  <override column="created_at_utc">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="created_at_kst">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="created_at_est">${DATE.EST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="migration_id">${DATE.UTC:yyyyMMddHHmmss}</override>
+</columnOverrides>
+```
+
+**3. 로컬 시간 (서버 타임존):**
+```xml
+<columnOverrides>
+  <override column="processed_at">${DATE:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="batch_id">${DATE:yyyyMMdd_HHmmss}</override>
+</columnOverrides>
+```
+
+**4. 타임존이 포함된 WHERE 조건:**
+```xml
+<sourceQuery>
+  <![CDATA[
+    SELECT * FROM orders 
+    WHERE order_date >= '${DATE.KST:yyyy-MM-DD}' 
+      AND status = 'COMPLETED'
+  ]]>
+</sourceQuery>
+```
+
+**5. 전역 컬럼 오버라이드:**
+```xml
+<globalColumnOverrides>
+  <override column="migration_date_utc">${DATE.UTC:yyyy-MM-DD}</override>
+  <override column="migration_timestamp">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="created_by">MIGRATION_TOOL</override>
+</globalColumnOverrides>
+```
+
+**6. 전/후처리:**
+```xml
+<preProcess description="타임스탬프와 함께 백업">
+  <![CDATA[
+    INSERT INTO backup_table_${DATE.UTC:yyyyMMdd} 
+    SELECT *, '${DATE.UTC:yyyy-MM-DD HH:mm:ss}' as backup_time 
+    FROM target_table;
+  ]]>
+</preProcess>
+
+<postProcess description="완료 로깅">
+  <![CDATA[
+    INSERT INTO migration_log (table_name, completed_at_kst, completed_at_utc)
+    VALUES ('target_table', '${DATE.KST:yyyy-MM-DD HH:mm:ss}', '${DATE.UTC:yyyy-MM-DD HH:mm:ss}');
+  ]]>
+</postProcess>
+```
+
+**7. 다중 타임존 이관 예시:**
+```xml
+<query id="global_migration" targetTable="users_${DATE.UTC:yyyyMMdd}" enabled="true">
+  <sourceQuery>
+    <![CDATA[
+      SELECT user_id, user_name, email 
+      FROM users 
+      WHERE created_at >= '${DATE.KST:yyyy-MM-DD 00:00:00}'
+    ]]>
+  </sourceQuery>
+  
+  <columnOverrides>
+    <override column="migration_timestamp_utc">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+    <override column="migration_timestamp_kst">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+    <override column="migration_timestamp_est">${DATE.EST:yyyy-MM-DD HH:mm:ss}</override>
+    <override column="migration_timestamp_cet">${DATE.CET:yyyy-MM-DD HH:mm:ss}</override>
+  </columnOverrides>
+</query>
+```
+
+#### 레거시 타임스탬프 함수
+
+하위 호환성을 위해 여전히 지원되는 함수들:
+
+| 함수 | 설명 | 형식 |
+|------|------|------|
+| `${CURRENT_TIMESTAMP}` | 현재 타임스탬프 | 2025-10-21 14:30:45 |
+| `${CURRENT_DATETIME}` | 현재 날짜시간 | 2025-10-21 14:30:45 |
+| `${NOW}` | 현재 날짜시간 | 2025-10-21 14:30:45 |
+| `${CURRENT_DATE}` | 현재 날짜만 | 2025-10-21 |
+| `${CURRENT_TIME}` | 현재 시간만 | 14:30:45 |
+| `${UNIX_TIMESTAMP}` | 유닉스 타임스탬프 (초) | 1729507845 |
+| `${TIMESTAMP_MS}` | 유닉스 타임스탬프 (밀리초) | 1729507845123 |
+| `${ISO_TIMESTAMP}` | ISO 8601 형식 | 2025-10-21T14:30:45.123Z |
+| `${GETDATE}` | SQL Server 형식 | 2025-10-21 14:30:45 |
+
+**마이그레이션 예시:**
+```xml
+<!-- 이전 형식 (여전히 작동) -->
+<override column="created_at">${CURRENT_TIMESTAMP}</override>
+
+<!-- 새로운 형식 (권장) -->
+<override column="created_at">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+<override column="created_at_kst">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+```
+
+### 2. 전역 컬럼 오버라이드 (globalColumnOverrides)
 
 특정 컬럼에 고정값 또는 동적값을 설정합니다. 전역 설정을 정의하고, 각 쿼리에서 필요한 컬럼만 선택적으로 적용할 수 있습니다.
 

@@ -403,11 +403,133 @@ class VariableManager {
     }
 
     /**
-     * 타임스탬프 함수 치환
+     * 날짜 포맷팅 (로컬 시간 사용)
+     */
+    formatDate(date, format) {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const hours = date.getHours();
+        const minutes = date.getMinutes();
+        const seconds = date.getSeconds();
+        const milliseconds = date.getMilliseconds();
+        
+        let result = format;
+        
+        // Year (both uppercase and lowercase)
+        result = result.replace(/yyyy/g, year.toString());
+        result = result.replace(/YYYY/g, year.toString());
+        result = result.replace(/yy/g, year.toString().slice(-2));
+        result = result.replace(/YY/g, year.toString().slice(-2));
+        
+        // Month (must be replaced before minutes 'mm')
+        result = result.replace(/MM/g, month.toString().padStart(2, '0'));
+        result = result.replace(/M(?!M)/g, month.toString());
+        
+        // Day (both uppercase and lowercase)
+        result = result.replace(/dd/g, day.toString().padStart(2, '0'));
+        result = result.replace(/DD/g, day.toString().padStart(2, '0'));
+        result = result.replace(/d(?!d)/g, day.toString());
+        result = result.replace(/D(?!D)/g, day.toString());
+        
+        // Hours
+        result = result.replace(/HH/g, hours.toString().padStart(2, '0'));
+        result = result.replace(/H(?!H)/g, hours.toString());
+        
+        // Minutes
+        result = result.replace(/mm/g, minutes.toString().padStart(2, '0'));
+        result = result.replace(/m(?!m)/g, minutes.toString());
+        
+        // Seconds
+        result = result.replace(/ss/g, seconds.toString().padStart(2, '0'));
+        result = result.replace(/s(?!s)/g, seconds.toString());
+        
+        // Milliseconds
+        result = result.replace(/SSS/g, milliseconds.toString().padStart(3, '0'));
+        
+        return result;
+    }
+
+    /**
+     * 타임스탬프 함수 치환 (글로벌 타임존 시스템 포함)
      */
     replaceTimestampFunctions(text, debug = false) {
         let result = text;
         
+        // 타임존별 오프셋 설정 (UTC 기준, 분 단위)
+        const timezoneOffsets = {
+            'UTC': 0,           // 협정 세계시
+            'GMT': 0,           // 그리니치 표준시 (UTC와 동일)
+            'KST': 540,         // 한국 표준시 (UTC+9)
+            'JST': 540,         // 일본 표준시 (UTC+9)
+            'CST': 480,         // 중국 표준시 (UTC+8)
+            'SGT': 480,         // 싱가포르 표준시 (UTC+8)
+            'PHT': 480,         // 필리핀 표준시 (UTC+8)
+            'AEST': 600,        // 호주 동부 표준시 (UTC+10)
+            'ICT': 420,         // 인도차이나 표준시 (UTC+7) - 태국, 베트남
+            'CET': 60,          // 중앙 유럽 표준시 (UTC+1) - 독일, 프랑스, 이탈리아, 폴란드
+            'EET': 120,         // 동유럽 표준시 (UTC+2)
+            'IST': 330,         // 인도 표준시 (UTC+5:30)
+            'GST': 240,         // 걸프 표준시 (UTC+4)
+            'EST': -300,        // 미국 동부 표준시 (UTC-5)
+            'CST_US': -360,     // 미국/캐나다/멕시코 중부 표준시 (UTC-6)
+            'MST': -420,        // 미국 산악 표준시 (UTC-7)
+            'PST': -480,        // 미국 서부 표준시 (UTC-8)
+            'AST': -240,        // 대서양 표준시 (UTC-4) - 캐나다 동부
+            'AKST': -540,       // 알래스카 표준시 (UTC-9)
+            'HST': -600,        // 하와이 표준시 (UTC-10)
+            'BRT': -180,        // 브라질 표준시 (UTC-3)
+            'ART': -180         // 아르헨티나 표준시 (UTC-3)
+        };
+        
+        // 1. 타임존 지정 없는 로컬 날짜 변수 치환 (${DATE:format})
+        const localDatePattern = /\$\{DATE:([^}]+)\}/g;
+        let localDateMatch;
+        while ((localDateMatch = localDatePattern.exec(text)) !== null) {
+            const fullMatch = localDateMatch[0];
+            const format = localDateMatch[1];
+            
+            try {
+                const now = new Date();
+                const formattedDate = this.formatDate(now, format);
+                result = result.replace(fullMatch, formattedDate);
+                
+                if (debug) {
+                    this.log(this.msg.timeFuncSubst.replace('{func}', `DATE:${format}`).replace('{value}', `${formattedDate} (local time)`));
+                }
+            } catch (error) {
+                this.log(this.msg.timeFuncSubstError.replace('{func}', `DATE:${format}`).replace('{error}', error.message));
+            }
+        }
+        
+        // 2. 타임존 지정 날짜 변수 치환 (${DATE.TIMEZONE:format})
+        const timezoneList = Object.keys(timezoneOffsets).join('|');
+        const customDatePattern = new RegExp(`\\$\\{DATE\\.(${timezoneList}):([^}]+)\\}`, 'g');
+        let customDateMatch;
+        
+        while ((customDateMatch = customDatePattern.exec(text)) !== null) {
+            const fullMatch = customDateMatch[0];
+            const timezone = customDateMatch[1];
+            const format = customDateMatch[2];
+            
+            try {
+                const now = new Date();
+                const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+                const offsetMinutes = timezoneOffsets[timezone] || 0;
+                const date = new Date(utcTime + (offsetMinutes * 60 * 1000));
+                const formattedDate = this.formatDate(date, format);
+                
+                result = result.replace(fullMatch, formattedDate);
+                
+                if (debug) {
+                    this.log(this.msg.timeFuncSubst.replace('{func}', `DATE.${timezone}:${format}`).replace('{value}', formattedDate));
+                }
+            } catch (error) {
+                this.log(this.msg.timeFuncSubstError.replace('{func}', `DATE.${timezone}:${format}`).replace('{error}', error.message));
+            }
+        }
+        
+        // 3. 기존 타임스탬프 함수들
         const timestampFunctions = {
             'CURRENT_TIMESTAMP': () => new Date().toISOString().slice(0, 19).replace('T', ' '),
             'CURRENT_DATETIME': () => new Date().toISOString().slice(0, 19).replace('T', ' '),

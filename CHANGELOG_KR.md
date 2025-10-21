@@ -1,5 +1,111 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.5 - 글로벌 타임존 시스템 (2025-10-21)
+
+### ✨ 새로운 기능
+
+#### 글로벌 타임존 시스템
+- **전 세계 22개 타임존 지원**: 강화된 날짜/시간 변수 기능
+  - 새로운 구문: 특정 타임존의 경우 `${DATE.TIMEZONE:format}`, 로컬 시간의 경우 `${DATE:format}`
+  - 아시아-태평양: UTC, GMT, KST, JST, CST, SGT, PHT, ICT, IST, AEST
+  - 유럽/중동: CET (독일, 프랑스, 이탈리아, 폴란드), EET, GST
+  - 아메리카: EST, AST, CST_US (미국, 캐나다, 멕시코), MST, PST, AKST, HST, BRT, ART
+  - 지원 포맷 토큰: `YYYY`, `YY`, `MM`, `M`, `DD`, `D`, `HH`, `H`, `mm`, `m`, `ss`, `s`, `SSS`
+  - 대소문자 구분 없는 토큰: `yyyy` = `YYYY`, `dd` = `DD`
+
+- **로컬 시간 지원**: 타임존을 생략하면 서버의 로컬 타임존 사용
+  - `${DATE:YYYY-MM-DD}` - 서버의 로컬 타임존 사용
+  - 권장사항: 글로벌 일관성을 위해 명시적으로 타임존 지정
+
+#### 사용 예시
+
+**1. 타임존이 포함된 파일명:**
+```xml
+<targetTable>backup_${DATE.UTC:yyyyMMdd_HHmmss}</targetTable>
+<targetTable>logs_${DATE.KST:yyyy-MM-dd}</targetTable>
+```
+
+**2. WHERE 조건:**
+```xml
+<columnOverrides>
+  <column name="created_at">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</column>
+  <column name="updated_at">${DATE.KST:yyyy-MM-DD HH:mm:ss}</column>
+</columnOverrides>
+```
+
+**3. 로컬 시간:**
+```xml
+<column name="process_date">${DATE:yyyy-MM-dd}</column>
+```
+
+**4. 다중 타임존 보고서:**
+```xml
+<!-- 소스: 한국 시간 -->
+<query database="sourceDB">
+  SELECT * FROM users WHERE created_at > '${DATE.KST:yyyy-MM-DD}'
+</query>
+
+<!-- 타겟: 미국 동부 시간 -->
+<targetTable>users_backup_${DATE.EST:yyyyMMdd}</targetTable>
+```
+
+### 🔧 기술적 변경사항
+
+#### variable-manager.js
+- **`formatDate()` 메서드 추가**: 여러 토큰을 지원하는 사용자 정의 날짜 포맷터
+  - 대문자 및 소문자 토큰 모두 지원 (yyyy/YYYY, dd/DD)
+  - 연도, 월, 일, 시간, 분, 초, 밀리초 처리
+  
+- **`replaceTimestampFunctions()` 메서드 강화**:
+  - 22개 타임존에 대한 타임존 오프셋 맵 추가
+  - 로컬 시간 패턴 처리: `${DATE:format}`
+  - 타임존 특정 패턴 처리: `${DATE.TIMEZONE:format}`
+  - 기존 타임스탬프 함수와의 하위 호환성 유지
+
+### 📊 지원 타임존
+
+| 타임존 | 설명 | UTC 오프셋 | 지역 |
+|--------|------|------------|------|
+| **UTC** | 협정 세계시 | UTC+0 | 글로벌 표준 |
+| **GMT** | 그리니치 표준시 | UTC+0 | 영국 |
+| **KST** | 한국 표준시 | UTC+9 | 대한민국 |
+| **JST** | 일본 표준시 | UTC+9 | 일본 |
+| **CST** | 중국 표준시 | UTC+8 | 중국 |
+| **SGT** | 싱가포르 표준시 | UTC+8 | 싱가포르 |
+| **PHT** | 필리핀 표준시 | UTC+8 | 필리핀 |
+| **AEST** | 호주 동부 표준시 | UTC+10 | 호주 (동부) |
+| **ICT** | 인도차이나 표준시 | UTC+7 | 태국, 베트남 |
+| **IST** | 인도 표준시 | UTC+5:30 | 인도 |
+| **GST** | 걸프 표준시 | UTC+4 | UAE, 오만 |
+| **CET** | 중앙 유럽 표준시 | UTC+1 | 독일, 프랑스, 이탈리아, 폴란드 |
+| **EET** | 동유럽 표준시 | UTC+2 | 동유럽 |
+| **EST** | 미국 동부 표준시 | UTC-5 | 미국 동부 해안 |
+| **AST** | 대서양 표준시 | UTC-4 | 캐나다 동부 |
+| **CST_US** | 미국 중부 표준시 | UTC-6 | 미국, 캐나다, 멕시코 중부 |
+| **MST** | 미국 산악 표준시 | UTC-7 | 미국 산악 지역 |
+| **PST** | 미국 서부 표준시 | UTC-8 | 미국 서부 해안 |
+| **AKST** | 알래스카 표준시 | UTC-9 | 알래스카 |
+| **HST** | 하와이 표준시 | UTC-10 | 하와이 |
+| **BRT** | 브라질 표준시 | UTC-3 | 브라질 |
+| **ART** | 아르헨티나 표준시 | UTC-3 | 아르헨티나 |
+
+### 🔄 마이그레이션 가이드
+
+**기존 형식 (여전히 지원됨):**
+```xml
+${CURRENT_TIMESTAMP}
+${NOW}
+${CURRENT_DATE}
+```
+
+**새로운 형식 (권장):**
+```xml
+${DATE:yyyy-MM-DD HH:mm:ss}      <!-- 로컬 시간 -->
+${DATE.UTC:yyyy-MM-DD HH:mm:ss}  <!-- UTC 시간 -->
+${DATE.KST:yyyy-MM-DD HH:mm:ss}  <!-- 한국 시간 -->
+${DATE.EST:yyyy-MM-DD HH:mm:ss}  <!-- 미국 동부 시간 -->
+```
+
 ## 🚀 v0.8.4 - 언어 설정 통일 및 환경 변수 기반 구성 (2025-10-19)
 
 ### 🔧 개선사항

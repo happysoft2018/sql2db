@@ -1,5 +1,111 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.5 - Global Timezone System (2025-10-21)
+
+### ✨ New Features
+
+#### Global Timezone System
+- **Support for 22 timezones worldwide**: Enhanced date/time variable functionality
+  - New syntax: `${DATE.TIMEZONE:format}` for specific timezone or `${DATE:format}` for local time
+  - Asia-Pacific: UTC, GMT, KST, JST, CST, SGT, PHT, ICT, IST, AEST
+  - Europe/Middle East: CET (Germany, France, Italy, Poland), EET, GST
+  - Americas: EST, AST, CST_US (US, Canada, Mexico), MST, PST, AKST, HST, BRT, ART
+  - Supported format tokens: `YYYY`, `YY`, `MM`, `M`, `DD`, `D`, `HH`, `H`, `mm`, `m`, `ss`, `s`, `SSS`
+  - Case-insensitive tokens: `yyyy` = `YYYY`, `dd` = `DD`
+
+- **Local Time Support**: Use server's local timezone when timezone is omitted
+  - `${DATE:YYYY-MM-DD}` - Uses server's local timezone
+  - Recommendation: Explicitly specify timezone for global consistency
+
+#### Usage Examples
+
+**1. File Names with Timezone:**
+```xml
+<targetTable>backup_${DATE.UTC:yyyyMMdd_HHmmss}</targetTable>
+<targetTable>logs_${DATE.KST:yyyy-MM-dd}</targetTable>
+```
+
+**2. WHERE Conditions:**
+```xml
+<columnOverrides>
+  <column name="created_at">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</column>
+  <column name="updated_at">${DATE.KST:yyyy-MM-DD HH:mm:ss}</column>
+</columnOverrides>
+```
+
+**3. Local Time:**
+```xml
+<column name="process_date">${DATE:yyyy-MM-dd}</column>
+```
+
+**4. Multi-Timezone Report:**
+```xml
+<!-- Source: Korea time -->
+<query database="sourceDB">
+  SELECT * FROM users WHERE created_at > '${DATE.KST:yyyy-MM-DD}'
+</query>
+
+<!-- Target: US East Coast time -->
+<targetTable>users_backup_${DATE.EST:yyyyMMdd}</targetTable>
+```
+
+### 🔧 Technical Changes
+
+#### variable-manager.js
+- **Added `formatDate()` method**: Custom date formatter supporting multiple tokens
+  - Supports both uppercase and lowercase tokens (yyyy/YYYY, dd/DD)
+  - Handles year, month, day, hour, minute, second, milliseconds
+  
+- **Enhanced `replaceTimestampFunctions()` method**:
+  - Added timezone offset map for 22 timezones
+  - Local time pattern handling: `${DATE:format}`
+  - Timezone-specific pattern handling: `${DATE.TIMEZONE:format}`
+  - Maintains backward compatibility with existing timestamp functions
+
+### 📊 Supported Timezones
+
+| Timezone | Description | UTC Offset | Region |
+|----------|-------------|------------|--------|
+| **UTC** | Coordinated Universal Time | UTC+0 | Global Standard |
+| **GMT** | Greenwich Mean Time | UTC+0 | United Kingdom |
+| **KST** | Korea Standard Time | UTC+9 | South Korea |
+| **JST** | Japan Standard Time | UTC+9 | Japan |
+| **CST** | China Standard Time | UTC+8 | China |
+| **SGT** | Singapore Time | UTC+8 | Singapore |
+| **PHT** | Philippine Time | UTC+8 | Philippines |
+| **AEST** | Australian Eastern Time | UTC+10 | Australia (East) |
+| **ICT** | Indochina Time | UTC+7 | Thailand, Vietnam |
+| **IST** | India Standard Time | UTC+5:30 | India |
+| **GST** | Gulf Standard Time | UTC+4 | UAE, Oman |
+| **CET** | Central European Time | UTC+1 | Germany, France, Italy, Poland |
+| **EET** | Eastern European Time | UTC+2 | Eastern Europe |
+| **EST** | Eastern Standard Time | UTC-5 | US East Coast |
+| **AST** | Atlantic Standard Time | UTC-4 | Eastern Canada |
+| **CST_US** | Central Standard Time | UTC-6 | US, Canada, Mexico Central |
+| **MST** | Mountain Standard Time | UTC-7 | US Mountain |
+| **PST** | Pacific Standard Time | UTC-8 | US West Coast |
+| **AKST** | Alaska Standard Time | UTC-9 | Alaska |
+| **HST** | Hawaii Standard Time | UTC-10 | Hawaii |
+| **BRT** | Brasilia Time | UTC-3 | Brazil |
+| **ART** | Argentina Time | UTC-3 | Argentina |
+
+### 🔄 Migration Guide
+
+**Old Format (still supported):**
+```xml
+${CURRENT_TIMESTAMP}
+${NOW}
+${CURRENT_DATE}
+```
+
+**New Format (recommended):**
+```xml
+${DATE:yyyy-MM-DD HH:mm:ss}      <!-- Local time -->
+${DATE.UTC:yyyy-MM-DD HH:mm:ss}  <!-- UTC time -->
+${DATE.KST:yyyy-MM-DD HH:mm:ss}  <!-- Korea time -->
+${DATE.EST:yyyy-MM-DD HH:mm:ss}  <!-- US East Coast time -->
+```
+
 ## 🚀 v0.8.4 - Unified Language Configuration & Environment Variable Based Setup (2025-10-19)
 
 ### 🔧 Improvements
