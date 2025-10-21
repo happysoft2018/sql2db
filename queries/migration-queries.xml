@@ -20,13 +20,13 @@
     <var name="categoryIds">[1, 2, 3, 5, 8]</var>
     <var name="departmentCodes">["IT", "HR", "SALES", "MARKETING"]</var>
     <var name="enableForeignKeyOrder">true</var>
-    <var name="migrationTimestamp">2024-12-01 15:30:00</var>
+    <var name="migrationTimestamp">${DATE.UTC:yyyy-MM-dd HH:mm:ss}</var>
     <var name="migrationUser">SYSTEM_MIGRATOR</var>
     <var name="migrationId">MG001</var>
     <!-- 현재 시각 함수 사용 예시 -->
-    <var name="currentTimestamp">${CURRENT_TIMESTAMP}</var>
-    <var name="currentDate">${CURRENT_DATE}</var>
-    <var name="currentTime">${CURRENT_TIME}</var>
+    <var name="currentTimestamp">${DATE:yyyy-MM-dd HH:mm:ss}</var>
+    <var name="currentDate">${DATE:yyyy-MM-dd}</var>
+    <var name="currentTime">${DATE:HH:mm:ss}</var>
   </variables>
 
   <!-- 전역 컬럼 오버라이드 설정 -->
