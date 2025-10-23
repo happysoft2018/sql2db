@@ -1,5 +1,41 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.6 - 컬럼 오버라이드 로그 개선 (2025-10-23)
+
+### 🔧 개선사항
+
+#### 컬럼 오버라이드 로그 정확성 향상
+- **실제 오버라이드된 컬럼만 표시**: 전역 컬럼 오버라이드 적용 시 실제로 데이터에 존재하고 오버라이드된 컬럼명만 로그에 표시
+  - 이전: 전역 설정의 모든 컬럼을 표시 (일부는 실제 적용되지 않음)
+  - 개선: 실제 데이터에 존재하는 컬럼만 필터링하여 정확한 로그 출력
+  - 2단계 필터링: `applyGlobalColumns` 속성으로 1차 필터링 → 실제 데이터 존재 여부로 2차 필터링
+  
+- **예시:**
+  ```xml
+  <!-- 전역 설정: 7개 컬럼 정의 -->
+  <globalColumnOverrides>
+    <override column="payment_method">...</override>
+    <override column="company_code">...</override>
+    <override column="email">...</override>
+    <override column="Created_By">110</override>
+    <override column="created_date">${DATE.UTC:yyyy-MM-dd HH:mm:ss}</override>
+    <override column="order_date">${DATE.KST:yyyy-MM-dd HH:mm:ss}</override>
+    <override column="status">...</override>
+  </globalColumnOverrides>
+  
+  <!-- products 테이블에 created_by, status만 존재 -->
+  <query applyGlobalColumns="created_by,status">
+    <!-- 로그: "전역 컬럼 오버라이드 적용 중: Created_By, status" -->
+    <!-- (2개만 실제 적용됨을 명확히 표시) -->
+  </query>
+  ```
+
+#### selectivelyApplyGlobalColumnOverrides 함수 호출 수정
+- 전체 globalColumnOverrides를 복사하던 방식에서 선택적 필터링 함수를 실제로 호출하도록 개선
+- 불필요한 중복 로그 제거
+
+---
+
 ## 🚀 v0.8.5 - 글로벌 타임존 시스템 (2025-10-21)
 
 ### ✨ 새로운 기능

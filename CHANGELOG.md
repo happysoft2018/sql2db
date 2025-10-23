@@ -1,5 +1,41 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.6 - Column Override Logging Improvements (2025-10-23)
+
+### 🔧 Improvements
+
+#### Enhanced Column Override Logging Accuracy
+- **Display Only Actually Overridden Columns**: When applying global column overrides, logs now show only the columns that actually exist in the data and were overridden
+  - Before: Displayed all columns from global settings (some were not actually applied)
+  - Improved: Filters and shows only columns that exist in actual data for accurate logging
+  - Two-stage filtering: 1st filter by `applyGlobalColumns` attribute → 2nd filter by actual data existence
+  
+- **Example:**
+  ```xml
+  <!-- Global settings: 7 columns defined -->
+  <globalColumnOverrides>
+    <override column="payment_method">...</override>
+    <override column="company_code">...</override>
+    <override column="email">...</override>
+    <override column="Created_By">110</override>
+    <override column="created_date">${DATE.UTC:yyyy-MM-dd HH:mm:ss}</override>
+    <override column="order_date">${DATE.KST:yyyy-MM-dd HH:mm:ss}</override>
+    <override column="status">...</override>
+  </globalColumnOverrides>
+  
+  <!-- products table only has created_by and status -->
+  <query applyGlobalColumns="created_by,status">
+    <!-- Log: "Applying global column overrides: Created_By, status" -->
+    <!-- (Clearly shows only 2 columns were actually applied) -->
+  </query>
+  ```
+
+#### Fixed selectivelyApplyGlobalColumnOverrides Function Call
+- Changed from copying entire globalColumnOverrides to actually calling the selective filtering function
+- Removed unnecessary duplicate logs
+
+---
+
 ## 🚀 v0.8.5 - Global Timezone System (2025-10-21)
 
 ### ✨ New Features

@@ -910,21 +910,44 @@ ${DATE:format}
 각 쿼리에서 `applyGlobalColumns` 속성을 사용하여 전역 컬럼 오버라이드를 선택적으로 적용할 수 있습니다.
 
 **사용 가능한 값:**
-- `all`: 모든 전역 컬럼 오버라이드 적용 (기본값)
+- `all`: 모든 전역 컬럼 오버라이드 적용 (기본값) - 실제 데이터에 존재하는 컬럼만 적용됨
 - `none`: 전역 컬럼 오버라이드 적용 안함
 - `컬럼명`: 특정 컬럼만 적용 (예: `created_by`)
 - `컬럼명1,컬럼명2`: 여러 컬럼 선택적 적용 (예: `created_by,updated_by`)
 
 **사용 예시:**
 ```xml
-<!-- 모든 전역 컬럼 적용 -->
+<!-- 전역 컬럼 오버라이드 설정 -->
+<globalColumnOverrides>
+  <override column="created_by">SYSTEM</override>
+  <override column="updated_by">SYSTEM</override>
+  <override column="migration_date">${DATE.UTC:yyyy-MM-DD}</override>
+  <override column="processed_at">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="data_version">2.1</override>
+</globalColumnOverrides>
+
+<!-- 모든 전역 컬럼 적용 - 실제 데이터에 존재하는 컬럼만 오버라이드됨 -->
 <query id="migrate_users" applyGlobalColumns="all">
-  <!-- 결과: created_by, updated_by, migration_date, processed_at, data_version 모두 적용 -->
+  <sourceQuery targetTable="users" ...>
+    SELECT * FROM users WHERE status = 'ACTIVE'
+  </sourceQuery>
+  <!-- 
+    users 테이블에 created_by, updated_by, migration_date만 존재하는 경우
+    로그 출력: "전역 컬럼 오버라이드 적용 중: created_by, updated_by, migration_date"
+    (processed_at, data_version은 적용되지 않음)
+  -->
 </query>
 
-<!-- 특정 컬럼만 적용 -->
+<!-- 특정 컬럼만 적용 - 지정된 컬럼 중 실제 존재하는 컬럼만 오버라이드됨 -->
 <query id="migrate_products" applyGlobalColumns="created_by,updated_by">
-  <!-- 결과: created_by, updated_by만 적용 -->
+  <sourceQuery targetTable="products" ...>
+    SELECT * FROM products WHERE status = 'ACTIVE'
+  </sourceQuery>
+  <!-- 
+    products 테이블에 created_by만 존재하는 경우
+    로그 출력: "전역 컬럼 오버라이드 선택 적용: created_by"
+    (updated_by는 테이블에 없으므로 적용되지 않음)
+  -->
 </query>
 
 <!-- 전역 컬럼 적용 안함 -->
@@ -932,6 +955,11 @@ ${DATE:format}
   <!-- 결과: 전역 컬럼 오버라이드 적용 안함 -->
 </query>
 ```
+
+**중요:** 
+- 지정된 컬럼이 실제 소스 데이터에 존재하지 않으면 자동으로 무시됩니다.
+- 로그에는 실제로 오버라이드가 적용된 컬럼명만 표시됩니다.
+- 대소문자 구분 없이 컬럼명을 매칭합니다 (예: `Created_By`, `created_by`, `CREATED_BY` 모두 동일하게 인식).
 
 #### 기본 문법
 

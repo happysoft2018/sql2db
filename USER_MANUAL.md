@@ -865,12 +865,63 @@ These functions are still supported for backward compatibility:
 ```
 
 ### 3. Global Column Overrides
+
+Global column overrides allow you to define column values that apply to all queries. You can selectively apply these overrides using the `applyGlobalColumns` attribute.
+
+#### Selective Application
+
+**Available Values:**
+- `all`: Apply all global column overrides (default) - only columns that actually exist in the data
+- `none`: Don't apply any global column overrides
+- `column_name`: Apply only a specific column (e.g., `created_by`)
+- `column1,column2,...`: Apply multiple specific columns (e.g., `created_by,updated_by`)
+
+#### Example Configuration
+
 ```xml
+<!-- Define global column overrides -->
 <globalColumnOverrides>
   <override column="created_by">SYSTEM</override>
-  <override column="created_date">${DATE.UTC:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="updated_by">SYSTEM</override>
+  <override column="migration_date">${DATE.UTC:yyyy-MM-DD}</override>
+  <override column="processed_at">${DATE.KST:yyyy-MM-DD HH:mm:ss}</override>
+  <override column="data_version">2.1</override>
 </globalColumnOverrides>
+
+<!-- Apply all global columns - only columns present in actual data are overridden -->
+<query id="migrate_users" applyGlobalColumns="all">
+  <sourceQuery targetTable="users" ...>
+    SELECT * FROM users WHERE status = 'ACTIVE'
+  </sourceQuery>
+  <!-- 
+    If users table only has created_by, updated_by, migration_date:
+    Log output: "Applying global column overrides: created_by, updated_by, migration_date"
+    (processed_at, data_version are not applied)
+  -->
+</query>
+
+<!-- Apply specific columns - only columns that exist in data are overridden -->
+<query id="migrate_products" applyGlobalColumns="created_by,updated_by">
+  <sourceQuery targetTable="products" ...>
+    SELECT * FROM products WHERE status = 'ACTIVE'
+  </sourceQuery>
+  <!-- 
+    If products table only has created_by:
+    Log output: "Applying global column overrides: created_by"
+    (updated_by is not in the table, so it's not applied)
+  -->
+</query>
+
+<!-- No global column overrides -->
+<query id="migrate_logs" applyGlobalColumns="none">
+  <!-- Result: No global column overrides applied -->
+</query>
 ```
+
+**Important Notes:**
+- If a specified column doesn't exist in the source data, it's automatically ignored
+- Logs show only the column names that were actually overridden
+- Column name matching is case-insensitive (e.g., `Created_By`, `created_by`, `CREATED_BY` are all treated the same)
 
 ### 4. Pre/Post Processing
 ```xml
