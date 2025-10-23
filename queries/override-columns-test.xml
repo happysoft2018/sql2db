@@ -42,7 +42,7 @@
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
-                  applyGlobalColumns="created_by,status" 
+                  applyGlobalColumns="NONE" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
@@ -77,7 +77,7 @@
       <sourceQuery targetTable="users" 
                   targetColumns="*" 
                   identityColumns="username" 
-                  applyGlobalColumns="email,created_date">
+                  applyGlobalColumns="created_date, last_NAME">
         <![CDATA[
           SELECT *
           FROM users 

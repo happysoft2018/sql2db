@@ -445,11 +445,6 @@ class MSSQLDataMigrator {
                         }
                     });
                     
-                    const appliedColumns = Object.keys(existingOverrides);
-                    if (appliedColumns.length > 0) {
-                        this.log(`${this.msg.globalColumnApplied} (${this.msg.globalColumnAppliedAll}): ${appliedColumns.join(', ')}`);
-                    }
-                    
                     return existingOverrides;
                 } else {
                     const allOverrides = {};
@@ -457,16 +452,10 @@ class MSSQLDataMigrator {
                         allOverrides[column] = this.variableManager.resolveJsonValue(value, {});
                     });
                     
-                    const appliedColumns = Object.keys(allOverrides);
-                    if (appliedColumns.length > 0) {
-                        this.log(`전역 컬럼 오버라이드 적용 (all): ${appliedColumns.join(', ')}`);
-                    }
-                    
                     return allOverrides;
                 }
                 
             case 'none':
-                this.log(`${this.msg.globalColumnNotApplied} (none)`);
                 return {};
                 
             default:
@@ -485,13 +474,6 @@ class MSSQLDataMigrator {
                         }
                     });
                     
-                    const appliedColumns = Object.keys(selectedOverrides);
-                    if (appliedColumns.length > 0) {
-                        this.log(`${this.msg.globalColumnSelected} ${appliedColumns.join(', ')}`);
-                    } else {
-                        this.log(`${this.msg.globalColumnNotFound} (${applyGlobalColumns}) ${this.msg.globalColumnNotFoundEnd}`);
-                    }
-                    
                     return selectedOverrides;
                 } else {
                     const columnInfo = columnMap.get(normalizedApplyGlobalColumns);
@@ -500,12 +482,10 @@ class MSSQLDataMigrator {
                             tableName: tableName,
                             database: database
                         });
-                        this.log(`${this.msg.globalColumnApplied}: ${columnInfo.originalColumn}`);
                         return { 
                             [columnInfo.originalColumn]: resolvedValue
                         };
                     }
-                    this.log(`${this.msg.globalColumnNotFound} '${applyGlobalColumns}' ${this.msg.globalColumnNotFoundEnd}`);
                     return {};
                 }
         }
@@ -780,12 +760,14 @@ class MSSQLDataMigrator {
                     // SELECT * 처리 및 컬럼 오버라이드 적용
                     const processedQueryConfig = await this.queryProcessor.processQueryConfig(queryConfig, this.queryFilePath);
                     
-                    // columnOverrides 설정
-                    processedQueryConfig.columnOverrides = new Map();
-                    if (processedQueryConfig.sourceQueryApplyGlobalColumns && 
-                        processedQueryConfig.sourceQueryApplyGlobalColumns !== 'none') {
-                        processedQueryConfig.columnOverrides = new Map(this.config.globalColumnOverrides);
-                    }
+                    // columnOverrides 설정 - 선택적으로 전역 컬럼 오버라이드 적용
+                    const selectedOverrides = await this.selectivelyApplyGlobalColumnOverrides(
+                        this.config.globalColumnOverrides,
+                        processedQueryConfig.sourceQueryApplyGlobalColumns,
+                        processedQueryConfig.targetTable,
+                        'target'
+                    );
+                    processedQueryConfig.columnOverrides = new Map(Object.entries(selectedOverrides));
                     
                     this.progressManager.startQuery(queryConfig.id, queryConfig.description, 0);
                     

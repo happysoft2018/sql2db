@@ -660,7 +660,8 @@ class VariableManager {
                 return sourceData;
             }
            
-            this.log(`${this.msg.globalColOverrideApplying} ${Array.from(globalColumnOverrides.keys()).join(', ')}`);
+            // 실제로 오버라이드가 적용된 컬럼을 추적
+            const appliedColumns = new Set();
             
             const processedData = sourceData.map(row => {
                 const newRow = { ...row };
@@ -672,32 +673,41 @@ class VariableManager {
                 });
                 
                 globalColumnOverrides.forEach((value, column) => {
-                    let processedValue = this.replaceVariables(value);
-                    
                     // 대소문자 구분 없이 실제 컬럼명 찾기
-                    const actualColumnName = rowColumnMap.get(column.toLowerCase()) || column;
+                    const actualColumnName = rowColumnMap.get(column.toLowerCase());
                     
-                    // JSON 매핑 처리
-                    if (typeof processedValue === 'string' && processedValue.trim().startsWith('{') && processedValue.trim().endsWith('}')) {
-                        try {
-                            const parsedJson = JSON.parse(processedValue);
-                            const originalValue = row[actualColumnName];
-                            if (originalValue && parsedJson[originalValue]) {
-                                processedValue = parsedJson[originalValue];
-                            } else {
-                                processedValue = originalValue || Object.values(parsedJson)[0] || '';
+                    // 실제로 row에 존재하는 컬럼만 오버라이드
+                    if (actualColumnName) {
+                        let processedValue = this.replaceVariables(value);
+                        
+                        // JSON 매핑 처리
+                        if (typeof processedValue === 'string' && processedValue.trim().startsWith('{') && processedValue.trim().endsWith('}')) {
+                            try {
+                                const parsedJson = JSON.parse(processedValue);
+                                const originalValue = row[actualColumnName];
+                                if (originalValue && parsedJson[originalValue]) {
+                                    processedValue = parsedJson[originalValue];
+                                } else {
+                                    processedValue = originalValue || Object.values(parsedJson)[0] || '';
+                                }
+                            } catch (jsonError) {
+                                // JSON 파싱 실패 시 원본 문자열 사용
                             }
-                        } catch (jsonError) {
-                            // JSON 파싱 실패 시 원본 문자열 사용
                         }
+                        
+                        // 실제 컬럼명으로 값 설정
+                        newRow[actualColumnName] = processedValue;
+                        appliedColumns.add(actualColumnName);
                     }
-                    
-                    // 실제 컬럼명으로 값 설정
-                    newRow[actualColumnName] = processedValue;
                 });
                 
                 return newRow;
             });
+            
+            // 실제로 오버라이드된 컬럼명만 로그에 표시
+            if (appliedColumns.size > 0) {
+                this.log(`${this.msg.globalColOverrideApplying} ${Array.from(appliedColumns).join(', ')}`);
+            }
             
             this.log(this.msg.globalColOverrideComplete.replace('{count}', sourceData.length));
             return processedData;
