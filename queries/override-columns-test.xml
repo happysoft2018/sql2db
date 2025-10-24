@@ -26,9 +26,10 @@
     <!-- 모든 쿼리에 공통으로 적용될 컬럼 값들 -->
     <override column="payment_method">{"신용카드":"[신용카드]현대카드", "계좌이체":"[계좌이체]카카오뱅크"}</override>
     <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON", "COMPANY03":"GOOGLE", "COMPANY04":"TESLA"}</override>
+    <override column="product_code">{"LAPTOP001":"랩탑01", "WOMENS001":"우먼스01"}</override>
     <override column="email">{"david.brown@company.com":"david@gmail.com","emily.davis@company.com":"emily@gmail.com","robert.miller@company.com":"robert@gmail.com","lisa.garcia@company.com":"lisa@gmail.com"}</override>
     <override column="Created_By">110</override>
-    <override column="created_date">${DATE.UTC:yyyy-MM-dd HH:mm:ss}</override>
+    <override column="CREATED_DATE">${DATE.UTC:yyyy-MM-dd HH:mm:ss}</override>
     <override column="order_date">${DATE.KST:yyyy-MM-dd HH:mm:ss}</override>
     <override column="staTus">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING", "SHIPPED":"DELIVERED", "ACTIVE":"ING", "INACTIVE":"NOTING"}</override>
   </globalColumnOverrides>
@@ -42,12 +43,11 @@
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
-                  applyGlobalColumns="NONE" 
+                  applyGlobalColumns="status, created_date" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
           FROM products 
-          WHERE status = 'ACTIVE'
         ]]>
       </sourceQuery>
     </query>
@@ -77,7 +77,7 @@
       <sourceQuery targetTable="users" 
                   targetColumns="*" 
                   identityColumns="username" 
-                  applyGlobalColumns="created_date, last_NAME">
+                  applyGlobalColumns="created_date, last_NAME, company_code">
         <![CDATA[
           SELECT *
           FROM users 

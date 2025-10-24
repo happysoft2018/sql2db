@@ -685,13 +685,25 @@ class VariableManager {
                             try {
                                 const parsedJson = JSON.parse(processedValue);
                                 const originalValue = row[actualColumnName];
-                                if (originalValue && parsedJson[originalValue]) {
-                                    processedValue = parsedJson[originalValue];
+                                
+                                // 원본 값이 null/undefined가 아니고 JSON에 매핑이 있는 경우에만 변환
+                                if (originalValue != null && originalValue !== '') {
+                                    const trimmedValue = String(originalValue).trim();
+                                    if (parsedJson.hasOwnProperty(trimmedValue)) {
+                                        processedValue = parsedJson[trimmedValue];
+                                    } else if (parsedJson.hasOwnProperty(originalValue)) {
+                                        processedValue = parsedJson[originalValue];
+                                    } else {
+                                        // 매핑에 없는 값은 원본 유지
+                                        processedValue = originalValue;
+                                    }
                                 } else {
-                                    processedValue = originalValue || Object.values(parsedJson)[0] || '';
+                                    // 원본 값이 null/undefined/empty인 경우 원본 유지
+                                    processedValue = originalValue;
                                 }
                             } catch (jsonError) {
                                 // JSON 파싱 실패 시 원본 문자열 사용
+                                this.log(`JSON 파싱 실패 (컬럼: ${actualColumnName}): ${jsonError.message}`);
                             }
                         }
                         

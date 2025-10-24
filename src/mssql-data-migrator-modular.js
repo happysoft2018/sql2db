@@ -437,11 +437,8 @@ class MSSQLDataMigrator {
                         if (matchIndex !== -1) {
                             // 테이블의 실제 컬럼명 사용
                             const actualColumnName = tableColumns[matchIndex];
-                            const resolvedValue = this.variableManager.resolveJsonValue(value, {
-                                tableName: tableName,
-                                database: database
-                            });
-                            existingOverrides[actualColumnName] = resolvedValue;
+                            // JSON 문자열은 그대로 유지 (실제 데이터 적용 시 매핑됨)
+                            existingOverrides[actualColumnName] = value;
                         }
                     });
                     
@@ -449,7 +446,8 @@ class MSSQLDataMigrator {
                 } else {
                     const allOverrides = {};
                     globalColumnOverrides.forEach((value, column) => {
-                        allOverrides[column] = this.variableManager.resolveJsonValue(value, {});
+                        // JSON 문자열은 그대로 유지 (실제 데이터 적용 시 매핑됨)
+                        allOverrides[column] = value;
                     });
                     
                     return allOverrides;
@@ -466,11 +464,8 @@ class MSSQLDataMigrator {
                     selectedColumns.forEach(column => {
                         const columnInfo = columnMap.get(column);
                         if (columnInfo) {
-                            const resolvedValue = this.variableManager.resolveJsonValue(columnInfo.value, {
-                                tableName: tableName,
-                                database: database
-                            });
-                            selectedOverrides[columnInfo.originalColumn] = resolvedValue;
+                            // JSON 문자열은 그대로 유지 (실제 데이터 적용 시 매핑됨)
+                            selectedOverrides[columnInfo.originalColumn] = columnInfo.value;
                         }
                     });
                     
@@ -478,12 +473,9 @@ class MSSQLDataMigrator {
                 } else {
                     const columnInfo = columnMap.get(normalizedApplyGlobalColumns);
                     if (columnInfo) {
-                        const resolvedValue = this.variableManager.resolveJsonValue(columnInfo.value, {
-                            tableName: tableName,
-                            database: database
-                        });
+                        // JSON 문자열은 그대로 유지 (실제 데이터 적용 시 매핑됨)
                         return { 
-                            [columnInfo.originalColumn]: resolvedValue
+                            [columnInfo.originalColumn]: columnInfo.value
                         };
                     }
                     return {};
