@@ -1,5 +1,38 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.8.7 - JSON Mapping Logic Fix (2025-10-24)
+
+### 🐛 Bug Fixes
+
+#### JSON Mapping Logic Fix
+- **Issue Fixed**: JSON-formatted column overrides were always converting to the first value
+  - Before: `selectivelyApplyGlobalColumnOverrides` function called `resolveJsonValue` which returned the first JSON value
+  - Result: All values were converted to the first JSON value regardless of actual data values
+  
+- **Improvements**:
+  - Removed `resolveJsonValue` call from `selectivelyApplyGlobalColumnOverrides`
+  - JSON string is now preserved and mapped in `applyGlobalColumnOverrides` based on actual data values
+  - When mapping fails, **preserves original value** instead of using first value
+  - Trims whitespace in values for accurate matching
+  
+- **Transformation Examples:**
+  ```xml
+  <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING"}</override>
+  
+  <!-- Based on original data's status value -->
+  "COMPLETED"  → "FINISHED"  (mapping successful)
+  "PENDING"    → "WAITING"   (mapping successful)
+  "SHIPPED"    → "SHIPPED"   (no mapping, keep original)
+  "ACTIVE "    → "ING"       (auto-trim whitespace)
+  null         → null        (null not transformed)
+  ```
+  
+- **Modified Files**:
+  - `src/mssql-data-migrator-modular.js`: Removed `resolveJsonValue` call from `selectivelyApplyGlobalColumnOverrides` function
+  - `src/modules/variable-manager.js`: Improved JSON mapping logic in `applyGlobalColumnOverrides` function
+
+---
+
 ## 🚀 v0.8.6 - Column Override Logging Improvements (2025-10-23)
 
 ### 🔧 Improvements

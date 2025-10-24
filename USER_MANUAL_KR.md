@@ -60,13 +60,13 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - Node.js에 익숙하지 않은 사용자
 
 **설치 단계:**
-1. 릴리스 페이지에서 `sql2db-v0.8.4-bin.zip` 다운로드
+1. 릴리스 페이지에서 `sql2db-v0.8.7-bin.zip` 다운로드
 2. 원하는 위치에 압축 해제 (예: `C:\Tools\sql2db\`)
 3. 추가 설치 불필요 - 바로 사용 가능!
 
 **패키지 내용:**
 ```
-sql2db-v0.8.4/
+sql2db-v0.8.7/
 ├── sql2db.exe              # 메인 실행 파일 (Node.js 불필요)
 ├── run.bat                 # 영문 실행 스크립트
 ├── 실행하기.bat             # 한글 실행 스크립트
@@ -979,12 +979,98 @@ ${DATE:format}
 </globalColumnOverrides>
 ```
 
+#### JSON 매핑을 통한 값 변환
+
+전역 컬럼 오버라이드에서 JSON 형식을 사용하여 원본 데이터 값을 다른 값으로 매핑할 수 있습니다.
+
+**기본 문법:**
+```xml
+<override column="컬럼명">{"원본값1":"변환값1", "원본값2":"변환값2"}</override>
+```
+
+**동작 방식:**
+- 원본 데이터의 컬럼 값이 JSON 키에 존재하면 → 해당 값으로 변환
+- 원본 데이터의 컬럼 값이 JSON 키에 없으면 → **원본 값 유지** (변환하지 않음)
+- 원본 데이터의 컬럼 값이 null/undefined/빈 문자열이면 → 원본 값 유지
+- 공백이 포함된 값도 자동으로 trim하여 매칭
+
+**사용 예시:**
+
+```xml
+<globalColumnOverrides>
+  <!-- 상태 코드 변환 -->
+  <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING"}</override>
+  
+  <!-- 회사 코드 변환 -->
+  <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON", "COMPANY03":"GOOGLE"}</override>
+  
+  <!-- 결제 수단 변환 -->
+  <override column="payment_method">{"신용카드":"[신용카드]현대카드", "계좌이체":"[계좌이체]카카오뱅크"}</override>
+  
+  <!-- 이메일 주소 변환 -->
+  <override column="email">{"old@company.com":"new@company.com", "admin@old.com":"admin@new.com"}</override>
+</globalColumnOverrides>
+```
+
+**변환 예시:**
+
+| 컬럼명 | 원본 값 | JSON 매핑 | 결과 값 | 설명 |
+|--------|---------|-----------|---------|------|
+| status | `COMPLETED` | `{"COMPLETED":"FINISHED"}` | `FINISHED` | ✅ 매핑 성공 |
+| status | `PENDING` | `{"COMPLETED":"FINISHED"}` | `PENDING` | ⚠️ 매핑 없음, 원본 유지 |
+| status | `ACTIVE ` | `{"ACTIVE":"ING"}` | `ING` | ✅ 공백 자동 trim |
+| status | `null` | `{"COMPLETED":"FINISHED"}` | `null` | ⚠️ null은 변환 안함 |
+| company_code | `COMPANY01` | `{"COMPANY01":"APPLE"}` | `APPLE` | ✅ 매핑 성공 |
+| company_code | `COMPANY99` | `{"COMPANY01":"APPLE"}` | `COMPANY99` | ⚠️ 매핑 없음, 원본 유지 |
+
+**중요 사항:**
+- ✅ **원본 값 유지**: JSON에 매핑이 없는 값은 자동으로 원본 값을 유지합니다.
+- ✅ **대소문자 구분**: JSON 키는 대소문자를 구분합니다.
+- ✅ **공백 처리**: 원본 값의 앞뒤 공백은 자동으로 제거됩니다.
+- ⚠️ **null 처리**: null, undefined, 빈 문자열은 변환하지 않고 원본 유지합니다.
+- ⚠️ **첫 번째 값 사용 안함**: 매핑 실패 시 JSON의 첫 번째 값을 사용하지 않고 원본 값을 유지합니다.
+
+**실제 사용 예시:**
+
+```xml
+<!-- 소스 데이터 -->
+<!-- 
+  orders 테이블:
+  order_id | status      | payment_method | company_code
+  1        | COMPLETED   | 신용카드        | COMPANY01
+  2        | PENDING     | 계좌이체        | COMPANY02
+  3        | SHIPPED     | 현금           | COMPANY99
+-->
+
+<globalColumnOverrides>
+  <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING"}</override>
+  <override column="payment_method">{"신용카드":"[신용카드]현대카드", "계좌이체":"[계좌이체]카카오뱅크"}</override>
+  <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON"}</override>
+</globalColumnOverrides>
+
+<!-- 결과 데이터 -->
+<!--
+  order_id | status    | payment_method        | company_code
+  1        | FINISHED  | [신용카드]현대카드     | APPLE
+  2        | WAITING   | [계좌이체]카카오뱅크   | AMAZON
+  3        | SHIPPED   | 현금                  | COMPANY99
+  
+  설명:
+  - order 1: status, payment_method, company_code 모두 변환됨
+  - order 2: status, payment_method, company_code 모두 변환됨
+  - order 3: status, payment_method, company_code 모두 원본 유지 (JSON에 매핑 없음)
+-->
+```
+
 #### 활용 사례
 - 마이그레이션 플래그 설정
-- 환경별 값 변경 (DEV → PROD)
+- 환경별 값 변환 (DEV → PROD)
 - 감사 정보 추가
 - 상태 값 업데이트
 - 현재 시각 정보 추가
+- **코드 값 매핑** (상태 코드, 회사 코드 등)
+- **레거시 데이터 정규화** (오래된 값을 새로운 표준으로 변환)
+- **다국어 지원** (언어별 값 변환)
 
 #### 지원되는 현재 시각 함수
 | 함수명 | 설명 | 예시 출력 |

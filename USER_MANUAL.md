@@ -60,13 +60,13 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - Users unfamiliar with Node.js
 
 **Installation Steps:**
-1. Download `sql2db-v0.8.4-bin.zip` from the release page
+1. Download `sql2db-v0.8.7-bin.zip` from the release page
 2. Extract to your desired location (e.g., `C:\Tools\sql2db\`)
 3. No additional installation required - ready to use!
 
 **Package Contents:**
 ```
-sql2db-v0.8.4/
+sql2db-v0.8.7/
 ├── sql2db.exe              # Main executable (no Node.js needed)
 ├── run.bat                 # English launcher
 ├── 실행하기.bat             # Korean launcher
@@ -922,6 +922,99 @@ Global column overrides allow you to define column values that apply to all quer
 - If a specified column doesn't exist in the source data, it's automatically ignored
 - Logs show only the column names that were actually overridden
 - Column name matching is case-insensitive (e.g., `Created_By`, `created_by`, `CREATED_BY` are all treated the same)
+
+#### JSON Mapping for Value Transformation
+
+Global column overrides support JSON format for mapping source values to target values.
+
+**Basic Syntax:**
+```xml
+<override column="column_name">{"source_value1":"target_value1", "source_value2":"target_value2"}</override>
+```
+
+**How It Works:**
+- If the source column value exists in JSON keys → Transform to corresponding value
+- If the source column value doesn't exist in JSON keys → **Keep original value** (no transformation)
+- If the source column value is null/undefined/empty string → Keep original value
+- Whitespace in values is automatically trimmed for matching
+
+**Usage Examples:**
+
+```xml
+<globalColumnOverrides>
+  <!-- Status code mapping -->
+  <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING"}</override>
+  
+  <!-- Company code mapping -->
+  <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON", "COMPANY03":"GOOGLE"}</override>
+  
+  <!-- Payment method mapping -->
+  <override column="payment_method">{"CreditCard":"[CC]Visa", "BankTransfer":"[BT]Chase"}</override>
+  
+  <!-- Email address mapping -->
+  <override column="email">{"old@company.com":"new@company.com", "admin@old.com":"admin@new.com"}</override>
+</globalColumnOverrides>
+```
+
+**Transformation Examples:**
+
+| Column | Original Value | JSON Mapping | Result Value | Description |
+|--------|----------------|--------------|--------------|-------------|
+| status | `COMPLETED` | `{"COMPLETED":"FINISHED"}` | `FINISHED` | ✅ Mapping successful |
+| status | `PENDING` | `{"COMPLETED":"FINISHED"}` | `PENDING` | ⚠️ No mapping, keep original |
+| status | `ACTIVE ` | `{"ACTIVE":"ING"}` | `ING` | ✅ Auto-trim whitespace |
+| status | `null` | `{"COMPLETED":"FINISHED"}` | `null` | ⚠️ null not transformed |
+| company_code | `COMPANY01` | `{"COMPANY01":"APPLE"}` | `APPLE` | ✅ Mapping successful |
+| company_code | `COMPANY99` | `{"COMPANY01":"APPLE"}` | `COMPANY99` | ⚠️ No mapping, keep original |
+
+**Important Points:**
+- ✅ **Preserve Original**: Values without mappings automatically keep their original value
+- ✅ **Case-Sensitive**: JSON keys are case-sensitive
+- ✅ **Whitespace Handling**: Leading/trailing whitespace in original values is automatically trimmed
+- ⚠️ **null Handling**: null, undefined, and empty strings are not transformed and keep original value
+- ⚠️ **No Default to First Value**: If mapping fails, it does NOT use the first JSON value, but keeps the original value
+
+**Real-World Example:**
+
+```xml
+<!-- Source Data -->
+<!-- 
+  orders table:
+  order_id | status      | payment_method | company_code
+  1        | COMPLETED   | CreditCard     | COMPANY01
+  2        | PENDING     | BankTransfer   | COMPANY02
+  3        | SHIPPED     | Cash           | COMPANY99
+-->
+
+<globalColumnOverrides>
+  <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING"}</override>
+  <override column="payment_method">{"CreditCard":"[CC]Visa", "BankTransfer":"[BT]Chase"}</override>
+  <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON"}</override>
+</globalColumnOverrides>
+
+<!-- Result Data -->
+<!--
+  order_id | status    | payment_method | company_code
+  1        | FINISHED  | [CC]Visa       | APPLE
+  2        | WAITING   | [BT]Chase      | AMAZON
+  3        | SHIPPED   | Cash           | COMPANY99
+  
+  Explanation:
+  - order 1: All columns transformed (status, payment_method, company_code)
+  - order 2: All columns transformed (status, payment_method, company_code)
+  - order 3: All columns kept original values (no JSON mappings found)
+-->
+```
+
+#### Use Cases
+- Migration flags
+- Environment-specific value changes (DEV → PROD)
+- Audit information addition
+- Status value updates
+- Current timestamp addition
+- **Code value mapping** (status codes, company codes, etc.)
+- **Legacy data normalization** (converting old values to new standards)
+- **Multi-language support** (language-specific value conversion)
 
 ### 4. Pre/Post Processing
 ```xml

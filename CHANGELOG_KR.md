@@ -1,5 +1,38 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.8.7 - JSON 매핑 로직 수정 (2025-10-24)
+
+### 🐛 버그 수정
+
+#### JSON 매핑 로직 수정
+- **문제점**: JSON 형식의 컬럼 오버라이드가 항상 첫 번째 값으로 변환되는 버그 수정
+  - 이전: `selectivelyApplyGlobalColumnOverrides` 함수에서 `resolveJsonValue` 호출로 인해 JSON의 첫 번째 값을 반환
+  - 결과: 원본 데이터 값과 무관하게 항상 첫 번째 값으로 변환됨
+  
+- **개선사항**:
+  - `selectivelyApplyGlobalColumnOverrides`에서 `resolveJsonValue` 호출 제거
+  - JSON 문자열을 그대로 유지하여 `applyGlobalColumnOverrides`에서 실제 데이터 값에 따라 매핑
+  - 매핑 실패 시 첫 번째 값 대신 **원본 값 유지**
+  - 공백이 포함된 값도 trim하여 정확한 매칭
+  
+- **변환 예시:**
+  ```xml
+  <override column="status">{"COMPLETED":"FINISHED", "PENDING":"WAITING", "PROCESSING":"GOING"}</override>
+  
+  <!-- 원본 데이터의 status 값에 따라 -->
+  "COMPLETED"  → "FINISHED"  (매핑 성공)
+  "PENDING"    → "WAITING"   (매핑 성공)
+  "SHIPPED"    → "SHIPPED"   (매핑 없음, 원본 유지)
+  "ACTIVE "    → "ING"       (공백 자동 trim)
+  null         → null        (null은 변환 안함)
+  ```
+  
+- **수정 파일**:
+  - `src/mssql-data-migrator-modular.js`: `selectivelyApplyGlobalColumnOverrides` 함수에서 `resolveJsonValue` 호출 제거
+  - `src/modules/variable-manager.js`: `applyGlobalColumnOverrides` 함수의 JSON 매핑 로직 개선
+
+---
+
 ## 🚀 v0.8.6 - 컬럼 오버라이드 로그 개선 (2025-10-23)
 
 ### 🔧 개선사항
