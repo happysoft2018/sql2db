@@ -1099,38 +1099,71 @@ ${DATE:format}
 
 ### 2. 전처리/후처리 (Pre/Post Processing)
 
-#### 전역 전처리/후처리
-전체 이관 프로세스 전후에 실행됩니다.
+#### 전역 전처리/후처리 그룹
+전체 이관 프로세스 전후에 실행됩니다. 여러 그룹으로 나누어 기능별로 관리할 수 있습니다.
 
 ```xml
 <globalProcesses>
-  <preProcess description="성능 최적화">
-    <![CDATA[
-      -- 인덱스 비활성화
-      ALTER INDEX ALL ON users DISABLE;
-      
-      -- 제약조건 비활성화  
-      ALTER TABLE users NOCHECK CONSTRAINT ALL;
-      
-      -- 통계 업데이트
-      UPDATE STATISTICS users;
-    ]]>
-  </preProcess>
+  <!-- 전처리 그룹들 -->
+  <preProcessGroups>
+    <group id="performance_setup" description="성능 최적화 설정" enabled="true">
+      <![CDATA[
+        -- 인덱스 비활성화
+        ALTER INDEX ALL ON users DISABLE;
+        ALTER INDEX ALL ON products DISABLE;
+        
+        -- 제약조건 비활성화
+        ALTER TABLE users NOCHECK CONSTRAINT ALL;
+        ALTER TABLE products NOCHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="logging" description="마이그레이션 로그 초기화" enabled="true">
+      <![CDATA[
+        -- 마이그레이션 시작 로그
+        INSERT INTO migration_log (migration_date, status, description) 
+        VALUES (GETDATE(), 'STARTED', 'Migration started');
+      ]]>
+    </group>
+  </preProcessGroups>
   
-  <postProcess description="시스템 복구">
-    <![CDATA[
-      -- 인덱스 재구성
-      ALTER INDEX ALL ON users REBUILD;
-      
-      -- 제약조건 활성화
-      ALTER TABLE users CHECK CONSTRAINT ALL;
-      
-      -- 완료 로그 기록
-      INSERT INTO migration_log VALUES ('COMPLETED', GETDATE());
-    ]]>
-  </postProcess>
+  <!-- 후처리 그룹들 -->
+  <postProcessGroups>
+    <group id="performance_restore" description="성능 최적화 복원" enabled="true">
+      <![CDATA[
+        -- 인덱스 재구성
+        ALTER INDEX ALL ON users REBUILD;
+        ALTER INDEX ALL ON products REBUILD;
+        
+        -- 제약조건 활성화
+        ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
+        ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="completion" description="완료 로그" enabled="true">
+      <![CDATA[
+        -- 이관 완료 로그 기록
+        INSERT INTO migration_log (migration_date, status, description) 
+        VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully');
+      ]]>
+    </group>
+  </postProcessGroups>
 </globalProcesses>
 ```
+
+**그룹 속성:**
+- `id`: 그룹의 고유 식별자
+- `description`: 그룹 설명
+- `enabled`: 그룹 활성화 여부 (true/false)
+
+**실행 순서:**
+1. 전역 전처리 그룹들 (정의된 순서대로)
+2. 동적변수 추출
+3. 개별 쿼리 마이그레이션
+4. 전역 후처리 그룹들 (정의된 순서대로)
+
+💡 **상세한 그룹 시스템 설명**: 이 문서의 "11. 전역 전/후처리 그룹" 섹션을 참조하세요.
 
 #### 개별 쿼리 전처리/후처리
 특정 쿼리 실행 전후에만 실행됩니다.

@@ -1055,6 +1055,80 @@ Global column overrides support JSON format for mapping source values to target 
 - **Multi-language support** (language-specific value conversion)
 
 ### 4. Pre/Post Processing
+
+#### Global Pre/Post Processing Groups
+Executed before and after the entire migration process. Can be organized into multiple groups by functionality.
+
+```xml
+<globalProcesses>
+  <!-- Pre-processing Groups -->
+  <preProcessGroups>
+    <group id="performance_setup" description="Performance optimization setup" enabled="true">
+      <![CDATA[
+        -- Disable indexes
+        ALTER INDEX ALL ON users DISABLE;
+        ALTER INDEX ALL ON products DISABLE;
+        
+        -- Disable constraints
+        ALTER TABLE users NOCHECK CONSTRAINT ALL;
+        ALTER TABLE products NOCHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="logging" description="Initialize migration log" enabled="true">
+      <![CDATA[
+        -- Log migration start
+        INSERT INTO migration_log (migration_date, status, description) 
+        VALUES (GETDATE(), 'STARTED', 'Migration started');
+      ]]>
+    </group>
+  </preProcessGroups>
+  
+  <!-- Post-processing Groups -->
+  <postProcessGroups>
+    <group id="performance_restore" description="Restore performance optimization" enabled="true">
+      <![CDATA[
+        -- Rebuild indexes
+        ALTER INDEX ALL ON users REBUILD;
+        ALTER INDEX ALL ON products REBUILD;
+        
+        -- Enable constraints
+        ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
+        ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="completion" description="Completion log" enabled="true">
+      <![CDATA[
+        -- Log migration completion
+        INSERT INTO migration_log (migration_date, status, description) 
+        VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully');
+      ]]>
+    </group>
+  </postProcessGroups>
+</globalProcesses>
+```
+
+**Group Attributes:**
+- `id`: Unique identifier for the group
+- `description`: Group description
+- `enabled`: Whether the group is active (true/false)
+
+**Execution Order:**
+1. Global pre-processing groups (in defined order)
+2. Dynamic variable extraction
+3. Individual query migrations
+4. Global post-processing groups (in defined order)
+
+**Error Handling:**
+- **Pre-processing group errors**: Halt entire migration
+- **Post-processing group errors**: Log warning and continue with next group
+
+💡 **Detailed Group System**: See "Global Pre/Post Processing Groups" section later in this document for comprehensive examples.
+
+#### Individual Query Pre/Post Processing
+Executed only before/after specific query execution.
+
 ```xml
 <preProcess description="Backup and cleanup">
   <![CDATA[
@@ -1112,7 +1186,136 @@ When using `SELECT *`, the tool automatically:
 </query>
 ```
 
-### 11. Advanced SQL Parsing and Comment Processing
+### 6. Global Pre/Post Processing Groups (Advanced)
+
+You can organize global pre-processing and post-processing into multiple groups, managing them by functionality.
+
+#### Group Definition
+
+```xml
+<globalProcesses>
+  <!-- Pre-processing Groups -->
+  <preProcessGroups>
+    <group id="performance_setup" description="Performance optimization setup" enabled="true">
+      <![CDATA[
+        -- Disable indexes
+        ALTER INDEX ALL ON users DISABLE;
+        ALTER INDEX ALL ON products DISABLE;
+        
+        -- Disable constraints
+        ALTER TABLE users NOCHECK CONSTRAINT ALL;
+        ALTER TABLE products NOCHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="logging" description="Initialize migration log" enabled="true">
+      <![CDATA[
+        -- Log migration start
+        INSERT INTO migration_log (migration_date, status, description, user_name) 
+        VALUES (GETDATE(), 'STARTED', 'Migration started', '${migrationUser}');
+      ]]>
+    </group>
+    
+    <group id="validation" description="Data validation" enabled="true">
+      <![CDATA[
+        -- Basic source data validation
+        IF EXISTS (SELECT 1 FROM users_source WHERE username IS NULL OR email IS NULL)
+        BEGIN
+          INSERT INTO validation_errors (error_type, message, created_date)
+          VALUES ('NULL_REQUIRED_FIELDS', 'Required fields contain NULL values', GETDATE());
+        END
+        
+        -- Check for duplicate data
+        IF EXISTS (SELECT user_id, COUNT(*) FROM users_source GROUP BY user_id HAVING COUNT(*) > 1)
+        BEGIN
+          RAISERROR('Duplicate user IDs found. Migration aborted.', 16, 1);
+        END
+      ]]>
+    </group>
+  </preProcessGroups>
+  
+  <!-- Post-processing Groups -->
+  <postProcessGroups>
+    <group id="performance_restore" description="Restore performance optimization" enabled="true">
+      <![CDATA[
+        -- Rebuild indexes
+        ALTER INDEX ALL ON users REBUILD;
+        ALTER INDEX ALL ON products REBUILD;
+        
+        -- Enable constraints
+        ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
+        ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
+      ]]>
+    </group>
+    
+    <group id="verification" description="Data verification" enabled="true">
+      <![CDATA[
+        -- Verify data counts after migration
+        DECLARE @source_count INT, @target_count INT;
+        SELECT @source_count = COUNT(*) FROM users_source;
+        SELECT @target_count = COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}';
+        
+        IF @source_count != @target_count
+        BEGIN
+          INSERT INTO validation_errors (error_type, message, source_count, target_count, created_date)
+          VALUES ('COUNT_MISMATCH', 'Source and target counts do not match', @source_count, @target_count, GETDATE());
+        END
+      ]]>
+    </group>
+    
+    <group id="completion" description="Completion log" enabled="true">
+      <![CDATA[
+        -- Log migration completion
+        INSERT INTO migration_log (migration_date, status, description, total_rows) 
+        VALUES (GETDATE(), 'COMPLETED', 'Data migration completed successfully', 
+                (SELECT COUNT(*) FROM users WHERE migration_date = '${migrationTimestamp}'));
+      ]]>
+    </group>
+  </postProcessGroups>
+</globalProcesses>
+```
+
+#### Group Attributes
+
+- **id**: Unique identifier for the group
+- **description**: Group description
+- **enabled**: Whether the group is active (true/false)
+
+#### Execution Order
+
+1. **Global pre-processing groups** (in defined order)
+2. Dynamic variable extraction
+3. Individual query migrations
+4. **Global post-processing groups** (in defined order)
+
+#### Using Dynamic Variables
+
+All dynamic variables can be used in group scripts:
+
+```xml
+<group id="audit_logging" description="Audit log" enabled="true">
+  <![CDATA[
+    -- Log active users (using dynamic variable)
+    INSERT INTO migration_user_tracking (user_id, tracking_type)
+    SELECT user_id, 'ACTIVE_USER'
+    FROM users_source 
+    WHERE user_id IN (${activeUserIds});
+    
+    -- Company statistics (key_value_pairs dynamic variable)
+    INSERT INTO company_stats (company_code, company_name)
+    SELECT 'COMP01', '${companyMapping.COMP01}'
+    UNION ALL
+    SELECT 'COMP02', '${companyMapping.COMP02}';
+  ]]>
+</group>
+```
+
+#### Error Handling
+
+- **Pre-processing group errors**: Halt entire migration
+- **Post-processing group errors**: Log warning and continue with next group
+
+### 7. Advanced SQL Parsing and Comment Processing
 
 Accurately processes complex SQL syntax and comments.
 
