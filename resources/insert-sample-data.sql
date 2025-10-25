@@ -6,6 +6,7 @@
 -- 임시로 외래키 제약조건 비활성화
 EXEC sp_MSforeachtable "ALTER TABLE ? NOCHECK CONSTRAINT all";
 
+
 PRINT '🚀 테스트용 샘플 데이터 입력 시작...';
 
 -- ===============================================
@@ -82,7 +83,7 @@ INSERT INTO categories (category_id, category_name, category_code, parent_catego
 -- ===============================================
 PRINT '🏢 고객 데이터 입력 중...';
 
-INSERT INTO customers (customer_code, company_name, contact_name, contact_email, contact_phone, address, city, country, customer_type, credit_limit, last_order_date) VALUES
+INSERT INTO customers (customer_id, company_name, contact_name, contact_email, contact_phone, address, city, country, customer_type, credit_limit, last_order_date) VALUES
 ('CUST001', '테크솔루션(주)', '김철수', 'kim@techsolution.com', '02-1234-5678', '서울시 강남구 테헤란로 123', '서울', '한국', 'CORPORATE', 10000000.00, DATEADD(day, -5, GETDATE())),
 ('CUST002', '글로벌IT', '이영희', 'lee@globalit.com', '02-2345-6789', '서울시 서초구 서초대로 456', '서울', '한국', 'CORPORATE', 15000000.00, DATEADD(day, -2, GETDATE())),
 ('CUST003', NULL, '박민수', 'park@email.com', '010-3456-7890', '부산시 해운대구 해운대로 789', '부산', '한국', 'INDIVIDUAL', 1000000.00, DATEADD(day, -10, GETDATE())),
@@ -122,16 +123,16 @@ INSERT INTO products (product_name, product_code, category_id, price, cost, stoc
 PRINT '🛒 주문 데이터 입력 중...';
 
 INSERT INTO orders (order_number, customer_id, order_date, total_amount, tax_amount, status, payment_method, shipping_address, created_by) VALUES
-('ORD01', 1, DATEADD(day, -30, GETDATE()), 2400000.00, 240000.00, 'COMPLETED', '신용카드', '서울시 강남구 테헤란로 123', 4),
-('ORD02', 2, DATEADD(day, -25, GETDATE()), 1800000.00, 180000.00, 'COMPLETED', '계좌이체', '서울시 서초구 서초대로 456', 4),
-('ORD03', 3, DATEADD(day, -20, GETDATE()), 275000.00, 27500.00, 'SHIPPED', '신용카드', '부산시 해운대구 해운대로 789', 12),
-('ORD04', 4, DATEADD(day, -15, GETDATE()), 1530000.00, 153000.00, 'COMPLETED', '계좌이체', '경기도 성남시 분당구 판교로 101', 4),
-('ORD05', 5, DATEADD(day, -12, GETDATE()), 148000.00, 14800.00, 'PROCESSING', '신용카드', '대구시 수성구 동대구로 202', 12),
-('ORD06', 6, DATEADD(day, -10, GETDATE()), 850000.00, 85000.00, 'COMPLETED', '계좌이체', '부산시 금정구 부산대학로 303', 4),
-('ORD07', 7, DATEADD(day, -8, GETDATE()), 1620000.00, 162000.00, 'SHIPPED', '신용카드', '광주시 서구 상무대로 404', 12),
-('ORD08', 8, DATEADD(day, -5, GETDATE()), 715000.00, 71500.00, 'PROCESSING', '계좌이체', '대전시 유성구 대학로 505', 4),
-('ORD09', 9, DATEADD(day, -3, GETDATE()), 1780000.00, 178000.00, 'PENDING', '신용카드', '인천시 남동구 인천대로 606', 12),
-('ORD10', 10, DATEADD(day, -1, GETDATE()), 3485000.00, 348500.00, 'CONFIRMED', '계좌이체', '서울시 마포구 월드컵로 707', 4);
+('ORD01', 'CUST001', DATEADD(day, -30, GETDATE()), 2400000.00, 240000.00, 'COMPLETED', '신용카드', '서울시 강남구 테헤란로 123', 4),
+('ORD02', 'CUST002', DATEADD(day, -25, GETDATE()), 1800000.00, 180000.00, 'COMPLETED', '계좌이체', '서울시 서초구 서초대로 456', 4),
+('ORD03', 'CUST003', DATEADD(day, -20, GETDATE()), 275000.00, 27500.00, 'SHIPPED', '신용카드', '부산시 해운대구 해운대로 789', 12),
+('ORD04', 'CUST004', DATEADD(day, -15, GETDATE()), 1530000.00, 153000.00, 'COMPLETED', '계좌이체', '경기도 성남시 분당구 판교로 101', 4),
+('ORD05', 'CUST005', DATEADD(day, -12, GETDATE()), 148000.00, 14800.00, 'PROCESSING', '신용카드', '대구시 수성구 동대구로 202', 12),
+('ORD06', 'CUST006', DATEADD(day, -10, GETDATE()), 850000.00, 85000.00, 'COMPLETED', '계좌이체', '부산시 금정구 부산대학로 303', 4),
+('ORD07', 'CUST007', DATEADD(day, -8, GETDATE()), 1620000.00, 162000.00, 'SHIPPED', '신용카드', '광주시 서구 상무대로 404', 12),
+('ORD08', 'CUST008', DATEADD(day, -5, GETDATE()), 715000.00, 71500.00, 'PROCESSING', '계좌이체', '대전시 유성구 대학로 505', 4),
+('ORD09', 'CUST009', DATEADD(day, -3, GETDATE()), 1780000.00, 178000.00, 'PENDING', '신용카드', '인천시 남동구 인천대로 606', 12),
+('ORD10', 'CUST010', DATEADD(day, -1, GETDATE()), 3485000.00, 348500.00, 'CONFIRMED', '계좌이체', '서울시 마포구 월드컵로 707', 4);
 
 -- ===============================================
 -- 7. 주문 상세 데이터 입력 (Order_Items)
@@ -225,16 +226,16 @@ UPDATE employees SET manager_id = 7 WHERE emp_id = 8; -- 송민호가 윤서희�
 PRINT '⭐ 상품 리뷰 데이터 입력 중...';
 
 INSERT INTO product_reviews (product_code, customer_id, rating, review_title, review_text, is_verified, helpful_count) VALUES
-('PHONE001', 1, 5, '최고의 스마트폰!', '갤럭시 S24 Ultra 정말 만족합니다. 카메라 품질이 뛰어나고 배터리도 오래갑니다.', 1, 15),
-('MENS001', 3, 4, '좋은 제품이에요', '성능은 훌륭하지만 가격이 조금 비싸네요. 그래도 추천합니다.', 1, 8),
-('PHONE002' , 2, 5, '아이폰 최고!', '아이폰 15 Pro는 역시 아이폰이네요. 디자인과 성능 모두 만족합니다.', 1, 22),
-('LAPTOP001', 4, 5, '개발자에게 최적', '맥북 프로 16인치로 개발 작업이 훨씬 편해졌습니다. 강력 추천!', 1, 35),
-('LAPTOP002', 5, 4, '가성비 좋은 노트북', '델 XPS 13은 가볍고 성능도 좋습니다. 휴대성이 뛰어나요.', 1, 12),
-('MENS001', 6, 5, '편안한 운동화', '나이키 에어맥스는 정말 편안합니다. 러닝할 때 발이 안 아파요.', 1, 18),
-('BOOK001', 7, 5, '해리포터 팬 필수', '해리포터 전집은 몇 번을 읽어도 재미있어요. 소장가치 충분합니다.', 1, 45),
-('BOOK002', 8, 5, '개발자 필독서', '클린 코드는 모든 개발자가 읽어야 할 책입니다. 정말 도움됩니다.', 1, 67),
-('FURN001', 9, 4, '만족스러운 소파', '모던 소파 디자인도 좋고 앉았을 때도 편안합니다. 추천해요.', 1, 9),
-('SPORT001', 10, 5, '홈트레이닝 최고', '러닝머신 구매 후 집에서 운동하기 편해졌습니다. 품질도 좋아요.', 1, 120); 
+('PHONE001', 'CUST001', 5, '최고의 스마트폰!', '갤럭시 S24 Ultra 정말 만족합니다. 카메라 품질이 뛰어나고 배터리도 오래갑니다.', 1, 15),
+('MENS001', 'CUST003', 4, '좋은 제품이에요', '성능은 훌륭하지만 가격이 조금 비싸네요. 그래도 추천합니다.', 1, 8),
+('PHONE002' , 'CUST002', 5, '아이폰 최고!', '아이폰 15 Pro는 역시 아이폰이네요. 디자인과 성능 모두 만족합니다.', 1, 22),
+('LAPTOP001', 'CUST004', 5, '개발자에게 최적', '맥북 프로 16인치로 개발 작업이 훨씬 편해졌습니다. 강력 추천!', 1, 35),
+('LAPTOP002', 'CUST005', 4, '가성비 좋은 노트북', '델 XPS 13은 가볍고 성능도 좋습니다. 휴대성이 뛰어나요.', 1, 12),
+('MENS001', 'CUST006', 5, '편안한 운동화', '나이키 에어맥스는 정말 편안합니다. 러닝할 때 발이 안 아파요.', 1, 18),
+('BOOK001', 'CUST007', 5, '해리포터 팬 필수', '해리포터 전집은 몇 번을 읽어도 재미있어요. 소장가치 충분합니다.', 1, 45),
+('BOOK002', 'CUST008', 5, '개발자 필독서', '클린 코드는 모든 개발자가 읽어야 할 책입니다. 정말 도움됩니다.', 1, 67),
+('FURN001', 'CUST009', 4, '만족스러운 소파', '모던 소파 디자인도 좋고 앉았을 때도 편안합니다. 추천해요.', 1, 9),
+('SPORT001', 'CUST010', 5, '홈트레이닝 최고', '러닝머신 구매 후 집에서 운동하기 편해졌습니다. 품질도 좋아요.', 1, 120); 
 
 -- ===============================================
 -- 12. 엔티티 관계 데이터 입력 (Entity_Relationships)

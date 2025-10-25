@@ -59,11 +59,24 @@
           EXEC sp_MSforeachtable "ALTER TABLE ? NOCHECK CONSTRAINT all";
         ]]>
       </group>
+
+      <group id="add_code_datas_for_test" description="테스트를 위한 코드데이터 추가" enabled="true">
+        <![CDATA[
+            INSERT INTO companies (company_code, company_name, address, phone, email, status) 
+            VALUES
+                    ('APPLE', 'APPLE', '1 Infinite Loop, Cupertino, CA 95014, USA', '02-6712-6770', 'info@apple.com', 'ACTIVE'),
+                    ('AMAZON', 'AMAZON', '410 Terry Ave N, Seattle, WA 98109, USA', '02-206-266-1000', 'contact@amazon.com', 'ACTIVE'),
+                    ('MICROSOFT', 'MICROSOFT', 'One Microsoft Way, Redmond, WA 98052, USA', '02-426-745-6000', 'support@microsoft.com', 'ACTIVE'),
+                    ('TESLA', 'TESLA', '3500 Deer Creek Rd, Palo Alto, CA 94304, USA', '02-6712-6770', 'hello@tesla.com', 'INACTIVE'),
+                    ('META', 'META', '1600 Amphitheatre Parkway, Mountain View, CA 94043, USA', '02-6712-6770', 'admin@meta.com', 'ACTIVE'),
+                    ('GOOGLE', 'GOOGLE', '1600 Amphitheatre Parkway, Mountain View, CA 94043, USA', '02-6712-6770', 'admin@google.com', 'ACTIVE');
+        ]]>
+      </group>
     </preProcessGroups>
     
     <!-- 전체 이관 완료 후 실행 그룹들 -->
     <postProcessGroups>
-      <group id="activate_foreign_keys" description="FK 제약조건 활성화" enabled="true">
+      <group id="activate_foreign_keys" description="FK 제약조건 활성화" enabled="false">
         <![CDATA[
           -- 외래키 제약조건 다시 활성화
           EXEC sp_MSforeachtable "ALTER TABLE ? WITH CHECK CHECK CONSTRAINT all";
@@ -102,7 +115,6 @@
       <![CDATA[
         SELECT user_id FROM users 
         WHERE status = 'ACTIVE' 
-          AND last_login_date >= '${startDate}'
           AND user_id IS NOT NULL
         ORDER BY user_id
       ]]>
@@ -114,7 +126,7 @@
                 variableName="companyMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT company_code, company_name FROM companies WHERE status = 'ACTIVE'
       ]]>
@@ -125,7 +137,7 @@
                 variableName="departmentMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT department_code, department_name 
         FROM departments 
@@ -139,7 +151,7 @@
                 variableName="statusMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT status_code, status_description 
         FROM status_codes 
@@ -153,7 +165,7 @@
                 variableName="categoryMapping"
                 extractType="key_value_pairs"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT category_id, category_name 
         FROM categories 
@@ -166,7 +178,7 @@
                 variableName="maxOrderId"
                 extractType="single_value"
                 database="sampleDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT MAX(OrderID) as max_id FROM orders
       ]]>
@@ -178,7 +190,7 @@
                 extractType="column_identified"
                 columns="product_code,category_id"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT product_code, category_id FROM products
       ]]>
@@ -191,7 +203,7 @@
                 extractType="multiple_columns"
                 columns="user_id,department_id,manager_id"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT
           u.user_id,
@@ -214,7 +226,7 @@
                 extractType="single_column"
                 columnName="approver_code"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT ar.approver_code
         FROM approval_requests ar
@@ -230,7 +242,7 @@
                 extractType="single_column"
                 columnName="requester_code"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT ar.requester_code
         FROM approval_requests ar
@@ -246,7 +258,7 @@
                 extractType="single_column"
                 columnName="product_code"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT ar.product_code
         FROM approval_requests ar
@@ -263,7 +275,7 @@
                 extractType="multiple_columns"
                 columns="approver_code,requester_code,product_code"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT 
           ar.approver_code,
@@ -285,7 +297,7 @@
                 extractType="column_identified"
                 columns="approver_code,requester_code,product_code"
                 database="sourceDB"
-                enabled="true">
+                enabled="false">
       <![CDATA[
         SELECT DISTINCT 
           ar.approver_code,
@@ -303,6 +315,72 @@
 
   <queries>
 
+    <!-- 카테고리 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_categories_all"
+           description="카테리고리 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+      <sourceQuery targetTable="categories" 
+                  targetColumns="*" 
+                  identityColumns="category_id" 
+                  applyGlobalColumns="none" 
+                  deleteBeforeInsert="true">
+        <![CDATA[
+          SELECT *
+          FROM categories 
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 부서 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_departments_all"
+           description="부서 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+      <sourceQuery targetTable="departments" 
+                  targetColumns="*" 
+                  identityColumns="department_code" 
+                  applyGlobalColumns="none" 
+                  deleteBeforeInsert="true">
+        <![CDATA[
+          SELECT *
+          FROM departments 
+        ]]>
+      </sourceQuery>
+    </query>
+
+    <!-- 회사 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_companies_all"
+           description="회사 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+      <sourceQuery targetTable="companies" 
+                  targetColumns="*" 
+                  identityColumns="company_code" 
+                  applyGlobalColumns="none" 
+                  deleteBeforeInsert="true">
+        <![CDATA[
+          SELECT *
+          FROM companies 
+        ]]>
+      </sourceQuery>
+    </query>
+
+
+    <!-- 전/후처리 예시 쿼리 -->
+    <query id="migrate_users_all"
+           description="사용자 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+
+      <sourceQuery targetTable="users" 
+                  targetColumns="*" 
+                  identityColumns="user_id" 
+                  applyGlobalColumns="none">
+        <![CDATA[
+          SELECT *
+          FROM users 
+ 
+        ]]>
+      </sourceQuery>
+    </query>
+      
     <!-- 상품 테이블 전체 데이터 이관 (SELECT * 사용) -->
     <query id="migrate_products_all"
            description="상품 테이블 전체 데이터 이관 (SELECT * 사용)"
@@ -310,7 +388,7 @@
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
-                  applyGlobalColumns="all" 
+                  applyGlobalColumns="none" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
@@ -322,7 +400,7 @@
     <!-- 주문 테이블 데이터 이관 (SQL 파일 사용) -->
     <query id="migrate_orders_from_file"
            description="주문 테이블 데이터 이관 (SQL 파일 사용)"
-           enabled="false">
+           enabled="true">
       <sourceQuery sourceQueryFile="sql/orders_migration.sql"
                   targetTable="orders"
                   targetColumns="*"
@@ -333,7 +411,7 @@
     <!-- 특정 상태의 상품 데이터 이관 (IN절 사용) -->
     <query id="migrate_products_by_status"
            description="특정 상태의 상품 데이터 이관 (IN절 사용)"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
@@ -364,7 +442,6 @@
         
         ]]>
       </sourceQuery>
-
     </query>
 
     <!-- 상품 테이블 데이터 이관 (SQL 파일 + IN절 변수 사용) -->
@@ -378,9 +455,27 @@
       </sourceQuery>
     </query>
 
-    <!-- 활성 사용자의 주문 데이터 이관 (동적 변수 사용) -->
-    <query id="migrate_user_orders_dynamic"
-           description="활성 사용자의 주문 데이터 이관 (동적 변수 사용)"
+
+    <!-- 고객 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_customers_all"
+           description="고객 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+      <sourceQuery targetTable="customers" 
+                  targetColumns="*" 
+                  identityColumns="customer_id" 
+                  applyGlobalColumns="all" 
+                  deleteBeforeInsert="true">
+        <![CDATA[
+          SELECT *
+          FROM customers 
+        ]]>
+      </sourceQuery>
+    </query>
+
+
+    <!-- 주문 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_orders_all"
+           description="주문 테이블 전체 데이터 이관 (SELECT * 사용)"
            enabled="true">
       <sourceQuery targetTable="orders" 
                   targetColumns="*" 
@@ -389,9 +484,6 @@
         <![CDATA[
           SELECT *
           FROM orders 
-          WHERE customer_id IN (${activeUserIds}) 
-            AND order_date >= '${startDate}' 
-  
         ]]>
       </sourceQuery>
 
@@ -400,7 +492,7 @@
     <!-- 추출된 상품 관련 데이터 이관 (동적 변수 사용) -->
     <query id="migrate_related_products_dynamic"
            description="추출된 상품 관련 데이터 이관 (동적 변수 사용)"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="product_reviews" 
                   targetColumns="*" 
                   identityColumns="product_code,customer_id">
@@ -499,7 +591,7 @@
     <!-- key_value_pairs 사용 예시 쿼리들 -->
     <query id="migrate_users_with_company_names"
            description="회사 코드-이름 매핑을 사용한 사용자 데이터 이관"
-           enabled="true">
+           enabled="false">
       <sourceQuery targetTable="users_with_company" 
                   targetColumns="user_id,username,email,company_code,company_name,created_date" 
                   identityColumns="user_id">
@@ -553,38 +645,21 @@
 
     </query>
 
-    <!-- 전/후처리 예시 쿼리 -->
-    <query id="migrate_with_global_overrides_example"
-           description="전역 columnOverrides 적용 예시"
-           enabled="true">
 
-      <!-- 전처리 스크립트 -->
-      <preProcess applyGlobalColumns="all" description="감사 로그 생성">
-        <![CDATA[
-          delete from users;
-        ]]>
-      </preProcess>
-      
-      <sourceQuery targetTable="users" 
+    <!-- 활동 로그 테이블 전체 데이터 이관 (SELECT * 사용) -->
+    <query id="migrate_activity_logs_all" 
+           description="활동 로그 테이블 전체 데이터 이관 (SELECT * 사용)"
+           enabled="true">
+      <sourceQuery targetTable="activity_logs" 
                   targetColumns="*" 
-                  identityColumns="username" 
-                  applyGlobalColumns="none">
+                  identityColumns="log_id" 
+                  applyGlobalColumns="all" 
+                  deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
-          FROM users 
- 
+          FROM activity_logs 
         ]]>
       </sourceQuery>
-      
-      <!-- 후처리 스크립트 -->
-      <postProcess applyGlobalColumns="all" description="마이그레이션 완료 처리">
-        <![CDATA[
-          insert into users (*)
-          SELECT *
-          from users
-          where username in ('david.brown','emily.davis','robert.miller','lisa.garcia')
-        ]]>
-      </postProcess>
     </query>
 
   </queries>

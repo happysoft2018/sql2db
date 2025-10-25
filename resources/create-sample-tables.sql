@@ -84,7 +84,7 @@ IF OBJECT_ID('orders', 'U') IS NOT NULL
 
 CREATE TABLE orders (
     order_number NVARCHAR(50) primary key,
-    customer_id INT NOT NULL,
+    customer_id NVARCHAR(20) NOT NULL,
     order_date DATETIME2 NOT NULL DEFAULT GETDATE(),
     ship_date DATETIME2 NULL,
     total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -117,8 +117,7 @@ IF OBJECT_ID('customers', 'U') IS NOT NULL
     DROP TABLE customers;
 
 CREATE TABLE customers (
-    customer_id INT IDENTITY(1,1) PRIMARY KEY,
-    customer_code NVARCHAR(20) NOT NULL UNIQUE,
+    customer_id NVARCHAR(20) primary key,
     company_name NVARCHAR(200) NULL,
     contact_name NVARCHAR(100) NOT NULL,
     contact_email NVARCHAR(100) NOT NULL,
@@ -192,7 +191,7 @@ IF OBJECT_ID('product_reviews', 'U') IS NOT NULL
 CREATE TABLE product_reviews (
     review_id INT IDENTITY(1,1) PRIMARY KEY,
     product_code NVARCHAR(50) NOT NULL,
-    customer_id INT NULL,
+    customer_id NVARCHAR(20) NOT NULL,
     rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
     review_title NVARCHAR(200) NULL,
     review_text NVARCHAR(1000) NULL,
@@ -200,9 +199,11 @@ CREATE TABLE product_reviews (
     helpful_count INT NOT NULL DEFAULT 0,
     created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
     updated_date DATETIME2 NULL,
-    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    unique key (product_code, customer_id, created_date)
+    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
 );
+CREATE UNIQUE INDEX UX_product_reviews ON product_reviews (product_code, customer_id, created_date);
+
+
 
 -- 12. 엔티티 관계 테이블 (Entity_Relationships)
 IF OBJECT_ID('entity_relationships', 'U') IS NOT NULL

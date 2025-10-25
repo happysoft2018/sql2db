@@ -60,7 +60,7 @@
       "id": "migrate_customers",
       "description": "고객 테이블 데이터 이관",
       "targetTable": "customers",
-      "sourceQuery": "SELECT customer_id, customer_code, company_name, contact_name, contact_email, contact_phone, address, city, country, customer_type, credit_limit, status, created_date, last_order_date FROM customers WHERE status = 'ACTIVE' AND created_date >= '${startDate}' ORDER BY customer_id",
+      "sourceQuery": "SELECT customer_id, company_name, contact_name, contact_email, contact_phone, address, city, country, customer_type, credit_limit, status, created_date, last_order_date FROM customers WHERE status = 'ACTIVE' AND created_date >= '${startDate}' ORDER BY customer_id",
       "enabled": true
     },
     {
