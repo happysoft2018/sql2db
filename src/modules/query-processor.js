@@ -284,7 +284,7 @@ class QueryProcessor {
             }
             
             // SELECT * 패턴 감지 및 처리
-            const selectAllPattern = /SELECT\s+\*\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?(?:\s+(?:WHERE|GROUP|HAVING|ORDER|LIMIT|OFFSET|UNION|INTERSECT|EXCEPT|FOR|OPTION|WITH)|\s*$)/i;
+            const selectAllPattern = /SELECT\s+\*\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(?!WHERE|GROUP|HAVING|ORDER|LIMIT|OFFSET|UNION|INTERSECT|EXCEPT|FOR|OPTION|WITH\b)(\w+))?(?:\s+(?:WHERE|GROUP|HAVING|ORDER|LIMIT|OFFSET|UNION|INTERSECT|EXCEPT|FOR|OPTION|WITH)|\s*$)/i;
             const match = queryConfig.sourceQuery.match(selectAllPattern);
             
             if (match) {
