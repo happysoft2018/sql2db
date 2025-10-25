@@ -15,7 +15,7 @@ IF OBJECT_ID('users', 'U') IS NOT NULL
     DROP TABLE users;
 
 CREATE TABLE users (
-    user_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT primary key,
     username NVARCHAR(50) NOT NULL UNIQUE,
     email NVARCHAR(100) NOT NULL UNIQUE,
     first_name NVARCHAR(50) NOT NULL,
@@ -49,7 +49,7 @@ IF OBJECT_ID('categories', 'U') IS NOT NULL
     DROP TABLE categories;
 
 CREATE TABLE categories (
-    category_id INT IDENTITY(1,1) PRIMARY KEY,
+    category_id INT primary key,
     category_name NVARCHAR(100) NOT NULL,
     category_code NVARCHAR(20) NOT NULL UNIQUE,
     parent_category_id INT NULL,
@@ -64,9 +64,8 @@ IF OBJECT_ID('products', 'U') IS NOT NULL
     DROP TABLE products;
 
 CREATE TABLE products (
-    product_id INT IDENTITY(1,1) PRIMARY KEY,
     product_name NVARCHAR(200) NOT NULL,
-    product_code NVARCHAR(50) NOT NULL UNIQUE,
+    product_code NVARCHAR(50) primary key,
     category_id INT NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     cost DECIMAL(10,2) NULL,
@@ -84,8 +83,7 @@ IF OBJECT_ID('orders', 'U') IS NOT NULL
     DROP TABLE orders;
 
 CREATE TABLE orders (
-    order_id INT IDENTITY(1,1) PRIMARY KEY,
-    order_number NVARCHAR(50) NOT NULL UNIQUE,
+    order_number NVARCHAR(50) primary key,
     customer_id INT NOT NULL,
     order_date DATETIME2 NOT NULL DEFAULT GETDATE(),
     ship_date DATETIME2 NULL,
@@ -104,14 +102,14 @@ IF OBJECT_ID('order_items', 'U') IS NOT NULL
     DROP TABLE order_items;
 
 CREATE TABLE order_items (
-    order_id INT NOT NULL,
-    product_id INT NOT NULL,
+    order_number NVARCHAR(50) NOT NULL,
+    product_code NVARCHAR(50) NOT NULL,
     quantity INT NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL,
     discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
     line_total AS (quantity * unit_price * (1 - discount_percent / 100)),
     created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
-    primary key (order_id, product_id)
+    primary key (order_number, product_code)
 );
 
 -- 7. 고객 테이블 (Customers)
@@ -193,7 +191,7 @@ IF OBJECT_ID('product_reviews', 'U') IS NOT NULL
 
 CREATE TABLE product_reviews (
     review_id INT IDENTITY(1,1) PRIMARY KEY,
-    product_id INT NOT NULL,
+    product_code NVARCHAR(50) NOT NULL,
     customer_id INT NULL,
     rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
     review_title NVARCHAR(200) NULL,
@@ -202,7 +200,8 @@ CREATE TABLE product_reviews (
     helpful_count INT NOT NULL DEFAULT 0,
     created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
     updated_date DATETIME2 NULL,
-    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+    status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    unique key (product_code, customer_id, created_date)
 );
 
 -- 12. 엔티티 관계 테이블 (Entity_Relationships)
@@ -285,7 +284,7 @@ CREATE TABLE approval_relations (
     relation_id INT IDENTITY(1,1) PRIMARY KEY,
     approver_id INT NOT NULL,
     requester_id INT NOT NULL,
-    product_id INT NULL,
+    product_code NVARCHAR(50) NULL,
     relation_type NVARCHAR(50) NOT NULL,
     hierarchy_level INT NOT NULL DEFAULT 1,
     is_active BIT NOT NULL DEFAULT 1,
@@ -393,115 +392,6 @@ CREATE TABLE audit_table (
 );
 
 
--- ===============================================
--- 외래키 제약조건 추가
--- ===============================================
-
--- Users → Departments
-ALTER TABLE users 
-ADD CONSTRAINT FK_users_departments 
-FOREIGN KEY (department_id) REFERENCES departments(department_id);
-
--- Departments → Users (Manager)
-ALTER TABLE departments 
-ADD CONSTRAINT FK_departments_users 
-FOREIGN KEY (manager_id) REFERENCES users(user_id);
-
--- Categories → Categories (Self-reference)
-ALTER TABLE categories 
-ADD CONSTRAINT FK_categories_parent 
-FOREIGN KEY (parent_category_id) REFERENCES categories(category_id);
-
--- Products → Categories
-ALTER TABLE products 
-ADD CONSTRAINT FK_products_categories 
-FOREIGN KEY (category_id) REFERENCES categories(category_id);
-
--- Products → Users (Created by)
-ALTER TABLE products 
-ADD CONSTRAINT FK_products_users 
-FOREIGN KEY (created_by) REFERENCES users(user_id);
-
--- Orders → Customers
-ALTER TABLE orders 
-ADD CONSTRAINT FK_orders_customers 
-FOREIGN KEY (customer_id) REFERENCES customers(customer_id);
-
--- Orders → Users (Created by)
-ALTER TABLE orders 
-ADD CONSTRAINT FK_orders_users 
-FOREIGN KEY (created_by) REFERENCES users(user_id);
-
--- Order_Items → Orders
-ALTER TABLE order_items 
-ADD CONSTRAINT FK_order_items_orders 
-FOREIGN KEY (order_id) REFERENCES orders(order_id);
-
--- Order_Items → Products
-ALTER TABLE order_items 
-ADD CONSTRAINT FK_order_items_products 
-FOREIGN KEY (product_id) REFERENCES products(product_id);
-
--- Activity_Logs → Users
-ALTER TABLE activity_logs 
-ADD CONSTRAINT FK_activity_logs_users 
-FOREIGN KEY (user_id) REFERENCES users(user_id);
-
--- ===============================================
--- 새로운 테이블들의 외래키 제약조건 추가
--- ===============================================
-
--- Users → Companies
-ALTER TABLE users 
-ADD CONSTRAINT FK_users_companies 
-FOREIGN KEY (company_code) REFERENCES companies(company_code);
-
--- Employees → Employees (Self-reference for Manager)
-ALTER TABLE employees 
-ADD CONSTRAINT FK_employees_manager 
-FOREIGN KEY (manager_id) REFERENCES employees(emp_id);
-
--- Product_Reviews → Products
-ALTER TABLE product_reviews 
-ADD CONSTRAINT FK_product_reviews_products 
-FOREIGN KEY (product_id) REFERENCES products(product_id);
-
--- Product_Reviews → Customers
-ALTER TABLE product_reviews 
-ADD CONSTRAINT FK_product_reviews_customers 
-FOREIGN KEY (customer_id) REFERENCES customers(customer_id);
-
--- Entity_Relationships → Users (Created by)
-ALTER TABLE entity_relationships 
-ADD CONSTRAINT FK_entity_relationships_users 
-FOREIGN KEY (created_by) REFERENCES users(user_id);
-
--- Approval_Requests → Users (Created by)
-ALTER TABLE approval_requests 
-ADD CONSTRAINT FK_approval_requests_users 
-FOREIGN KEY (created_by) REFERENCES users(user_id);
-
--- Approval_Relations → Users (Approver)
-ALTER TABLE approval_relations 
-ADD CONSTRAINT FK_approval_relations_approver 
-FOREIGN KEY (approver_id) REFERENCES users(user_id);
-
--- Approval_Relations → Users (Requester)
-ALTER TABLE approval_relations 
-ADD CONSTRAINT FK_approval_relations_requester 
-FOREIGN KEY (requester_id) REFERENCES users(user_id);
-
--- Approval_Relations → Products
-ALTER TABLE approval_relations 
-ADD CONSTRAINT FK_approval_relations_products 
-FOREIGN KEY (product_id) REFERENCES products(product_id);
-
--- Approval_Relations → Users (Created by)
-ALTER TABLE approval_relations 
-ADD CONSTRAINT FK_approval_relations_users 
-FOREIGN KEY (created_by) REFERENCES users(user_id);
-
 PRINT '✅ 테스트용 샘플 테이블 생성 완료!';
-PRINT '   - 17개 테이블 생성됨';
-PRINT '   - 외래키 관계 설정됨';
-PRINT '   - 다음으로 insert-sample-data.sql을 실행하세요.'; 
+PRINT '   - 20개 테이블 생성됨';
+PRINT '   - 다음으로 create-constraints.sql을 실행하세요.'; 

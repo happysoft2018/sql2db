@@ -1,53 +1,48 @@
 
 
 -----------------------------------------------------------
--- 외래키 삭제
------------------------------------------------------------
-ALTER TABLE activity_logs DROP CONSTRAINT FK_activity_logs_users;
-ALTER TABLE approval_relations DROP CONSTRAINT FK_approval_relations_approver;
-ALTER TABLE approval_relations DROP CONSTRAINT FK_approval_relations_requester;
-ALTER TABLE approval_relations DROP CONSTRAINT FK_approval_relations_users;
-ALTER TABLE approval_relations DROP CONSTRAINT FK_approval_relations_products;
-ALTER TABLE approval_requests DROP CONSTRAINT FK_approval_requests_users;
-ALTER TABLE categories DROP CONSTRAINT FK_categories_parent;
-ALTER TABLE departments DROP CONSTRAINT FK_departments_users;
-ALTER TABLE employees DROP CONSTRAINT FK_employees_manager;
-ALTER TABLE entity_relationships DROP CONSTRAINT FK_entity_relationships_users;
-ALTER TABLE order_items DROP CONSTRAINT FK_order_items_products;
-ALTER TABLE order_items DROP CONSTRAINT FK_order_items_orders;
-ALTER TABLE orders DROP CONSTRAINT FK_orders_customers;
-ALTER TABLE orders DROP CONSTRAINT FK_orders_users;
-ALTER TABLE product_reviews DROP CONSTRAINT FK_product_reviews_products;
-ALTER TABLE product_reviews DROP CONSTRAINT FK_product_reviews_customers;
-ALTER TABLE products DROP CONSTRAINT FK_products_categories;
-ALTER TABLE products DROP CONSTRAINT FK_products_users;
-ALTER TABLE users DROP CONSTRAINT FK_users_companies;
-ALTER TABLE users DROP CONSTRAINT FK_users_departments;
-
-
------------------------------------------------------------
 -- 테이블 삭제
 -----------------------------------------------------------
-DROP TABLE product_reviews;
-DROP TABLE entity_relationships;
-DROP TABLE approval_requests;
-DROP TABLE audit_logs;
-DROP TABLE status_codes;
-DROP TABLE approval_relations;
-DROP TABLE migration_log;
-DROP TABLE validation_errors;
-DROP TABLE migration_stats;
-DROP TABLE example_table;
-DROP TABLE users;
-DROP TABLE departments;
-DROP TABLE categories;
-DROP TABLE products;
-DROP TABLE orders;
-DROP TABLE order_items;
-DROP TABLE customers;
-DROP TABLE activity_logs;
-DROP TABLE companies;
-DROP TABLE employees;
+IF OBJECT_ID('product_reviews', 'U') IS NOT NULL 
+    DROP TABLE product_reviews;
+IF OBJECT_ID('entity_relationships', 'U') IS NOT NULL 
+    DROP TABLE entity_relationships;
+IF OBJECT_ID('approval_requests', 'U') IS NOT NULL 
+    DROP TABLE approval_requests;
+IF OBJECT_ID('audit_logs', 'U') IS NOT NULL 
+    DROP TABLE audit_logs;
+IF OBJECT_ID('status_codes', 'U') IS NOT NULL 
+    DROP TABLE status_codes;
+IF OBJECT_ID('approval_relations', 'U') IS NOT NULL 
+    DROP TABLE approval_relations;
+IF OBJECT_ID('migration_log', 'U') IS NOT NULL 
+    DROP TABLE migration_log;
+IF OBJECT_ID('validation_errors', 'U') IS NOT NULL 
+    DROP TABLE validation_errors;
+IF OBJECT_ID('migration_stats', 'U') IS NOT NULL 
+    DROP TABLE migration_stats;
+IF OBJECT_ID('example_table', 'U') IS NOT NULL 
+    DROP TABLE example_table;
+IF OBJECT_ID('users', 'U') IS NOT NULL 
+    DROP TABLE users;
+IF OBJECT_ID('departments', 'U') IS NOT NULL 
+    DROP TABLE departments;
+IF OBJECT_ID('categories', 'U') IS NOT NULL 
+    DROP TABLE categories;
+IF OBJECT_ID('products', 'U') IS NOT NULL 
+    DROP TABLE products;
+IF OBJECT_ID('orders', 'U') IS NOT NULL 
+    DROP TABLE orders;
+IF OBJECT_ID('order_items', 'U') IS NOT NULL 
+    DROP TABLE order_items;
+IF OBJECT_ID('customers', 'U') IS NOT NULL 
+    DROP TABLE customers;
+IF OBJECT_ID('activity_logs', 'U') IS NOT NULL 
+    DROP TABLE activity_logs;
+IF OBJECT_ID('companies', 'U') IS NOT NULL 
+    DROP TABLE companies;
+IF OBJECT_ID('employees', 'U') IS NOT NULL 
+    DROP TABLE employees;
 
 
 

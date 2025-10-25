@@ -17,7 +17,6 @@
     <var name="batchSize">1000</var>
     <var name="companyCode">COMPANY01</var>
     <var name="statusList">["ACTIVE", "PENDING", "APPROVED"]</var>
-    <var name="categoryIds">[1, 2, 3, 5, 8]</var>
     <var name="departmentCodes">["IT", "HR", "SALES", "MARKETING"]</var>
     <var name="enableForeignKeyOrder">true</var>
     <var name="migrationTimestamp">${DATE.UTC:yyyy-MM-dd HH:mm:ss}</var>
@@ -54,55 +53,28 @@
         ]]>
       </group>
       
-      <group id="validation" description="데이터 검증" enabled="true">
+      <group id="disable_foreign_keys" description="FK 제약조건 비활성화" enabled="true">
         <![CDATA[
-          -- 소스 데이터 기본 검증
-          IF EXISTS (SELECT 1 FROM users WHERE username IS NULL OR email IS NULL)
-          BEGIN
-            INSERT INTO validation_errors (error_type, error_message, created_date)
-            VALUES ('NULL_REQUIRED_FIELDS', 'Required fields contain NULL values', GETDATE());
-          END;
-          
-          -- 중복 데이터 체크
-          IF EXISTS (SELECT user_id, COUNT(*) FROM users GROUP BY user_id HAVING COUNT(*) > 1)
-          BEGIN
-            RAISERROR('중복된 사용자 ID가 발견되었습니다. 마이그레이션을 중단합니다.', 16, 1);
-          END;
+          -- 임시로 외래키 제약조건 비활성화
+          EXEC sp_MSforeachtable "ALTER TABLE ? NOCHECK CONSTRAINT all";
         ]]>
       </group>
     </preProcessGroups>
     
     <!-- 전체 이관 완료 후 실행 그룹들 -->
     <postProcessGroups>
-      <group id="performance_restore" description="성능 최적화 복원" enabled="true">
+      <group id="activate_foreign_keys" description="FK 제약조건 활성화" enabled="true">
         <![CDATA[
-          -- 인덱스 재구성
-          ALTER INDEX ALL ON users REBUILD;
-          ALTER INDEX ALL ON products REBUILD;
-          
-          -- 제약조건 활성화
-          ALTER TABLE users WITH CHECK CHECK CONSTRAINT ALL;
-          ALTER TABLE products WITH CHECK CHECK CONSTRAINT ALL;
-          
-          -- 통계 정보 업데이트 활성화 및 실행
-          ALTER DATABASE ${targetDatabase} SET AUTO_UPDATE_STATISTICS ON;
-          UPDATE STATISTICS users WITH FULLSCAN;
-          UPDATE STATISTICS products WITH FULLSCAN;
+          -- 외래키 제약조건 다시 활성화
+          EXEC sp_MSforeachtable "ALTER TABLE ? WITH CHECK CHECK CONSTRAINT all";
         ]]>
       </group>
       
-      <group id="verification" description="데이터 검증" enabled="true">
+      <group id="performance_restore" description="통계 정보 업데이트" enabled="true">
         <![CDATA[
-          -- 이관 후 데이터 개수 검증
-          DECLARE @source_count INT, @target_count INT;
-          SELECT @source_count = 0;
-          SELECT @target_count = COUNT(*) FROM users WHERE created_date = '${migrationTimestamp}';
-          
-          IF @source_count != @target_count
-          BEGIN
-            INSERT INTO validation_errors (error_type, error_message, expected_value, actual_value, created_date)
-            VALUES ('COUNT_MISMATCH', 'Source and target counts do not match', @source_count, @target_count, GETDATE());
-          END
+          ALTER DATABASE ${targetDatabase} SET AUTO_UPDATE_STATISTICS ON;
+          UPDATE STATISTICS users WITH FULLSCAN;
+          UPDATE STATISTICS products WITH FULLSCAN;
         ]]>
       </group>
       
@@ -186,7 +158,6 @@
         SELECT category_id, category_name 
         FROM categories 
         WHERE is_active = 1 
-          AND category_id IN (${categoryIds})
       ]]>
     </dynamicVar>
 
@@ -205,11 +176,11 @@
                 description="특정 카테고리의 모든 상품 ID 추출"
                 variableName="categoryProductIds"
                 extractType="column_identified"
-                columns="product_id,category_id"
+                columns="product_code,category_id"
                 database="sourceDB"
                 enabled="true">
       <![CDATA[
-        SELECT product_id, category_id FROM products WHERE category_id IN (${categoryIds})
+        SELECT product_code, category_id FROM products
       ]]>
     </dynamicVar>
 
@@ -344,7 +315,6 @@
         <![CDATA[
           SELECT *
           FROM products 
-          WHERE status = 'ACTIVE'
         ]]>
       </sourceQuery>
     </query>
@@ -372,7 +342,6 @@
           SELECT *
           FROM products 
           WHERE status IN (${statusList}) 
-            AND category_id IN (${categoryIds}) 
     
         ]]>
       </sourceQuery>
@@ -434,11 +403,11 @@
            enabled="true">
       <sourceQuery targetTable="product_reviews" 
                   targetColumns="*" 
-                  identityColumns="product_id,customer_id">
+                  identityColumns="product_code,customer_id">
         <![CDATA[
           SELECT * 
           FROM product_reviews 
-          WHERE product_id IN (${categoryProductIds.product_id}) 
+          WHERE product_code IN (${categoryProductIds.product_code}) 
             AND rating >= 4
         ]]>
       </sourceQuery>
@@ -468,9 +437,8 @@
 
     </query>
 
-    <!-- 방법 1: 개별 변수를 사용한 쿼리 -->
-    <query id="migrate_approver_audit_logs"
-           description="승인자 코드만을 사용한 감사 로그 이관"
+    <query id="migrate_audit_logs"
+           description="감사 로그 이관"
            enabled="false">
       <sourceQuery targetTable="audit_logs" 
                   targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
@@ -484,86 +452,7 @@
             log_message,
             created_date
           FROM audit_logs 
-          WHERE user_code IN (${approverCodes})
-            AND created_date >= '${startDate}'
-            AND action_type IN ('APPROVE', 'REJECT')
      
-        ]]>
-      </sourceQuery>
-
-    </query>
-
-    <query id="migrate_requester_audit_logs"
-           description="요청자 코드만을 사용한 감사 로그 이관"
-           enabled="true">
-      <sourceQuery targetTable="audit_logs" 
-                  targetColumns="log_id,action_type,entity_code,user_code,log_message,created_date" 
-                  identityColumns="log_id">
-        <![CDATA[
-          SELECT 
-            log_id,
-            action_type,
-            entity_code,
-            user_code,
-            log_message,
-            created_date
-          FROM audit_logs 
-          WHERE user_code IN (${requesterCodes})
-            AND created_date >= '${startDate}'
-            AND action_type = 'REQUEST'
-      
-        ]]>
-      </sourceQuery>
-
-    </query>
-
-    <!-- 방법 2: multiple_columns 사용 (기존) -->
-    <query id="migrate_audit_logs_by_codes"
-           description="multiple_columns로 추출된 승인 코드들로 감사 로그 이관"
-           enabled="true">
-      <sourceQuery targetTable="audit_logs" 
-                  targetColumns="action_type,entity_code,user_code,log_message,created_date" 
-                  identityColumns="log_id">
-        <![CDATA[
-          SELECT 
-            action_type,
-            entity_code,
-            user_code,
-            log_message,
-            created_date
-          FROM audit_logs 
-          WHERE (entity_code IN (${allApprovalCodes}) 
-             OR user_code IN (${allApprovalCodes}))
-            AND created_date >= '${startDate}'
-            AND action_type IN ('APPROVE', 'REJECT', 'REQUEST')
-  
-        ]]>
-      </sourceQuery>
-
-    </query>
-
-    <!-- 방법 3: column_identified 사용 (NEW!) -->
-    <query id="migrate_audit_logs_by_identified_codes"
-           description="컬럼별로 식별된 승인 코드들을 사용한 감사 로그 이관"
-           enabled="true">
-      <sourceQuery targetTable="audit_logs" 
-                  targetColumns="*" 
-                  identityColumns="log_id">
-        <![CDATA[
-          SELECT *
-          FROM audit_logs 
-          WHERE (
-            -- 승인자 코드로 필터링
-            (user_code IN (${approvalCodesById.approver_code}) AND action_type IN ('APPROVE', 'REJECT'))
-            OR 
-            -- 요청자 코드로 필터링  
-            (user_code IN (${approvalCodesById.requester_code}) AND action_type = 'REQUEST')
-            OR
-            -- 제품 코드로 필터링
-            (entity_code IN (${approvalCodesById.product_code}) AND action_type LIKE '%PRODUCT%')
-          )
-            AND created_date >= '${startDate}'
-    
         ]]>
       </sourceQuery>
 
@@ -574,27 +463,27 @@
            description="컬럼별 식별된 코드들을 사용한 복합 관계 데이터 이관"
            enabled="false">
       <sourceQuery targetTable="approval_relations" 
-                  targetColumns="relation_id,approver_id,requester_id,product_id,relation_type,created_date" 
+                  targetColumns="relation_id,approver_id,requester_id,product_code,relation_type,created_date" 
                   identityColumns="relation_id">
         <![CDATA[
           SELECT 
             ar.relation_id,
             ar.approver_id,
             ar.requester_id,
-            ar.product_id,
+            ar.product_code,
             ar.relation_type,
             ar.created_date
           FROM approval_relations ar
           WHERE ar.approver_id IN (${approvalCodesById.approver_code})
             AND ar.requester_id IN (${approvalCodesById.requester_code})
-            AND ar.product_id IN (${approvalCodesById.product_code})
+            AND ar.product_code IN (${approvalCodesById.product_code})
             AND ar.created_date >= '${startDate}'
           UNION
           SELECT 
             ar2.relation_id,
             ar2.approver_id,
             ar2.requester_id,
-            ar2.product_id,
+            ar2.product_code,
             ar2.relation_type,
             ar2.created_date
           FROM approval_relations ar2
@@ -661,53 +550,6 @@
 
         ]]>
       </sourceQuery>
-
-    </query>
-
-    <!-- SELECT * 사용 예시 (전/후처리에서) -->
-    <query id="migrate_with_select_star_in_process"
-           description="전/후처리에서 SELECT * 사용 예시"
-           enabled="true">
-      
-      <!-- 전처리에서 SELECT * 사용 -->
-      <preProcess description="SELECT * 를 사용한 백업 및 준비 작업">
-        <![CDATA[
-
-          DELETE FROM example_table_backup;
-
-          -- 기존 데이터 전체 백업 (SELECT * 사용)
-          INSERT INTO example_table_backup (*)
-          SELECT * FROM example_table ;
-          
-          -- 로그 기록
-          INSERT INTO migration_log (query_id, phase, message, created_date)
-          VALUES ('migrate_with_select_star_in_process', 'PRE_PROCESS', 'Backup completed with SELECT *', GETDATE());
-        ]]>
-      </preProcess>
-      
-      <sourceQuery targetTable="example_table" 
-                  targetColumns="" 
-                  identityColumns="unique_code" 
-                  applyGlobalColumns="none">
-        <![CDATA[
-          SELECT *
-          FROM example_table 
-          WHERE created_date >= '${startDate}' 
-            AND created_date <= '${endDate}' 
-  
-        ]]>
-      </sourceQuery>
-      
-      <!-- 후처리에서도 SELECT * 사용 -->
-      <postProcess description="SELECT * 를 사용한 검증 및 정리 작업">
-        <![CDATA[
-          
-          -- 완료 로그
-          INSERT INTO migration_log (query_id, phase, message, rows_processed, created_date)
-          VALUES ('migrate_with_select_star_in_process', 'POST_PROCESS', 'Validation completed with SELECT *', 0, GETDATE());
-        ]]>
-      </postProcess>
-      
 
     </query>
 

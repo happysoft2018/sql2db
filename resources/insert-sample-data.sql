@@ -28,22 +28,22 @@ INSERT INTO departments (department_name, department_code, budget) VALUES
 -- ===============================================
 PRINT '👥 사용자 데이터 입력 중...';
 
-INSERT INTO users (username, email, first_name, last_name, status, department_id, company_code, last_login_date, salary, birth_date) VALUES
-('john.doe', 'john.doe@company.com', '존', '도', 'ACTIVE', 1, 'COMPANY01', DATEADD(day, -1, GETDATE()), 75000.00, '1985-03-15'),
-('jane.smith', 'jane.smith@company.com', '제인', '스미스', 'ACTIVE', 1, 'COMPANY01', DATEADD(day, -2, GETDATE()), 82000.00, '1987-07-22'),
-('mike.johnson', 'mike.johnson@company.com', '마이크', '존슨', 'ACTIVE', 2, 'COMPANY01', DATEADD(day, -3, GETDATE()), 68000.00, '1990-11-08'),
-('sarah.wilson', 'sarah.wilson@company.com', '사라', '윌슨', 'ACTIVE', 3, 'COMPANY02', DATEADD(hour, -5, GETDATE()), 72000.00, '1988-05-14'),
-('david.brown', 'david.brown@company.com', '데이비드', '브라운', 'PENDING', 1, 'COMPANY02', NULL, 78000.00, '1986-09-30'),
-('emily.davis', 'emily.davis@company.com', '에밀리', '데이비스', 'ACTIVE', 4, 'COMPANY02', DATEADD(day, -7, GETDATE()), 65000.00, '1992-01-18'),
-('robert.miller', 'robert.miller@company.com', '로버트', '밀러', 'ACTIVE', 5, 'COMPANY03', DATEADD(day, -1, GETDATE()), 85000.00, '1983-12-05'),
-('lisa.garcia', 'lisa.garcia@company.com', '리사', '가르시아', 'ACTIVE', 6, 'COMPANY03', DATEADD(hour, -12, GETDATE()), 70000.00, '1989-08-27'),
-('kevin.martinez', 'kevin.martinez@company.com', '케빈', '마르티네즈', 'APPROVED', 7, 'COMPANY03', DATEADD(day, -4, GETDATE()), 73000.00, '1991-04-12'),
-('amanda.taylor', 'amanda.taylor@company.com', '아만다', '테일러', 'ACTIVE', 8, 'COMPANY01', DATEADD(day, -2, GETDATE()), 67000.00, '1990-10-03'),
-('chris.anderson', 'chris.anderson@company.com', '크리스', '앤더슨', 'PENDING', 2, 'COMPANY01', NULL, 71000.00, '1987-06-19'),
-('nicole.thomas', 'nicole.thomas@company.com', '니콜', '토마스', 'ACTIVE', 3, 'COMPANY02', DATEADD(day, -6, GETDATE()), 74000.00, '1988-02-28'),
-('ryan.jackson', 'ryan.jackson@company.com', '라이언', '잭슨', 'ACTIVE', 1, 'COMPANY02', DATEADD(hour, -8, GETDATE()), 79000.00, '1985-11-16'),
-('jennifer.white', 'jennifer.white@company.com', '제니퍼', '화이트', 'APPROVED', 4, 'COMPANY03', DATEADD(day, -3, GETDATE()), 66000.00, '1993-07-07'),
-('matthew.harris', 'matthew.harris@company.com', '매튜', '해리스', 'ACTIVE', 5, 'COMPANY03', DATEADD(day, -1, GETDATE()), 81000.00, '1984-04-25');
+INSERT INTO users (user_id, username, email, first_name, last_name, status, department_id, company_code, last_login_date, salary, birth_date) VALUES
+(1, 'john.doe', 'john.doe@company.com', '존', '도', 'ACTIVE', 1, 'COMPANY01', DATEADD(day, -1, GETDATE()), 75000.00, '1985-03-15'),
+(2, 'jane.smith', 'jane.smith@company.com', '제인', '스미스', 'ACTIVE', 1, 'COMPANY01', DATEADD(day, -2, GETDATE()), 82000.00, '1987-07-22'),
+(3, 'mike.johnson', 'mike.johnson@company.com', '마이크', '존슨', 'ACTIVE', 2, 'COMPANY01', DATEADD(day, -3, GETDATE()), 68000.00, '1990-11-08'),
+(4, 'sarah.wilson', 'sarah.wilson@company.com', '사라', '윌슨', 'ACTIVE', 3, 'COMPANY02', DATEADD(hour, -5, GETDATE()), 72000.00, '1988-05-14'),
+(5, 'david.brown', 'david.brown@company.com', '데이비드', '브라운', 'PENDING', 1, 'COMPANY02', NULL, 78000.00, '1986-09-30'),
+(6, 'emily.davis', 'emily.davis@company.com', '에밀리', '데이비스', 'ACTIVE', 4, 'COMPANY02', DATEADD(day, -7, GETDATE()), 65000.00, '1992-01-18'),
+(7, 'robert.miller', 'robert.miller@company.com', '로버트', '밀러','ACTIVE', 5, 'COMPANY02', DATEADD(day, -17, GETDATE()), 65000.00, '1992-01-18'),
+(8, 'lisa.garcia', 'lisa.garcia@company.com', '리사', '가르시아', 'ACTIVE', 6, 'COMPANY03', DATEADD(hour, -12, GETDATE()), 70000.00, '1989-08-27'),
+(9, 'kevin.martinez', 'kevin.martinez@company.com', '케빈', '마르티네즈', 'APPROVED', 7, 'COMPANY03', DATEADD(day, -4, GETDATE()), 73000.00, '1991-04-12'),
+(10, 'amanda.taylor', 'amanda.taylor@company.com', '아만다', '테일러', 'ACTIVE', 8, 'COMPANY01', DATEADD(day, -2, GETDATE()), 67000.00, '1990-10-03'),
+(11, 'chris.anderson', 'chris.anderson@company.com', '크리스', '앤더슨', 'PENDING', 2, 'COMPANY01', NULL, 71000.00, '1987-06-19'),
+(12, 'nicole.thomas', 'nicole.thomas@company.com', '니콜', '토마스', 'ACTIVE', 3, 'COMPANY02', DATEADD(day, -6, GETDATE()), 74000.00, '1988-02-28'),
+(13, 'ryan.jackson', 'ryan.jackson@company.com', '라이언', '잭슨', 'ACTIVE', 1, 'COMPANY02', DATEADD(hour, -8, GETDATE()), 79000.00, '1985-11-16'),
+(14, 'jennifer.white', 'jennifer.white@company.com', '제니퍼', '화이트', 'APPROVED', 4, 'COMPANY03', DATEADD(day, -3, GETDATE()), 66000.00, '1993-07-07'),
+(15, 'matthew.harris', 'matthew.harris@company.com', '매튜', '해리스', 'ACTIVE', 5, 'COMPANY03', DATEADD(day, -1, GETDATE()), 81000.00, '1984-04-25');
 
 -- 부서 관리자 업데이트
 UPDATE departments SET manager_id = 1 WHERE department_id = 1; -- 개발팀 관리자: john.doe
@@ -57,26 +57,28 @@ UPDATE departments SET manager_id = 7 WHERE department_id = 5; -- 재무팀 관�
 -- ===============================================
 PRINT '📂 카테고리 데이터 입력 중...';
 
-INSERT INTO categories (category_name, category_code, description, sort_order) VALUES
-('전자제품', 'ELEC', '전자제품 전체 카테고리', 1),
-('의류', 'CLOTH', '의류 전체 카테고리', 2),
-('도서', 'BOOK', '도서 전체 카테고리', 3),
-('가구', 'FURN', '가구 전체 카테고리', 4),
-('스포츠', 'SPORT', '스포츠용품 전체 카테고리', 5);
+INSERT INTO categories (category_id, category_name, category_code, description, sort_order) VALUES
+(1, '전자제품', 'ELEC', '전자제품 전체 카테고리', 1),
+(2, '의류', 'CLOTH', '의류 전체 카테고리', 2),
+(3, '도서', 'BOOK', '도서 전체 카테고리', 3),
+(4, '가구', 'FURN', '가구 전체 카테고리', 4),
+(5, '스포츠', 'SPORT', '스포츠용품 전체 카테고리', 5);
 
 -- 하위 카테고리 입력
-INSERT INTO categories (category_name, category_code, parent_category_id, description, sort_order) VALUES
-('스마트폰', 'PHONE', 1, '스마트폰 및 액세서리', 11),
-('노트북', 'LAPTOP', 1, '노트북 및 컴퓨터', 12),
-('남성의류', 'MENS', 2, '남성용 의류', 21),
-('여성의류', 'WOMENS', 2, '여성용 의류', 22),
-('소설', 'NOVEL', 3, '소설 도서', 31),
-('전문서적', 'TECH', 3, '전문 기술 서적', 32),
-('침실가구', 'BEDROOM', 4, '침실용 가구', 41),
-('거실가구', 'LIVING', 4, '거실용 가구', 42);
+INSERT INTO categories (category_id, category_name, category_code, parent_category_id, description, sort_order) VALUES
+(101, '스마트폰', 'PHONE', 1, '스마트폰 및 액세서리', 11),
+(102, '노트북', 'LAPTOP', 1, '노트북 및 컴퓨터', 12),
+(201, '남성의류', 'MENS', 2, '남성용 의류', 21),
+(202, '여성의류', 'WOMENS', 2, '여성용 의류', 22),
+(301, '소설', 'NOVEL', 3, '소설 도서', 31),
+(302, '전문서적', 'TECH', 3, '전문 기술 서적', 32),
+(401, '침실가구', 'BEDROOM', 4, '침실용 가구', 41),
+(402, '거실가구', 'LIVING', 4, '거실용 가구', 42),
+(501, '축구용품', 'SOCCER_GEAR', 5, '축구용품', 51),
+(502, '농구용품', 'BASKETBALL_GEAR', 5, '농구용품', 52);
 
--- ===============================================
--- 4. 고객 데이터 입력 (Customers)
+    -- ===============================================
+    -- 4. 고객 데이터 입력 (Customers)
 -- ===============================================
 PRINT '🏢 고객 데이터 입력 중...';
 
@@ -98,21 +100,21 @@ INSERT INTO customers (customer_code, company_name, contact_name, contact_email,
 PRINT '📦 상품 데이터 입력 중...';
 
 INSERT INTO products (product_name, product_code, category_id, price, cost, stock_quantity, min_stock_level, description, created_by) VALUES
-('갤럭시 S24 Ultra', 'PHONE001', 6, 1200000.00, 800000.00, 150, 20, '최신 플래그십 스마트폰', 1),
-('아이폰 15 Pro', 'PHONE002', 6, 1350000.00, 900000.00, 120, 15, '애플 최신 프로 모델', 1),
-('맥북 프로 16인치', 'LAPTOP001', 7, 3200000.00, 2400000.00, 50, 10, '고성능 노트북', 2),
-('델 XPS 13', 'LAPTOP002', 7, 1800000.00, 1300000.00, 80, 15, '초경량 노트북', 2),
-('나이키 에어맥스', 'MENS001', 8, 180000.00, 120000.00, 200, 30, '인기 운동화', 3),
-('아디다스 후디', 'MENS002', 8, 95000.00, 65000.00, 180, 25, '편안한 후드티', 3),
-('자라 원피스', 'WOMENS001', 9, 89000.00, 45000.00, 150, 20, '트렌디한 원피스', 4),
-('유니클로 블라우스', 'WOMENS002', 9, 59000.00, 35000.00, 220, 30, '기본 블라우스', 4),
-('해리포터 전집', 'BOOK001', 10, 120000.00, 80000.00, 100, 15, '베스트셀러 소설', 5),
-('클린 코드', 'BOOK002', 11, 35000.00, 25000.00, 80, 10, '프로그래밍 필독서', 5),
-('모던 소파', 'FURN001', 13, 850000.00, 600000.00, 25, 5, '3인용 패브릭 소파', 6),
-('원목 식탁', 'FURN002', 13, 680000.00, 450000.00, 30, 8, '4인용 원목 식탁', 6),
-('킹사이즈 침대', 'FURN003', 12, 1200000.00, 800000.00, 15, 3, '킹사이즈 침대프레임', 7),
-('러닝머신', 'SPORT001', 5, 1500000.00, 1000000.00, 20, 5, '가정용 러닝머신', 8),
-('덤벨 세트', 'SPORT002', 5, 280000.00, 180000.00, 50, 10, '조절식 덤벨 세트', 8);
+('갤럭시 S24 Ultra', 'PHONE001', 101, 1200000.00, 800000.00, 150, 20, '최신 플래그십 스마트폰', 1),
+('아이폰 15 Pro', 'PHONE002', 101, 1350000.00, 900000.00, 120, 15, '애플 최신 프로 모델', 1),
+('맥북 프로 16인치', 'LAPTOP001', 102, 3200000.00, 2400000.00, 50, 10, '고성능 노트북', 2),
+('델 XPS 13', 'LAPTOP002', 102, 1800000.00, 1300000.00, 80, 15, '초경량 노트북', 2),
+('나이키 에어맥스', 'MENS001', 201, 180000.00, 120000.00, 200, 30, '인기 운동화', 3),
+('아디다스 후디', 'MENS002', 201, 95000.00, 65000.00, 180, 25, '편안한 후드티', 3),
+('자라 원피스', 'WOMENS001', 202, 89000.00, 45000.00, 150, 20, '트렌디한 원피스', 4),
+('유니클로 블라우스', 'WOMENS002', 202, 59000.00, 35000.00, 220, 30, '기본 블라우스', 4),
+('해리포터 전집', 'BOOK001', 301, 120000.00, 80000.00, 100, 15, '베스트셀러 소설', 5),
+('클린 코드', 'BOOK002', 302, 35000.00, 25000.00, 80, 10, '프로그래밍 필독서', 5),
+('모던 소파', 'FURN001', 401, 850000.00, 600000.00, 25, 5, '3인용 패브릭 소파', 6),
+('원목 식탁', 'FURN002', 401, 680000.00, 450000.00, 30, 8, '4인용 원목 식탁', 6),
+('킹사이즈 침대', 'FURN003', 402, 1200000.00, 800000.00, 15, 3, '킹사이즈 침대프레임', 7),
+('러닝머신', 'SPORT001', 501, 1500000.00, 1000000.00, 20, 5, '가정용 러닝머신', 8),
+('덤벨 세트', 'SPORT002', 501, 280000.00, 180000.00, 50, 10, '조절식 덤벨 세트', 8);
 
 -- ===============================================
 -- 6. 주문 데이터 입력 (Orders)
@@ -120,51 +122,51 @@ INSERT INTO products (product_name, product_code, category_id, price, cost, stoc
 PRINT '🛒 주문 데이터 입력 중...';
 
 INSERT INTO orders (order_number, customer_id, order_date, total_amount, tax_amount, status, payment_method, shipping_address, created_by) VALUES
-('ORD-2024-001', 1, DATEADD(day, -30, GETDATE()), 2400000.00, 240000.00, 'COMPLETED', '신용카드', '서울시 강남구 테헤란로 123', 4),
-('ORD-2024-002', 2, DATEADD(day, -25, GETDATE()), 1800000.00, 180000.00, 'COMPLETED', '계좌이체', '서울시 서초구 서초대로 456', 4),
-('ORD-2024-003', 3, DATEADD(day, -20, GETDATE()), 275000.00, 27500.00, 'SHIPPED', '신용카드', '부산시 해운대구 해운대로 789', 12),
-('ORD-2024-004', 4, DATEADD(day, -15, GETDATE()), 1530000.00, 153000.00, 'COMPLETED', '계좌이체', '경기도 성남시 분당구 판교로 101', 4),
-('ORD-2024-005', 5, DATEADD(day, -12, GETDATE()), 148000.00, 14800.00, 'PROCESSING', '신용카드', '대구시 수성구 동대구로 202', 12),
-('ORD-2024-006', 6, DATEADD(day, -10, GETDATE()), 850000.00, 85000.00, 'COMPLETED', '계좌이체', '부산시 금정구 부산대학로 303', 4),
-('ORD-2024-007', 7, DATEADD(day, -8, GETDATE()), 1620000.00, 162000.00, 'SHIPPED', '신용카드', '광주시 서구 상무대로 404', 12),
-('ORD-2024-008', 8, DATEADD(day, -5, GETDATE()), 715000.00, 71500.00, 'PROCESSING', '계좌이체', '대전시 유성구 대학로 505', 4),
-('ORD-2024-009', 9, DATEADD(day, -3, GETDATE()), 1780000.00, 178000.00, 'PENDING', '신용카드', '인천시 남동구 인천대로 606', 12),
-('ORD-2024-010', 10, DATEADD(day, -1, GETDATE()), 3485000.00, 348500.00, 'CONFIRMED', '계좌이체', '서울시 마포구 월드컵로 707', 4);
+('ORD01', 1, DATEADD(day, -30, GETDATE()), 2400000.00, 240000.00, 'COMPLETED', '신용카드', '서울시 강남구 테헤란로 123', 4),
+('ORD02', 2, DATEADD(day, -25, GETDATE()), 1800000.00, 180000.00, 'COMPLETED', '계좌이체', '서울시 서초구 서초대로 456', 4),
+('ORD03', 3, DATEADD(day, -20, GETDATE()), 275000.00, 27500.00, 'SHIPPED', '신용카드', '부산시 해운대구 해운대로 789', 12),
+('ORD04', 4, DATEADD(day, -15, GETDATE()), 1530000.00, 153000.00, 'COMPLETED', '계좌이체', '경기도 성남시 분당구 판교로 101', 4),
+('ORD05', 5, DATEADD(day, -12, GETDATE()), 148000.00, 14800.00, 'PROCESSING', '신용카드', '대구시 수성구 동대구로 202', 12),
+('ORD06', 6, DATEADD(day, -10, GETDATE()), 850000.00, 85000.00, 'COMPLETED', '계좌이체', '부산시 금정구 부산대학로 303', 4),
+('ORD07', 7, DATEADD(day, -8, GETDATE()), 1620000.00, 162000.00, 'SHIPPED', '신용카드', '광주시 서구 상무대로 404', 12),
+('ORD08', 8, DATEADD(day, -5, GETDATE()), 715000.00, 71500.00, 'PROCESSING', '계좌이체', '대전시 유성구 대학로 505', 4),
+('ORD09', 9, DATEADD(day, -3, GETDATE()), 1780000.00, 178000.00, 'PENDING', '신용카드', '인천시 남동구 인천대로 606', 12),
+('ORD10', 10, DATEADD(day, -1, GETDATE()), 3485000.00, 348500.00, 'CONFIRMED', '계좌이체', '서울시 마포구 월드컵로 707', 4);
 
 -- ===============================================
 -- 7. 주문 상세 데이터 입력 (Order_Items)
 -- ===============================================
 PRINT '📋 주문 상세 데이터 입력 중...';
 
-INSERT INTO order_items (order_id, product_id, quantity, unit_price, discount_percent) VALUES
+INSERT INTO order_items (order_number, product_code, quantity, unit_price, discount_percent) VALUES
 -- ORD-2024-001 (2개 상품)
-(1, 1, 2, 1200000.00, 0.00),   -- 갤럭시 S24 Ultra x2
+('ORD01', 'PHONE001', 2, 1200000.00, 0.00),   -- 갤럭시 S24 Ultra x2
 -- ORD-2024-002 (1개 상품)
-(2, 3, 1, 3200000.00, 43.75),  -- 맥북 프로 (할인 적용)
+('ORD02', 'LAPTOP001', 1, 3200000.00, 43.75),  -- 맥북 프로 (할인 적용)
 -- ORD-2024-003 (3개 상품)
-(3, 5, 1, 180000.00, 0.00),    -- 나이키 에어맥스
-(3, 6, 1, 95000.00, 0.00),     -- 아디다스 후디
+('ORD03', 'MENS001', 1, 180000.00, 0.00),    -- 나이키 에어맥스
+('ORD03', 'MENS002', 1, 95000.00, 0.00),     -- 아디다스 후디
 -- ORD-2024-004 (2개 상품)
-(4, 2, 1, 1350000.00, 0.00),   -- 아이폰 15 Pro
-(4, 5, 1, 180000.00, 0.00),    -- 나이키 에어맥스
+('ORD04', 'PHONE002', 1, 1350000.00, 0.00),   -- 아이폰 15 Pro
+('ORD04', 'MENS001', 1, 180000.00, 0.00),    -- 나이키 에어맥스
 -- ORD-2024-005 (2개 상품)
-(5, 7, 1, 89000.00, 0.00),     -- 자라 원피스
-(5, 8, 1, 59000.00, 0.00),     -- 유니클로 블라우스
+('ORD05', 'WOMENS001', 1, 89000.00, 0.00),     -- 자라 원피스
+('ORD05', 'WOMENS002', 1, 59000.00, 0.00),     -- 유니클로 블라우스
 -- ORD-2024-006 (1개 상품)
-(6, 11, 1, 850000.00, 0.00),   -- 모던 소파
+('ORD06', 'FURN001', 1, 850000.00, 0.00),   -- 모던 소파
 -- ORD-2024-007 (2개 상품)
-(7, 13, 1, 1200000.00, 0.00),  -- 킹사이즈 침대
-(7, 9, 2, 120000.00, 50.00),   -- 해리포터 전집 x2 (50% 할인)
-(7, 14, 1, 1500000.00, 80.00), -- 러닝머신 (80% 할인)
+('ORD07', 'FURN003', 1, 1200000.00, 0.00),  -- 킹사이즈 침대
+('ORD07', 'BOOK001', 2, 120000.00, 50.00),   -- 해리포터 전집 x2 (50% 할인)
+('ORD07', 'SPORT001', 1, 1500000.00, 80.00), -- 러닝머신 (80% 할인)
 -- ORD-2024-008 (3개 상품)
-(8, 10, 1, 35000.00, 0.00),    -- 클린 코드
-(8, 12, 1, 680000.00, 0.00),   -- 원목 식탁
+('ORD08', 'BOOK002', 1, 35000.00, 0.00),    -- 클린 코드
+('ORD08', 'FURN002', 1, 680000.00, 0.00),   -- 원목 식탁
 -- ORD-2024-009 (2개 상품)
-(9, 4, 1, 1800000.00, 1.11),   -- 델 XPS 13 (약간 할인)
+('ORD09', 'LAPTOP002', 1, 1800000.00, 1.11),   -- 델 XPS 13 (약간 할인)
 -- ORD-2024-010 (3개 상품)
-(10, 2, 2, 1350000.00, 0.00),  -- 아이폰 15 Pro x2
-(10, 15, 1, 280000.00, 0.00),  -- 덤벨 세트
-(10, 11, 1, 850000.00, 5.88);  -- 모던 소파 (약간 할인)
+('ORD10', 'PHONE002', 2, 1350000.00, 0.00),  -- 아이폰 15 Pro x2
+('ORD10', 'SPORT002', 1, 280000.00, 0.00),  -- 덤벨 세트
+('ORD10', 'FURN001', 1, 850000.00, 5.88);  -- 모던 소파 (약간 할인)
 
 -- ===============================================
 -- 8. 활동 로그 데이터 입력 (Activity_Logs)
@@ -222,17 +224,17 @@ UPDATE employees SET manager_id = 7 WHERE emp_id = 8; -- 송민호가 윤서희�
 -- ===============================================
 PRINT '⭐ 상품 리뷰 데이터 입력 중...';
 
-INSERT INTO product_reviews (product_id, customer_id, rating, review_title, review_text, is_verified, helpful_count) VALUES
-(1, 1, 5, '최고의 스마트폰!', '갤럭시 S24 Ultra 정말 만족합니다. 카메라 품질이 뛰어나고 배터리도 오래갑니다.', 1, 15),
-(1, 3, 4, '좋은 제품이에요', '성능은 훌륭하지만 가격이 조금 비싸네요. 그래도 추천합니다.', 1, 8),
-(2, 2, 5, '아이폰 최고!', '아이폰 15 Pro는 역시 아이폰이네요. 디자인과 성능 모두 만족합니다.', 1, 22),
-(3, 4, 5, '개발자에게 최적', '맥북 프로 16인치로 개발 작업이 훨씬 편해졌습니다. 강력 추천!', 1, 35),
-(4, 5, 4, '가성비 좋은 노트북', '델 XPS 13은 가볍고 성능도 좋습니다. 휴대성이 뛰어나요.', 1, 12),
-(5, 6, 5, '편안한 운동화', '나이키 에어맥스는 정말 편안합니다. 러닝할 때 발이 안 아파요.', 1, 18),
-(9, 7, 5, '해리포터 팬 필수', '해리포터 전집은 몇 번을 읽어도 재미있어요. 소장가치 충분합니다.', 1, 45),
-(10, 8, 5, '개발자 필독서', '클린 코드는 모든 개발자가 읽어야 할 책입니다. 정말 도움됩니다.', 1, 67),
-(11, 9, 4, '만족스러운 소파', '모던 소파 디자인도 좋고 앉았을 때도 편안합니다. 추천해요.', 1, 9),
-(14, 10, 5, '홈트레이닝 최고', '러닝머신 구매 후 집에서 운동하기 편해졌습니다. 품질도 좋아요.', 1, 28);
+INSERT INTO product_reviews (product_code, customer_id, rating, review_title, review_text, is_verified, helpful_count) VALUES
+('PHONE001', 1, 5, '최고의 스마트폰!', '갤럭시 S24 Ultra 정말 만족합니다. 카메라 품질이 뛰어나고 배터리도 오래갑니다.', 1, 15),
+('MENS001', 3, 4, '좋은 제품이에요', '성능은 훌륭하지만 가격이 조금 비싸네요. 그래도 추천합니다.', 1, 8),
+('PHONE002' , 2, 5, '아이폰 최고!', '아이폰 15 Pro는 역시 아이폰이네요. 디자인과 성능 모두 만족합니다.', 1, 22),
+('LAPTOP001', 4, 5, '개발자에게 최적', '맥북 프로 16인치로 개발 작업이 훨씬 편해졌습니다. 강력 추천!', 1, 35),
+('LAPTOP002', 5, 4, '가성비 좋은 노트북', '델 XPS 13은 가볍고 성능도 좋습니다. 휴대성이 뛰어나요.', 1, 12),
+('MENS001', 6, 5, '편안한 운동화', '나이키 에어맥스는 정말 편안합니다. 러닝할 때 발이 안 아파요.', 1, 18),
+('BOOK001', 7, 5, '해리포터 팬 필수', '해리포터 전집은 몇 번을 읽어도 재미있어요. 소장가치 충분합니다.', 1, 45),
+('BOOK002', 8, 5, '개발자 필독서', '클린 코드는 모든 개발자가 읽어야 할 책입니다. 정말 도움됩니다.', 1, 67),
+('FURN001', 9, 4, '만족스러운 소파', '모던 소파 디자인도 좋고 앉았을 때도 편안합니다. 추천해요.', 1, 9),
+('SPORT001', 10, 5, '홈트레이닝 최고', '러닝머신 구매 후 집에서 운동하기 편해졌습니다. 품질도 좋아요.', 1, 120); 
 
 -- ===============================================
 -- 12. 엔티티 관계 데이터 입력 (Entity_Relationships)
@@ -310,17 +312,17 @@ INSERT INTO status_codes (category, status_code, status_description, sort_order)
 -- ===============================================
 PRINT '🔐 승인 관계 데이터 입력 중...';
 
-INSERT INTO approval_relations (approver_id, requester_id, product_id, relation_type, hierarchy_level, created_by, effective_start_date) VALUES
-(1, 2, 1, 'PURCHASE_APPROVAL', 1, 1, '2024-01-01'),
-(1, 13, 3, 'PURCHASE_APPROVAL', 1, 1, '2024-01-01'),
-(3, 4, 2, 'PURCHASE_APPROVAL', 1, 3, '2024-01-01'),
-(3, 9, 9, 'PURCHASE_APPROVAL', 1, 3, '2024-01-01'),
-(7, 8, 14, 'PURCHASE_APPROVAL', 1, 7, '2024-01-01'),
-(1, 5, 11, 'PURCHASE_APPROVAL', 2, 1, '2024-01-01'),
-(4, 12, NULL, 'GENERAL_APPROVAL', 1, 4, '2024-01-01'),
-(6, 14, NULL, 'BUDGET_APPROVAL', 1, 6, '2024-01-01'),
-(7, 15, NULL, 'SYSTEM_APPROVAL', 1, 7, '2024-01-01'),
-(1, 10, 4, 'PURCHASE_APPROVAL', 1, 1, '2024-01-01');
+INSERT INTO approval_relations (approver_id, requester_id, product_code, relation_type, hierarchy_level, created_by, effective_start_date) VALUES
+(1, 2, 'PHONE001', 'PURCHASE_APPROVAL', 1, 1, '2024-01-01'),
+(1, 13, 'MENS001', 'PURCHASE_APPROVAL', 1, 1, '2024-01-01'),
+(3, 4, 'PHONE002', 'PURCHASE_APPROVAL', 1, 3, '2024-01-01'),
+(3, 9, 'LAPTOP002', 'PURCHASE_APPROVAL', 1, 3, '2024-01-01'),
+(7, 8, 'SPORT001', 'PURCHASE_APPROVAL', 1, 7, '2024-01-01'),
+(1, 5, 'WOMENS001', 'PURCHASE_APPROVAL', 2, 1, '2024-01-01'),
+(4, 12, 'FURN002', 'GENERAL_APPROVAL', 1, 4, '2024-01-01'),
+(6, 14, 'FURN003', 'BUDGET_APPROVAL', 1, 6, '2024-01-01'),
+(7, 15, 'SPORT002', 'SYSTEM_APPROVAL', 1, 7, '2024-01-01'),
+(1, 10, 'LAPTOP001', 'PURCHASE_APPROVAL', 1, 1, '2024-01-01');
 
 -- ===============================================
 -- 17. 마이그레이션 로그 데이터 입력 (Migration_Log)
