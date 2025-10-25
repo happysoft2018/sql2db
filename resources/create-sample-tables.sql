@@ -104,14 +104,14 @@ IF OBJECT_ID('order_items', 'U') IS NOT NULL
     DROP TABLE order_items;
 
 CREATE TABLE order_items (
-    order_item_id INT IDENTITY(1,1) PRIMARY KEY,
     order_id INT NOT NULL,
     product_id INT NOT NULL,
     quantity INT NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL,
     discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
     line_total AS (quantity * unit_price * (1 - discount_percent / 100)),
-    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    primary key (order_id, product_id)
 );
 
 -- 7. 고객 테이블 (Customers)
@@ -268,14 +268,13 @@ IF OBJECT_ID('status_codes', 'U') IS NOT NULL
     DROP TABLE status_codes;
 
 CREATE TABLE status_codes (
-    status_id INT IDENTITY(1,1) PRIMARY KEY,
     category NVARCHAR(50) NOT NULL,
     status_code NVARCHAR(20) NOT NULL,
     status_description NVARCHAR(200) NOT NULL,
     sort_order INT NOT NULL DEFAULT 0,
     is_active BIT NOT NULL DEFAULT 1,
     created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
-    UNIQUE(category, status_code)
+    primary key (category, status_code)
 );
 
 -- 16. 승인 관계 테이블 (Approval_Relations)
