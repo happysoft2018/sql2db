@@ -588,11 +588,18 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 - **sourceDatabase**: Source database identifier from dbinfo.json
 - **targetDatabase**: Target database identifier from dbinfo.json
 - **batchSize**: Number of records processed per batch (default: 1000)
+- **deleteBeforeInsert**: Whether to delete before insert (default: true)
+  - `true`: Delete target data matching source business key values before migration
+    - ⚠️ **IMPORTANT**: You must specify the columns used as delete criteria in the `identityColumns` attribute of each query
+  - `false`: Insert directly without deletion (UPSERT mode)
 - **logLevel**: Logging level (DEBUG, INFO, WARN, ERROR, FATAL)
 
 ### Query Structure
 ```xml
-<query id="unique_id" targetTable="table_name" enabled="true">
+<query id="unique_id" 
+       targetTable="table_name" 
+       identityColumns="primary_key_column"
+       enabled="true">
   <sourceQuery>
     <![CDATA[SELECT * FROM source_table WHERE condition]]>
   </sourceQuery>
@@ -611,6 +618,37 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
   </postProcess>
 </query>
 ```
+
+### Query Attributes
+
+#### Required Attributes
+- `id`: Unique identifier for the query
+- `description`: Query description
+- `targetTable`: Target table name
+- `identityColumns`: Unique identifier column name(s) for distinguishing data rows - Business Key (used as criteria for data deletion and synchronization)
+  - 💡 **Description**: This refers to business keys that uniquely identify each data row, NOT the database's physical Primary Key
+  - ⚠️ **IMPORTANT**: IDENTITY (auto-increment) columns **CANNOT** be used in `identityColumns`
+  - **Why This Cannot Be Used**:
+    1. **Value Mismatch**: IDENTITY columns are automatically generated with different values in source and target, so the same record has different IDs
+    2. **Deletion Errors**: When `deleteBeforeInsert=true`, cannot find target records using source IDs, causing deletion failures or wrong data deletion
+    3. **Data Duplication**: The same business data gets repeatedly inserted with different IDs, creating duplicate records
+  - **Solutions**: 
+    - Use business keys (e.g., user_code, order_number, product_code)
+    - Composite keys are supported (e.g., `identityColumns="user_code,region_code"`)
+    - Add a separate unique identifier column to your table if needed
+  - **Examples**: 
+    - ❌ Bad: `identityColumns="log_id"` where `log_id` is IDENTITY
+    - ✅ Good: `identityColumns="user_code"` where `user_code` is a business key
+    - ✅ Good: `identityColumns="order_id,line_no"` where both are business keys
+- `enabled`: Whether to execute (true/false)
+
+#### Optional Attributes
+- `targetColumns`: Target column list (same as source if empty)
+- `batchSize`: Individual batch size (overrides global setting)
+- `deleteBeforeInsert`: Individual delete setting (overrides global setting)
+  - `true`: Delete target data using source business key values before migration
+    - ⚠️ **IMPORTANT**: You must specify the columns used as delete criteria in the `identityColumns` attribute
+  - `false`: Insert directly without deletion
 
 ## 🔄 Dynamic Variables System
 
@@ -1246,6 +1284,12 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
 ## 📝 Examples
 
 ### Complete Migration Example
+
+⚠️ **Important Note Before Starting**:
+- The `CustomerID` in the example below is a **business key**, NOT an IDENTITY column
+- If your table uses IDENTITY columns, you must use a different column (business key) for `identityColumns`
+- See the Query Attributes section above for detailed explanation
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <migration>
@@ -1268,7 +1312,10 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
   </dynamicVariables>
   
   <queries>
-    <query id="migrate_customers" targetTable="customers" enabled="true">
+    <query id="migrate_customers" 
+           targetTable="customers" 
+           identityColumns="CustomerID"
+           enabled="true">
       <sourceQuery>
         <![CDATA[
           SELECT CustomerID, CustomerName, Email, Phone

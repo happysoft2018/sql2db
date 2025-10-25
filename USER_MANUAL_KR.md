@@ -613,7 +613,7 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 
       <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
 
-      <!-- deleteWhere 기능은 제거됨 - deleteBeforeInsert=true시 PK 기준으로 자동 삭제 -->
+      <!-- deleteWhere 기능은 제거됨 - deleteBeforeInsert=true시 identityColumns 기준으로 자동 삭제 -->
 
       <!-- 개별 후처리 -->
       <postProcess description="사용자 테이블 완료">
@@ -633,7 +633,8 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 #### 선택적 설정
 - `batchSize`: 배치 크기 (기본값: 1000)
 - `deleteBeforeInsert`: 이관 전 삭제 여부 (기본값: true)
-  - `true`: 소스 데이터의 PK 값에 해당하는 타겟 데이터를 삭제 후 이관
+  - `true`: 소스 데이터의 비즈니스 키 값에 해당하는 타겟 데이터를 삭제 후 이관
+    - ⚠️ **중요**: 삭제 시 기준이 되는 컬럼값을 각 쿼리의 `identityColumns` 속성에 명시해야 합니다
   - `false`: 삭제 없이 바로 이관 (UPSERT 형태)
 
 ### 3. 쿼리 속성
@@ -642,19 +643,30 @@ node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 - `id`: 쿼리 고유 식별자
 - `description`: 쿼리 설명
 - `targetTable`: 타겟 테이블명
-- `identityColumns`: 기본키 컬럼명
+- `identityColumns`: 데이터 행을 고유하게 식별하는 비즈니스 키 컬럼명 (데이터 삭제 및 동기화 기준)
+  - 💡 **설명**: 데이터베이스의 물리적 Primary Key가 아닌, 비즈니스적으로 각 데이터 행을 유니크하게 구분할 수 있는 컬럼을 의미합니다
+  - ⚠️ **중요**: IDENTITY(자동증가) 컬럼은 `identityColumns`에 사용할 수 없습니다
+  - **사용 불가 이유**:
+    1. **값 불일치**: IDENTITY 컬럼은 소스와 타겟에서 서로 다른 값으로 자동 생성되므로 동일한 레코드라도 ID 값이 다릅니다
+    2. **삭제 오류**: `deleteBeforeInsert=true`일 때 소스의 ID로 타겟 레코드를 찾을 수 없어 삭제가 실패하거나 잘못된 데이터가 삭제됩니다
+    3. **데이터 중복**: 동일한 비즈니스 데이터가 서로 다른 ID로 반복 삽입되어 중복 데이터가 생성됩니다
+  - **해결방법**: 
+    - 비즈니스 키를 사용하세요 (예: 사용자코드, 주문번호, 상품코드 등)
+    - 복합키를 사용할 수 있습니다 (예: `identityColumns="user_code,region_code"`)
+    - 필요시 별도의 고유 식별 컬럼을 테이블에 추가하세요
 - `enabled`: 실행 여부 (true/false)
 
 #### 선택적 속성
 - `targetColumns`: 타겟 컬럼 목록 (공백시 소스와 동일)
 - `batchSize`: 개별 배치 크기 (글로벌 설정 오버라이드)
 - `deleteBeforeInsert`: 개별 삭제 설정 (글로벌 설정 오버라이드)
-  - `true`: 소스 데이터의 PK 값으로 타겟 데이터 삭제 후 이관
+  - `true`: 소스 데이터의 비즈니스 키 값으로 타겟 데이터 삭제 후 이관
+    - ⚠️ **중요**: 삭제 시 기준이 되는 컬럼값을 `identityColumns` 속성에 반드시 명시해야 합니다
   - `false`: 삭제 없이 바로 이관
 
 ### 4. 데이터 삭제 방식
 
-v0.2부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`일 때 자동으로 Primary Key 기준으로 삭제됩니다.
+v0.2부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`일 때 자동으로 `identityColumns`에 지정된 비즈니스 키 기준으로 삭제됩니다.
 
 #### 삭제 동작 방식
 1. **FK 순서 고려 활성화된 경우** (`enableForeignKeyOrder: true`)
@@ -662,21 +674,21 @@ v0.2부터 `deleteWhere` 기능이 제거되고, `deleteBeforeInsert`가 `true`�
    - 순환 참조 시 FK 제약조건을 일시 비활성화
 
 2. **FK 순서 고려 비활성화된 경우** (`enableForeignKeyOrder: false`)
-   - 각 쿼리별로 소스 데이터의 PK 값에 해당하는 타겟 데이터만 삭제
+   - 각 쿼리별로 소스 데이터의 비즈니스 키 값에 해당하는 타겟 데이터만 삭제
    - 더 정확하고 안전한 삭제 방식
 
 #### 예시
 ```xml
-<!-- 단일 PK인 경우 -->
+<!-- 단일 비즈니스 키인 경우 -->
 <query identityColumns="user_id" deleteBeforeInsert="true">
   <!-- 소스에서 user_id가 1,2,3인 데이터가 조회되면 -->
   <!-- 타겟에서 user_id IN (1,2,3)인 행들을 먼저 삭제 -->
 </query>
 
-<!-- 복합 PK인 경우 -->
+<!-- 복합 비즈니스 키인 경우 -->
 <query identityColumns="order_id,line_no" deleteBeforeInsert="true">
   <!-- 소스에서 (order_id=100, line_no=1), (order_id=100, line_no=2) 조회되면 -->
-  <!-- 타겟에서 해당 복합키 조합의 행들을 먼저 삭제 -->
+  <!-- 타겟에서 해당 복합 비즈니스 키 조합의 행들을 먼저 삭제 -->
 </query>
 ```
 
@@ -1507,7 +1519,7 @@ company_code | company_name
        description="사용자 데이터 이관"
        targetTable="users"
        targetColumns="user_id,username,email,status,created_date"
-                  identityColumns="user_id"
+       identityColumns="user_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[
@@ -1520,9 +1532,14 @@ company_code | company_name
   
   <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
   
-  <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 PK 기준으로 자동 삭제됨 -->
+  <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 identityColumns 기준으로 자동 삭제됨 -->
 </query>
 ```
+
+⚠️ **주의사항**: 
+- 위 예시에서 `user_id`는 IDENTITY 타입이 **아닌** 비즈니스 키입니다
+- 만약 `user_id`가 IDENTITY(자동증가) 컬럼이라면 `identityColumns`로 사용할 수 없습니다
+- IDENTITY 컬럼이 있는 경우, 대신 `user_code`와 같은 비즈니스 키를 사용하세요
 
 ### 2. SELECT * 사용 예시
 
@@ -1531,7 +1548,7 @@ company_code | company_name
        description="상품 전체 데이터 이관"
        targetTable="products"
        targetColumns=""
-                  identityColumns="product_id"
+       identityColumns="product_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[
@@ -1549,11 +1566,11 @@ company_code | company_name
 <query id="migrate_audit_log"
        description="감사 로그 데이터 이관 (현재 시각 추가)"
        targetTable="audit_log"
-                  identityColumns="log_id"
+       identityColumns="audit_code"
        enabled="true">
   <sourceQuery>
     <![CDATA[
-      SELECT log_id, user_id, action, description
+      SELECT audit_code, user_id, action, description
       FROM audit_log
       WHERE created_date >= '2024-01-01'
     ]]>
@@ -1562,6 +1579,11 @@ company_code | company_name
   <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
 </query>
 ```
+
+⚠️ **주의**: 
+- 위 예시에서 `log_id`를 `audit_code`로 변경했습니다
+- 만약 `log_id`가 IDENTITY 타입이라면 `identityColumns`에 사용할 수 없기 때문입니다
+- 감사 로그와 같은 테이블에서는 타임스탬프와 사용자 ID 조합 등을 고유 키로 사용하거나, 별도의 비즈니스 키를 추가하는 것을 권장합니다
 
 ## 📈 진행 상황 관리
 
@@ -1971,7 +1993,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
        description="사용자 데이터 이관"
        targetTable="users"
        targetColumns="user_id,username,email,status,created_date"
-                  identityColumns="user_id"
+       identityColumns="user_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[
@@ -1984,9 +2006,14 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
   
   <!-- 전역 컬럼 오버라이드가 자동으로 적용됨 -->
   
-  <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 PK 기준으로 자동 삭제됨 -->
+  <!-- deleteWhere 기능 제거: deleteBeforeInsert=true시 identityColumns 기준으로 자동 삭제됨 -->
 </query>
 ```
+
+⚠️ **주의사항**: 
+- 위 예시에서 `user_id`는 IDENTITY 타입이 **아닌** 비즈니스 키입니다
+- 만약 `user_id`가 IDENTITY(자동증가) 컬럼이라면 `identityColumns`로 사용할 수 없습니다
+- IDENTITY 컬럼이 있는 경우, 대신 `user_code`와 같은 비즈니스 키를 사용하세요
 
 ### 2. SELECT * 사용 예시
 
@@ -1995,7 +2022,7 @@ DEBUG_SCRIPTS=true node src/migrate-cli.js migrate queries.xml
        description="상품 전체 데이터 이관"
        targetTable="products"
        targetColumns=""
-                  identityColumns="product_id"
+       identityColumns="product_id"
        enabled="true">
   <sourceQuery>
     <![CDATA[
