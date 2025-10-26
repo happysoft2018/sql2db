@@ -2,6 +2,8 @@ const sql = require('mssql');
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const MetadataCache = require('./db/metadata-cache');
+const PKDeleter = require('./db/pk-deleter');
 
 const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
 
@@ -254,7 +256,7 @@ class MSSQLConnectionManager {
         this.isTargetConnected = false;
         this.customSourceConfig = null;
         this.customTargetConfig = null;
-        this.tableColumnCache = {}; // Table column information cache
+        this.tableColumnCache = {}; // Table column information cache (deprecated: maintained in MetadataCache)
         
         // Session management attributes
         this.sourceSession = null;
@@ -265,6 +267,20 @@ class MSSQLConnectionManager {
         this.dbPools = {}; // Connection pool storage for each DB
         this.dbConnections = {}; // Connection status storage for each DB
         this.dbConfigs = null; // dbinfo.json configuration
+
+        // Initialize helpers
+        this.metadataCache = new MetadataCache({
+            getPool: (isSource) => (isSource ? this.sourcePool : this.targetPool),
+            ensureConnected: async (isSource) => (isSource ? this.connectSource() : this.connectTarget()),
+            msg
+        });
+
+        this.pkDeleter = new PKDeleter({
+            getTargetPool: () => this.targetPool,
+            ensureTargetConnected: () => this.connectTarget(),
+            getTableColumns: (tableName) => this.metadataCache.getTableColumns(tableName, false),
+            msg
+        });
     }
 
     // Load DB configuration from dbinfo.json
@@ -644,372 +660,25 @@ class MSSQLConnectionManager {
 
     // Clear table column cache
     clearTableColumnCache() {
+        // Backward-compatible wrapper
+        this.metadataCache.clear();
+        // Keep local field in sync for any legacy access
         this.tableColumnCache = {};
-        console.log(msg.cacheCleared);
     }
 
     // Get table column cache statistics
     getTableColumnCacheStats() {
-        const cacheKeys = Object.keys(this.tableColumnCache);
-        const stats = {
-            cachedTables: cacheKeys.length,
-            cacheKeys: cacheKeys,
-            totalColumns: 0
-        };
-        
-        cacheKeys.forEach(key => {
-            const columns = this.tableColumnCache[key];
-            if (Array.isArray(columns)) {
-                stats.totalColumns += columns.length;
-            }
-        });
-        
-        console.log(msg.cacheStats
-            .replace('{cachedTables}', stats.cachedTables)
-            .replace('{totalColumns}', stats.totalColumns));
-        return stats;
+        return this.metadataCache.getStats();
     }
 
     // Query table column information (with caching)
     async getTableColumns(tableName, isSource = false) {
-        try {
-            // Generate cache key (table name + database type)
-            const cacheKey = `${tableName}_${isSource ? 'source' : 'target'}`;
-            const dbType = isSource ? msg.sourceDb : msg.targetDb;
-            
-            // Check cache first
-            if (this.tableColumnCache[cacheKey]) {
-                console.log(msg.cacheUsed.replace('{table}', tableName).replace('{db}', dbType));
-                return this.tableColumnCache[cacheKey];
-            }
-            
-            const pool = isSource ? this.sourcePool : this.targetPool;
-            
-            if (!pool || !(isSource ? this.isSourceConnected : this.isTargetConnected)) {
-                if (isSource) {
-                    await this.connectSource();
-                } else {
-                    await this.connectTarget();
-                }
-            }
-
-            const request = (isSource ? this.sourcePool : this.targetPool).request();
-            const query = `
-                SELECT 
-                    c.COLUMN_NAME, 
-                    c.DATA_TYPE, 
-                    c.IS_NULLABLE, 
-                    c.COLUMN_DEFAULT,
-                    c.ORDINAL_POSITION
-                FROM INFORMATION_SCHEMA.COLUMNS c
-                INNER JOIN sys.columns sc ON c.COLUMN_NAME = sc.name 
-                    AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
-                WHERE c.TABLE_NAME = '${tableName}'
-                    AND sc.is_computed = 0  -- Exclude computed columns
-                    AND sc.is_identity = 0  -- Exclude identity columns
-                    AND c.DATA_TYPE NOT IN ('varbinary', 'binary', 'image')  -- Exclude VARBINARY columns
-                ORDER BY c.ORDINAL_POSITION
-            `;
-            
-            console.log(msg.loadingColumns.replace('{db}', dbType).replace('{table}', tableName));
-            const result = await request.query(query);
-            
-            const columns = result.recordset.map(row => ({
-                name: row.COLUMN_NAME,
-                dataType: row.DATA_TYPE,
-                isNullable: row.IS_NULLABLE === 'YES',
-                defaultValue: row.COLUMN_DEFAULT
-            }));
-            
-            // Save to cache
-            this.tableColumnCache[cacheKey] = columns;
-            console.log(msg.cacheSaved
-                .replace('{table}', tableName)
-                .replace('{db}', dbType)
-                .replace('{count}', columns.length));
-            
-            return columns;
-        } catch (error) {
-            console.error(msg.columnLoadFailed.replace('{table}', tableName).replace('{message}', error.message));
-            throw new Error(msg.columnLoadFailed.replace('{table}', tableName).replace('{message}', error.message));
-        }
+        return this.metadataCache.getTableColumns(tableName, isSource);
     }
 
     // Delete table data from target database (by PK)
     async deleteFromTargetByPK(tableName, identityColumns, sourceData) {
-        try {
-            if (!this.isTargetConnected) {
-                await this.connectTarget();
-            }
-
-            // Display target DB info clearly
-            const targetConfig = this.targetPool.config;
-            console.log(msg.targetDbInfo
-                .replace('{server}', targetConfig.server)
-                .replace('{database}', targetConfig.database));
-
-            if (!sourceData || sourceData.length === 0) {
-                console.log(msg.noSourceData.replace('{table}', tableName));
-                return { rowsAffected: [0] };
-            }
-
-            // Query actual column names from target table (exact case matching)
-            const targetColumnsInfo = await this.getTableColumns(tableName, 'target');
-            const targetColumnNames = targetColumnsInfo.map(col => col.name);
-            
-            // Match identityColumns to actual column names in target table
-            const normalizeColumnName = (columnName) => {
-                // Use as-is if exact match exists
-                if (targetColumnNames.includes(columnName)) {
-                    return columnName;
-                }
-                
-                // Match case-insensitively
-                const normalizedName = columnName.toLowerCase();
-                const matchedColumn = targetColumnNames.find(col => col.toLowerCase() === normalizedName);
-                
-                if (matchedColumn) {
-                    if (matchedColumn !== columnName) {
-                        console.log(msg.columnNameCorrected
-                            .replace('{from}', columnName)
-                            .replace('{to}', matchedColumn));
-                    }
-                    return matchedColumn;
-                }
-                
-                console.log(msg.columnNotExists.replace('{column}', columnName));
-                console.log(msg.targetTableColumns.replace('{columns}', targetColumnNames.join(', ')));
-                return columnName; // Return original
-            };
-            
-            // Normalize identityColumns
-            const normalizedIdentityColumns = Array.isArray(identityColumns)
-                ? identityColumns.map(col => normalizeColumnName(col))
-                : normalizeColumnName(identityColumns);
-
-            // Extract PK values
-            const pkValues = [];
-            sourceData.forEach(row => {
-                if (Array.isArray(identityColumns)) {
-                    // Composite key case
-                    const pkSet = {};
-                    identityColumns.forEach(pk => {
-                        pkSet[pk] = row[pk];
-                    });
-                    pkValues.push(pkSet);
-                } else {
-                    // Single key case
-                    if (row[identityColumns] !== undefined && row[identityColumns] !== null) {
-                        pkValues.push(row[identityColumns]);
-                    }
-                }
-            });
-
-            if (pkValues.length === 0) {
-                console.log(msg.noPkValues.replace('{table}', tableName));
-                console.log(msg.identityColumnsInfo.replace('{columns}', 
-                    Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns));
-                console.log(msg.sourceDataRows.replace('{count}', sourceData.length));
-                if (sourceData.length > 0) {
-                    console.log(msg.firstRowColumns.replace('{columns}', Object.keys(sourceData[0]).join(', ')));
-                }
-                return { rowsAffected: [0] };
-            }
-            
-            // Log successful PK value extraction
-            const identityColumnsDisplay = Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns;
-            const normalizedColumnsDisplay = Array.isArray(normalizedIdentityColumns) ? normalizedIdentityColumns.join(', ') : normalizedIdentityColumns;
-            
-            if (identityColumnsDisplay !== normalizedColumnsDisplay) {
-                console.log(msg.pkExtractedCorrected
-                    .replace('{count}', pkValues.length)
-                    .replace('{from}', identityColumnsDisplay)
-                    .replace('{to}', normalizedColumnsDisplay));
-            } else {
-                console.log(msg.pkExtracted
-                    .replace('{count}', pkValues.length)
-                    .replace('{columns}', identityColumnsDisplay));
-            }
-            
-            // Output sample PK values for debugging
-            if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-                if (pkValues.length <= 10) {
-                    console.log(msg.pkValues.replace('{values}', JSON.stringify(pkValues)));
-                } else {
-                    console.log(msg.pkValuesFirst10.replace('{values}', JSON.stringify(pkValues.slice(0, 10))));
-                }
-            }
-
-            // Set chunk size considering SQL Server parameter limit (2100)
-            const isCompositeKey = Array.isArray(normalizedIdentityColumns);
-            const maxChunkSize = isCompositeKey 
-                ? Math.floor(2000 / normalizedIdentityColumns.length)  // Composite key: 2000 / number of key columns
-                : 2000;  // Single key: 2000 at a time
-            
-            let totalDeletedRows = 0;
-            
-            // Process pkValues in chunks
-            for (let i = 0; i < pkValues.length; i += maxChunkSize) {
-                const chunk = pkValues.slice(i, i + maxChunkSize);
-                const chunkNumber = Math.floor(i / maxChunkSize) + 1;
-                const totalChunks = Math.ceil(pkValues.length / maxChunkSize);
-                
-                if (totalChunks > 1) {
-                    console.log(msg.deletingChunk
-                        .replace('{current}', chunkNumber)
-                        .replace('{total}', totalChunks)
-                        .replace('{count}', chunk.length));
-                }
-                
-                let deleteQuery;
-                const request = this.targetPool.request();
-
-                if (isCompositeKey) {
-                    // Composite key case
-                    const conditions = chunk.map((pkSet, index) => {
-                        const conditions = normalizedIdentityColumns.map((normalizedPk, pkIndex) => {
-                            const originalPk = Array.isArray(identityColumns) ? identityColumns[pkIndex] : identityColumns;
-                            const paramName = `pk_${normalizedPk}_${index}`;
-                            const value = pkSet[originalPk];
-                            if (typeof value === 'string') {
-                                request.input(paramName, sql.NVarChar, value);
-                            } else if (typeof value === 'number') {
-                                request.input(paramName, sql.Int, value);
-                            } else {
-                                request.input(paramName, sql.Variant, value);
-                            }
-                            return `${normalizedPk} = @${paramName}`;
-                        }).join(' AND ');
-                        return `(${conditions})`;
-                    }).join(' OR ');
-                    
-                    deleteQuery = `DELETE FROM ${tableName} WHERE ${conditions}`;
-                } else {
-                    // Single key case
-                    if (chunk.length === 1) {
-                        const value = chunk[0];
-                        if (typeof value === 'string') {
-                            request.input('pk_value', sql.NVarChar, value);
-                        } else if (typeof value === 'number') {
-                            request.input('pk_value', sql.Int, value);
-                        } else {
-                            request.input('pk_value', sql.Variant, value);
-                        }
-                        deleteQuery = `DELETE FROM ${tableName} WHERE ${normalizedIdentityColumns} = @pk_value`;
-                    } else {
-                        // Process multiple PK values with IN clause
-                        const inClause = chunk.map((value, index) => {
-                            const paramName = `pk_${index}`;
-                            if (typeof value === 'string') {
-                                request.input(paramName, sql.NVarChar, value);
-                            } else if (typeof value === 'number') {
-                                request.input(paramName, sql.Int, value);
-                            } else {
-                                request.input(paramName, sql.Variant, value);
-                            }
-                            return `@${paramName}`;
-                        }).join(', ');
-                        
-                        deleteQuery = `DELETE FROM ${tableName} WHERE ${normalizedIdentityColumns} IN (${inClause})`;
-                    }
-                }
-                
-                if (totalChunks === 1) {
-                    console.log(msg.deletingByPk
-                        .replace('{table}', tableName)
-                        .replace('{count}', pkValues.length));
-                } else {
-                    console.log(msg.deletingChunkExecute
-                        .replace('{current}', chunkNumber)
-                        .replace('{total}', totalChunks));
-                }
-                
-                // Detailed logs for debugging
-                if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-                    console.log(msg.deleteQuery.replace('{query}', deleteQuery));
-                    if (chunk.length <= 5) {
-                        console.log(msg.deletingPkValues.replace('{values}', JSON.stringify(chunk)));
-                    } else {
-                        console.log(msg.deletingPkValuesFirst5.replace('{values}', JSON.stringify(chunk.slice(0, 5))));
-                    }
-                }
-                
-                const result = await request.query(deleteQuery);
-                const deletedCount = result.rowsAffected[0];
-                totalDeletedRows += deletedCount;
-                
-                // Log deleted row count (always output)
-                if (totalChunks === 1) {
-                    console.log(msg.deleteComplete.replace('{count}', deletedCount));
-                } else {
-                    console.log(msg.chunkDeleteComplete
-                        .replace('{current}', chunkNumber)
-                        .replace('{count}', deletedCount));
-                }
-                
-                // Output info if no rows deleted
-                if (deletedCount === 0 && chunk.length > 0) {
-                    // Check if target table has data
-                    try {
-                        const checkRequest = this.targetPool.request();
-                        const checkQuery = `SELECT COUNT(*) as cnt FROM ${tableName}`;
-                        const checkResult = await checkRequest.query(checkQuery);
-                        const totalRows = checkResult.recordset[0].cnt;
-                        
-                        if (totalRows === 0) {
-                            console.log(msg.targetTableEmpty);
-                        } else {
-                            console.log(msg.noMatchingData
-                                .replace('{totalRows}', totalRows)
-                                .replace('{count}', chunk.length));
-                            
-                            // Debug info
-                            if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-                                const firstPkValue = chunk[0];
-                                const testRequest = this.targetPool.request();
-                                
-                                if (isCompositeKey) {
-                                    const testConditions = normalizedIdentityColumns.map((col, idx) => {
-                                        const originalCol = Array.isArray(identityColumns) ? identityColumns[idx] : identityColumns;
-                                        const value = firstPkValue[originalCol];
-                                        testRequest.input(`test_${col}`, typeof value === 'string' ? sql.NVarChar : sql.Int, value);
-                                        return `${col} = @test_${col}`;
-                                    }).join(' AND ');
-                                    const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${testConditions}`;
-                                    const testResult = await testRequest.query(testQuery);
-                                    console.log(msg.debugSampleQuery.replace('{count}', testResult.recordset.length));
-                                } else {
-                                    testRequest.input('test_pk', typeof firstPkValue === 'string' ? sql.NVarChar : sql.Int, firstPkValue);
-                                    const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${normalizedIdentityColumns} = @test_pk`;
-                                    const testResult = await testRequest.query(testQuery);
-                                    console.log(msg.debugSamplePk.replace('{value}', firstPkValue));
-                                    
-                                    // Query sample PK values from target table
-                                    const sampleRequest = this.targetPool.request();
-                                    const sampleQuery = `SELECT TOP 5 ${normalizedIdentityColumns} FROM ${tableName}`;
-                                    const sampleResult = await sampleRequest.query(sampleQuery);
-                                    console.log(msg.debugTargetPkSample
-                                        .replace('{column}', normalizedIdentityColumns)
-                                        .replace('{values}', JSON.stringify(sampleResult.recordset.map(r => r[normalizedIdentityColumns]))));
-                                }
-                            } else {
-                                console.log(msg.debugHint);
-                            }
-                            
-                            console.log(msg.insertWillProceed);
-                        }
-                    } catch (checkError) {
-                        console.log(msg.noDeleteTarget.replace('{message}', checkError.message));
-                    }
-                }
-            }
-            
-            console.log(msg.totalDeleted.replace('{count}', totalDeletedRows));
-            return { rowsAffected: [totalDeletedRows] };
-        } catch (error) {
-            console.error(msg.pkDeleteFailed.replace('{message}', error.message));
-            throw new Error(msg.pkDeleteFailed.replace('{message}', error.message));
-        }
+        return this.pkDeleter.deleteFromTargetByPK(tableName, identityColumns, sourceData);
     }
 
     // Delete all data from target table (used when considering FK order)

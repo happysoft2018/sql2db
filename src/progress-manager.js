@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { getAppRoot } = require('./modules/paths');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -81,7 +82,7 @@ class ProgressManager {
         };
         
         // pkg 환경 고려
-        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+        const appRoot = getAppRoot();
         const logsDir = path.join(appRoot, 'logs');
         
         try {
