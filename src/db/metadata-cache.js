@@ -1,4 +1,5 @@
 const sql = require('mssql');
+const { format } = require('../modules/i18n');
 
 class MetadataCache {
   constructor({ getPool, ensureConnected, msg }) {
@@ -24,11 +25,7 @@ class MetadataCache {
       const columns = this.cache[key];
       if (Array.isArray(columns)) stats.totalColumns += columns.length;
     });
-    console.log(
-      this.msg.cacheStats
-        .replace('{cachedTables}', stats.cachedTables)
-        .replace('{totalColumns}', stats.totalColumns)
-    );
+    console.log(format(this.msg.cacheStats, { cachedTables: stats.cachedTables, totalColumns: stats.totalColumns }));
     return stats;
   }
 
@@ -38,9 +35,7 @@ class MetadataCache {
       const dbType = isSource ? this.msg.sourceDb : this.msg.targetDb;
 
       if (this.cache[cacheKey]) {
-        console.log(
-          this.msg.cacheUsed.replace('{table}', tableName).replace('{db}', dbType)
-        );
+        console.log(format(this.msg.cacheUsed, { table: tableName, db: dbType }));
         return this.cache[cacheKey];
       }
 
@@ -66,9 +61,7 @@ class MetadataCache {
                 ORDER BY c.ORDINAL_POSITION
             `;
 
-      console.log(
-        this.msg.loadingColumns.replace('{db}', dbType).replace('{table}', tableName)
-      );
+      console.log(format(this.msg.loadingColumns, { db: dbType, table: tableName }));
       const result = await request.query(query);
       const columns = result.recordset.map((row) => ({
         name: row.COLUMN_NAME,
@@ -77,24 +70,11 @@ class MetadataCache {
         defaultValue: row.COLUMN_DEFAULT,
       }));
       this.cache[cacheKey] = columns;
-      console.log(
-        this.msg.cacheSaved
-          .replace('{table}', tableName)
-          .replace('{db}', dbType)
-          .replace('{count}', columns.length)
-      );
+      console.log(format(this.msg.cacheSaved, { table: tableName, db: dbType, count: columns.length }));
       return columns;
     } catch (error) {
-      console.error(
-        this.msg.columnLoadFailed
-          .replace('{table}', tableName)
-          .replace('{message}', error.message)
-      );
-      throw new Error(
-        this.msg.columnLoadFailed
-          .replace('{table}', tableName)
-          .replace('{message}', error.message)
-      );
+      console.error(format(this.msg.columnLoadFailed, { table: tableName, message: error.message }));
+      throw new Error(format(this.msg.columnLoadFailed, { table: tableName, message: error.message }));
     }
   }
 }

@@ -1,4 +1,6 @@
 const sql = require('mssql');
+const { computeMaxChunkSize, chunkArray } = require('../utils/sql-utils');
+const { format } = require('../modules/i18n');
 
 class PKDeleter {
   constructor({ getTargetPool, ensureTargetConnected, getTableColumns, msg }) {
@@ -16,14 +18,10 @@ class PKDeleter {
       }
 
       const targetConfig = this.getTargetPool().config;
-      console.log(
-        this.msg.targetDbInfo
-          .replace('{server}', targetConfig.server)
-          .replace('{database}', targetConfig.database)
-      );
+      console.log(format(this.msg.targetDbInfo, { server: targetConfig.server, database: targetConfig.database }));
 
       if (!sourceData || sourceData.length === 0) {
-        console.log(this.msg.noSourceData.replace('{table}', tableName));
+        console.log(format(this.msg.noSourceData, { table: tableName }));
         return { rowsAffected: [0] };
       }
 
@@ -36,16 +34,12 @@ class PKDeleter {
         const matched = targetColumnNames.find((col) => col.toLowerCase() === normalizedName);
         if (matched) {
           if (matched !== columnName) {
-            console.log(
-              this.msg.columnNameCorrected
-                .replace('{from}', columnName)
-                .replace('{to}', matched)
-            );
+            console.log(format(this.msg.columnNameCorrected, { from: columnName, to: matched }));
           }
           return matched;
         }
-        console.log(this.msg.columnNotExists.replace('{column}', columnName));
-        console.log(this.msg.targetTableColumns.replace('{columns}', targetColumnNames.join(', ')));
+        console.log(format(this.msg.columnNotExists, { column: columnName }));
+        console.log(format(this.msg.targetTableColumns, { columns: targetColumnNames.join(', ') }));
         return columnName;
       };
 
@@ -69,16 +63,11 @@ class PKDeleter {
       });
 
       if (pkValues.length === 0) {
-        console.log(this.msg.noPkValues.replace('{table}', tableName));
-        console.log(
-          this.msg.identityColumnsInfo.replace(
-            '{columns}',
-            Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns
-          )
-        );
-        console.log(this.msg.sourceDataRows.replace('{count}', sourceData.length));
+        console.log(format(this.msg.noPkValues, { table: tableName }));
+        console.log(format(this.msg.identityColumnsInfo, { columns: Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns }));
+        console.log(format(this.msg.sourceDataRows, { count: sourceData.length }));
         if (sourceData.length > 0) {
-          console.log(this.msg.firstRowColumns.replace('{columns}', Object.keys(sourceData[0]).join(', ')));
+          console.log(format(this.msg.firstRowColumns, { columns: Object.keys(sourceData[0]).join(', ') }));
         }
         return { rowsAffected: [0] };
       }
@@ -91,44 +80,34 @@ class PKDeleter {
         : normalizedIdentityColumns;
 
       if (identityColumnsDisplay !== normalizedColumnsDisplay) {
-        console.log(
-          this.msg.pkExtractedCorrected
-            .replace('{count}', pkValues.length)
-            .replace('{from}', identityColumnsDisplay)
-            .replace('{to}', normalizedColumnsDisplay)
-        );
+        console.log(format(this.msg.pkExtractedCorrected, { count: pkValues.length, from: identityColumnsDisplay, to: normalizedColumnsDisplay }));
       } else {
-        console.log(
-          this.msg.pkExtracted
-            .replace('{count}', pkValues.length)
-            .replace('{columns}', identityColumnsDisplay)
-        );
+        console.log(format(this.msg.pkExtracted, { count: pkValues.length, columns: identityColumnsDisplay }));
       }
 
       if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
         if (pkValues.length <= 10) {
-          console.log(this.msg.pkValues.replace('{values}', JSON.stringify(pkValues)));
+          console.log(format(this.msg.pkValues, { values: JSON.stringify(pkValues) }));
         } else {
-          console.log(this.msg.pkValuesFirst10.replace('{values}', JSON.stringify(pkValues.slice(0, 10))));
+          console.log(format(this.msg.pkValuesFirst10, { values: JSON.stringify(pkValues.slice(0, 10)) }));
         }
       }
 
       const isCompositeKey = Array.isArray(normalizedIdentityColumns);
-      const maxChunkSize = isCompositeKey ? Math.floor(2000 / normalizedIdentityColumns.length) : 2000;
+      const maxChunkSize = computeMaxChunkSize(
+        isCompositeKey ? normalizedIdentityColumns.length : 1,
+        2000
+      );
 
       let totalDeletedRows = 0;
-      for (let i = 0; i < pkValues.length; i += maxChunkSize) {
-        const chunk = pkValues.slice(i, i + maxChunkSize);
-        const chunkNumber = Math.floor(i / maxChunkSize) + 1;
-        const totalChunks = Math.ceil(pkValues.length / maxChunkSize);
+      const chunks = chunkArray(pkValues, maxChunkSize);
+      for (let idx = 0; idx < chunks.length; idx++) {
+        const chunk = chunks[idx];
+        const chunkNumber = idx + 1;
+        const totalChunks = chunks.length;
 
         if (totalChunks > 1) {
-          console.log(
-            this.msg.deletingChunk
-              .replace('{current}', chunkNumber)
-              .replace('{total}', totalChunks)
-              .replace('{count}', chunk.length)
-          );
+          console.log(format(this.msg.deletingChunk, { current: chunkNumber, total: totalChunks, count: chunk.length }));
         }
 
         let deleteQuery;
@@ -186,25 +165,17 @@ class PKDeleter {
         }
 
         if (totalChunks === 1) {
-          console.log(
-            this.msg.deletingByPk
-              .replace('{table}', tableName)
-              .replace('{count}', pkValues.length)
-          );
+          console.log(format(this.msg.deletingByPk, { table: tableName, count: pkValues.length }));
         } else {
-          console.log(
-            this.msg.deletingChunkExecute
-              .replace('{current}', chunkNumber)
-              .replace('{total}', totalChunks)
-          );
+          console.log(format(this.msg.deletingChunkExecute, { current: chunkNumber, total: totalChunks }));
         }
 
         if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-          console.log(this.msg.deleteQuery.replace('{query}', deleteQuery));
+          console.log(format(this.msg.deleteQuery, { query: deleteQuery }));
           if (chunk.length <= 5) {
-            console.log(this.msg.deletingPkValues.replace('{values}', JSON.stringify(chunk)));
+            console.log(format(this.msg.deletingPkValues, { values: JSON.stringify(chunk) }));
           } else {
-            console.log(this.msg.deletingPkValuesFirst5.replace('{values}', JSON.stringify(chunk.slice(0, 5))));
+            console.log(format(this.msg.deletingPkValuesFirst5, { values: JSON.stringify(chunk.slice(0, 5)) }));
           }
         }
 
@@ -213,13 +184,9 @@ class PKDeleter {
         totalDeletedRows += deletedCount;
 
         if (totalChunks === 1) {
-          console.log(this.msg.deleteComplete.replace('{count}', deletedCount));
+          console.log(format(this.msg.deleteComplete, { count: deletedCount }));
         } else {
-          console.log(
-            this.msg.chunkDeleteComplete
-              .replace('{current}', chunkNumber)
-              .replace('{count}', deletedCount)
-          );
+          console.log(format(this.msg.chunkDeleteComplete, { current: chunkNumber, count: deletedCount }));
         }
 
         if (deletedCount === 0 && chunk.length > 0) {
@@ -232,11 +199,7 @@ class PKDeleter {
             if (totalRows === 0) {
               console.log(this.msg.targetTableEmpty);
             } else {
-              console.log(
-                this.msg.noMatchingData
-                  .replace('{totalRows}', totalRows)
-                  .replace('{count}', chunk.length)
-              );
+              console.log(format(this.msg.noMatchingData, { totalRows, count: chunk.length }));
 
               if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
                 const firstPkValue = chunk[0];
@@ -253,7 +216,7 @@ class PKDeleter {
                     .join(' AND ');
                   const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${testConditions}`;
                   const testResult = await testRequest.query(testQuery);
-                  console.log(this.msg.debugSampleQuery.replace('{count}', testResult.recordset.length));
+                  console.log(format(this.msg.debugSampleQuery, { count: testResult.recordset.length }));
                 } else {
                   testRequest.input(
                     'test_pk',
@@ -262,16 +225,12 @@ class PKDeleter {
                   );
                   const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${normalizedIdentityColumns} = @test_pk`;
                   const testResult = await testRequest.query(testQuery);
-                  console.log(this.msg.debugSamplePk.replace('{value}', firstPkValue));
+                  console.log(format(this.msg.debugSamplePk, { value: firstPkValue }));
 
                   const sampleRequest = this.getTargetPool().request();
                   const sampleQuery = `SELECT TOP 5 ${normalizedIdentityColumns} FROM ${tableName}`;
                   const sampleResult = await sampleRequest.query(sampleQuery);
-                  console.log(
-                    this.msg.debugTargetPkSample
-                      .replace('{column}', normalizedIdentityColumns)
-                      .replace('{values}', JSON.stringify(sampleResult.recordset.map((r) => r[normalizedIdentityColumns])))
-                  );
+                  console.log(format(this.msg.debugTargetPkSample, { column: normalizedIdentityColumns, values: JSON.stringify(sampleResult.recordset.map((r) => r[normalizedIdentityColumns])) }));
                 }
               } else {
                 console.log(this.msg.debugHint);
@@ -280,16 +239,16 @@ class PKDeleter {
               console.log(this.msg.insertWillProceed);
             }
           } catch (checkError) {
-            console.log(this.msg.noDeleteTarget.replace('{message}', checkError.message));
+            console.log(format(this.msg.noDeleteTarget, { message: checkError.message }));
           }
         }
       }
 
-      console.log(this.msg.totalDeleted.replace('{count}', totalDeletedRows));
+      console.log(format(this.msg.totalDeleted, { count: totalDeletedRows }));
       return { rowsAffected: [totalDeletedRows] };
     } catch (error) {
-      console.error(this.msg.pkDeleteFailed.replace('{message}', error.message));
-      throw new Error(this.msg.pkDeleteFailed.replace('{message}', error.message));
+      console.error(format(this.msg.pkDeleteFailed, { message: error.message }));
+      throw new Error(format(this.msg.pkDeleteFailed, { message: error.message }));
     }
   }
 }

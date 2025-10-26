@@ -4,8 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const MetadataCache = require('./db/metadata-cache');
 const PKDeleter = require('./db/pk-deleter');
+const { getAppRoot } = require('./modules/paths');
 
-const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
+ 
 
 // Language setting (using environment variable, default to English)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -286,9 +287,8 @@ class MSSQLConnectionManager {
     // Load DB configuration from dbinfo.json
     loadDBConfigs() {
         try {
-            const configPath = process.pkg 
-                ? path.join(APP_ROOT, 'config', 'dbinfo.json')
-                : path.join(__dirname, '..', 'config', 'dbinfo.json');
+            const appRoot = getAppRoot();
+            const configPath = path.join(appRoot, 'config', 'dbinfo.json');
             if (fs.existsSync(configPath)) {
                 const configData = fs.readFileSync(configPath, 'utf8');
                 this.dbConfigs = JSON.parse(configData);
