@@ -231,16 +231,33 @@ function clearScreen() {
  * Get application version
  */
 function getAppVersion() {
+    // 1) Build-time/runtime injected env (release.bat or CI can set this)
+    if (process.env.PKG_VERSION && process.env.PKG_VERSION.trim()) {
+        return process.env.PKG_VERSION.trim();
+    }
+
+    // 2) Bundled package.json via pkg snapshot (require works if referenced)
+    try {
+        // This require ensures pkg includes package.json in the snapshot
+        // eslint-disable-next-line import/no-dynamic-require, global-require
+        const bundledPkg = require('./package.json');
+        if (bundledPkg && bundledPkg.version) return bundledPkg.version;
+    } catch (_) { /* ignore */ }
+
+    // 3) Filesystem package.json next to executable (dev or release folder)
     try {
         const pkgPath = path.join(APP_ROOT, 'package.json');
         if (fs.existsSync(pkgPath)) {
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            return pkg.version || process.env.npm_package_version || '0.0.0';
+            if (pkg && pkg.version) return pkg.version;
         }
-        return process.env.npm_package_version || '0.0.0';
-    } catch (e) {
-        return process.env.npm_package_version || '0.0.0';
-    }
+    } catch (_) { /* ignore */ }
+
+    // 4) npm-provided env in dev
+    if (process.env.npm_package_version) return process.env.npm_package_version;
+
+    // 5) Fallback
+    return '0.0.0';
 }
 
 /**
