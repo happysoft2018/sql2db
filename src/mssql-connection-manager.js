@@ -6,6 +6,7 @@ const MetadataCache = require('./db/metadata-cache');
 const PKDeleter = require('./db/pk-deleter');
 const { getAppRoot } = require('./modules/paths');
 const { format } = require('./modules/i18n');
+const FKAnalyzer = require('./db/fk-analyzer');
 
  
 
@@ -281,6 +282,12 @@ class MSSQLConnectionManager {
             getTargetPool: () => this.targetPool,
             ensureTargetConnected: () => this.connectTarget(),
             getTableColumns: (tableName) => this.metadataCache.getTableColumns(tableName, false),
+            msg
+        });
+
+        this.fkAnalyzer = new FKAnalyzer({
+            getPool: (isSource) => (isSource ? this.sourcePool : this.targetPool),
+            ensureConnected: async (isSource) => (isSource ? this.connectSource() : this.connectTarget()),
             msg
         });
     }
@@ -738,179 +745,17 @@ class MSSQLConnectionManager {
 
     // Query FK relations between tables
     async getForeignKeyRelations(isSource = false) {
-        try {
-            const pool = isSource ? this.sourcePool : this.targetPool;
-            const connectionType = isSource ? msg.sourceDb : msg.targetDb;
-            
-            if (!pool || !(isSource ? this.isSourceConnected : this.isTargetConnected)) {
-                if (isSource) {
-                    await this.connectSource();
-                } else {
-                    await this.connectTarget();
-                }
-            }
-
-            const request = (isSource ? this.sourcePool : this.targetPool).request();
-            const query = `
-                SELECT 
-                    fk.name AS foreign_key_name,
-                    tp.name AS parent_table,
-                    cp.name AS parent_column,
-                    tr.name AS referenced_table,
-                    cr.name AS referenced_column,
-                    fk.delete_referential_action_desc,
-                    fk.update_referential_action_desc
-                FROM sys.foreign_keys fk
-                INNER JOIN sys.tables tp ON fk.parent_object_id = tp.object_id
-                INNER JOIN sys.tables tr ON fk.referenced_object_id = tr.object_id
-                INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-                INNER JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
-                INNER JOIN sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
-                ORDER BY tp.name, fk.name
-            `;
-            
-            console.log(format(msg.fkQueryingDb, { db: connectionType }));
-            const result = await request.query(query);
-            
-            const relations = result.recordset.map(row => ({
-                foreignKeyName: row.foreign_key_name,
-                parentTable: row.parent_table,
-                parentColumn: row.parent_column,
-                referencedTable: row.referenced_table,
-                referencedColumn: row.referenced_column,
-                deleteAction: row.delete_referential_action_desc,
-                updateAction: row.update_referential_action_desc
-            }));
-
-            console.log(format(msg.fkFoundInDb, { db: connectionType, count: relations.length }));
-            return relations;
-        } catch (error) {
-            console.error(format(msg.fkQueryFailed, { db: connectionType, message: error.message }));
-            throw new Error(format(msg.fkQueryFailed, { db: connectionType, message: error.message }));
-        }
+        return this.fkAnalyzer.getForeignKeyRelations(isSource);
     }
 
     // Calculate table deletion order (topological sort)
     async calculateTableDeletionOrder(tableNames, isSource = false) {
-        try {
-            console.log(format(msg.calculatingDeletionOrder, { count: tableNames.length }));
-            
-            // Query FK relations
-            const fkRelations = await this.getForeignKeyRelations(isSource);
-            
-            // Filter relevant tables only
-            const relevantRelations = fkRelations.filter(rel => 
-                tableNames.includes(rel.parentTable) && tableNames.includes(rel.referencedTable)
-            );
-
-            console.log(format(msg.relevantFkCount, { count: relevantRelations.length }));
-
-            // Create dependency graph
-            const dependencies = new Map();
-            const inDegree = new Map();
-            
-            // Initialize all tables
-            tableNames.forEach(table => {
-                dependencies.set(table, []);
-                inDegree.set(table, 0);
-            });
-
-            // Build dependency graph based on FK relations
-            relevantRelations.forEach(rel => {
-                // Add dependency only if not CASCADE delete
-                if (rel.deleteAction !== 'CASCADE') {
-                    // Parent references referenced, so parent must be deleted first
-                    dependencies.get(rel.referencedTable).push(rel.parentTable);
-                    inDegree.set(rel.parentTable, inDegree.get(rel.parentTable) + 1);
-                }
-            });
-
-            // Perform topological sort
-            const result = [];
-            const queue = [];
-            
-            // Add tables with in-degree 0 to queue
-            inDegree.forEach((degree, table) => {
-                if (degree === 0) {
-                    queue.push(table);
-                }
-            });
-
-            while (queue.length > 0) {
-                const currentTable = queue.shift();
-                result.push(currentTable);
-
-                // Decrease in-degree of tables depending on current table
-                dependencies.get(currentTable).forEach(dependentTable => {
-                    inDegree.set(dependentTable, inDegree.get(dependentTable) - 1);
-                    if (inDegree.get(dependentTable) === 0) {
-                        queue.push(dependentTable);
-                    }
-                });
-            }
-
-            // Check for circular references
-            if (result.length !== tableNames.length) {
-                const remainingTables = tableNames.filter(table => !result.includes(table));
-                console.warn(format(msg.circularRefDetected, { tables: remainingTables.join(', ') }));
-                console.warn(format(msg.circularRefWarning));
-                
-                // Add tables with circular references to result
-                result.push(...remainingTables);
-            }
-
-            console.log(format(msg.calculatedDeletionOrder, { order: result.join(' → ') }));
-            
-            return {
-                order: result,
-                hasCircularReference: result.length !== tableNames.length,
-                circularTables: result.length !== tableNames.length ? 
-                    tableNames.filter(table => !result.includes(table)) : [],
-                fkRelations: relevantRelations
-            };
-
-        } catch (error) {
-            console.error(format(msg.deletionOrderFailed, { message: error.message }));
-            throw new Error(format(msg.deletionOrderFailed, { message: error.message }));
-        }
+        return this.fkAnalyzer.calculateTableDeletionOrder(tableNames, isSource);
     }
 
     // FK 제약 조건 비활성화/활성화
     async toggleForeignKeyConstraints(enable = true, isSource = false) {
-        try {
-            const pool = isSource ? this.sourcePool : this.targetPool;
-            const connectionType = isSource ? msg.sourceDb : msg.targetDb;
-            const action = enable ? msg.fkEnable : msg.fkDisable;
-            
-            if (!pool || !(isSource ? this.isSourceConnected : this.isTargetConnected)) {
-                if (isSource) {
-                    await this.connectSource();
-                } else {
-                    await this.connectTarget();
-                }
-            }
-
-            const request = (isSource ? this.sourcePool : this.targetPool).request();
-            
-            // 모든 FK 제약 조건 활성화/비활성화
-            const toggleCommand = enable ? 'CHECK' : 'NOCHECK';
-            const query = `
-                DECLARE @sql NVARCHAR(MAX) = '';
-                SELECT @sql = @sql + 'ALTER TABLE [' + SCHEMA_NAME(t.schema_id) + '].[' + t.name + '] ${toggleCommand} CONSTRAINT [' + fk.name + '];' + CHAR(13)
-                FROM sys.foreign_keys fk
-                INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id;
-                EXEC sp_executesql @sql;
-            `;
-            
-            console.log(msg.togglingFk.replace('{db}', connectionType).replace('{action}', action));
-            await request.query(query);
-            console.log(msg.fkToggleComplete.replace('{db}', connectionType).replace('{action}', action));
-            
-        } catch (error) {
-            const action = enable ? msg.fkEnable : msg.fkDisable;
-            console.error(msg.fkToggleFailed.replace('{action}', action).replace('{message}', error.message));
-            throw new Error(msg.fkToggleFailed.replace('{action}', action).replace('{message}', error.message));
-        }
+        return this.fkAnalyzer.toggleForeignKeyConstraints(enable, isSource);
     }
 
     // 타겟 데이터베이스에서 SQL 실행 (전처리/후처리용)
@@ -925,8 +770,8 @@ class MSSQLConnectionManager {
             
             return result;
         } catch (error) {
-            console.error(msg.targetQueryFailed.replace('{message}', error.message));
-            throw new Error(msg.targetQueryFailed.replace('{message}', error.message));
+            console.error(format(msg.targetQueryFailed, { message: error.message }));
+            throw new Error(format(msg.targetQueryFailed, { message: error.message }));
         }
     }
 
