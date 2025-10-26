@@ -22,6 +22,31 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 - 🆕 **Large Dataset Support**: Handles SQL Server 2100 parameter limit automatically
 - 🆕 **Enhanced Debugging**: Detailed diagnostics for delete operations
 
+## Modular Architecture
+
+- **config-manager**: Loads/parses dbinfo and query XML. Attribute validation, parse global overrides/processes/dynamic vars.
+- **query-processor**: Expands SELECT *, excludes IDENTITY columns, queries target schema.
+- **variable-manager**: Variable substitution, date/timezone functions, applies global column override values (including JSON mapping).
+- **script-processor**: Executes pre/post scripts with variable substitution.
+- **mssql-connection-manager**: Source/target DB connections, query execution, deletes/batching.
+- **mssql-data-migrator-modular**: Orchestrates migration, runs global/per-query processes, applies selective global overrides.
+
+### Call Flow (Summary)
+1) ConfigManager → Load/parse config
+2) ScriptProcessor → Global preProcess
+3) VariableManager → Dynamic variable extraction/substitution
+4) QueryProcessor → SELECT * expansion + columns ready
+5) DataMigrator → Deletes (deleteBeforeInsert) → selective global overrides → batch inserts
+6) ScriptProcessor → Global postProcess
+
+## v0.9.0 Refactor Highlights
+
+- **Consistent getTableColumns()**: Returns `{ name }[]` to align types across modules
+- **Separated selective global overrides**:
+  - Policy phase: Intersect `applyGlobalColumns` with target schema to choose columns
+  - Apply phase: VariableManager safely applies only to existing row columns (with substitution/JSON mapping)
+- **Robustness**: Handles mixed `{name}`/string column arrays; reinforced case-insensitive matching
+- **Operations**: Recommend `sp_updatestats`/`UPDATE STATISTICS ... WITH FULLSCAN` for post-process stats
 ## Quick Start
 
 ### Option 1: Using Standalone Executable (Recommended)
@@ -485,6 +510,58 @@ SELECT * detected. Automatically retrieving column information for table users.
 IDENTITY column auto-excluded: id
 Auto-set column list (15 columns, IDENTITY excluded): name, email, status, created_date, ...
 Modified source query: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
+```
+
+## Global Column Override Application Logic
+
+Global column overrides (Map) are “selectively applied” per query based on the XML `applyGlobalColumns` policy. Only the selected columns are safely applied to the actual data rows.
+
+### How It Works
+- Policy phase: Intersect `applyGlobalColumns` value (`all`, `none`, `created_date`, `col1,col2`, etc.) with the target table schema to choose applicable columns.
+- Apply phase: Only the selected columns are applied, and only to rows that actually contain those columns.
+- Column matching is case-insensitive.
+
+### XML Example
+```xml
+<globalColumnOverrides>
+  <override column="processed_at">GETDATE()</override>
+  <override column="data_version">2.1</override>
+  <override column="CREATED_DATE">${DATE:yyyy-MM-dd HH:mm:ss}</override>
+  <override column="company_code">{"COMPANY01":"APPLE","COMPANY02":"AMAZON"}</override>
+  <override column="email">{"a@company.com":"a@gmail.com"}</override>
+</globalColumnOverrides>
+
+<query id="migrate_users_all" enabled="true">
+  <sourceQuery targetTable="users" targetColumns="*" applyGlobalColumns="created_date">
+    <![CDATA[
+      SELECT * FROM users
+    ]]>
+  </sourceQuery>
+</query>
+```
+
+With the above, only `created_date` is applied to this query, even though multiple overrides exist globally. Case-insensitive matching will apply if the actual column is `created_date` or any case variant.
+
+### Value Handling
+- Time functions like `${DATE:...}`, `${DATE.UTC:...}` supported (22 timezones)
+- JSON mapping is only applied when the original value matches a mapping key; otherwise the original is preserved
+
+### Log Example
+```
+Selective global overrides: created_date
+Applied columns: created_date
+Rows processed: N
+```
+
+## Post-Process Statistics Recommendation
+
+In some environments, `ALTER DATABASE ... SET AUTO_UPDATE_STATISTICS ON` can generate warnings. For post-migration stats refresh, prefer:
+
+```sql
+EXEC sp_updatestats;
+-- Or for specific tables
+UPDATE STATISTICS [dbo].[users] WITH FULLSCAN;
+UPDATE STATISTICS [dbo].[products] WITH FULLSCAN;
 ```
 
 ## Testing

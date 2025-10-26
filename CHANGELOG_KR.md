@@ -1,5 +1,17 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.9.0 - 코드 모듈화 및 리팩토링 (2025-10-26)
+
+### 🔧 개선 사항
+- **config-manager**: dbinfo/query XML 로드 및 파싱. 속성 검증, 전역 컬럼 오버라이드/프로세스/동적변수 파싱.
+- **query-processor**: SELECT * 자동 확장, IDENTITY 컬럼 제외, 타겟 스키마 조회.
+- **variable-manager**: 변수 치환, 날짜/타임존 함수, 전역 컬럼 오버라이드 값 적용(JSON 매핑 포함).
+- **script-processor**: 전/후처리 스크립트 실행과 변수 치환.
+- **mssql-connection-manager**: 소스/타겟 DB 연결, 쿼리 실행, 삭제/배치 작업.
+- **mssql-data-migrator-modular**: 전체 이관 오케스트레이션, 전역/개별 프로세스 실행, 선택적 전역 컬럼 오버라이드 적용.
+
+---
+
 ## 🚀 v0.8.7 - JSON 매핑 로직 수정 (2025-10-24)
 
 ### 🐛 버그 수정

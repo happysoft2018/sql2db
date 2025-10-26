@@ -33,6 +33,12 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - 🆕 **Large Dataset Support**: Handles SQL Server 2100 parameter limit automatically
 - 🆕 **Enhanced Debugging**: Detailed diagnostics for troubleshooting delete operations
 
+### 🆕 What's New in v0.9.0
+- **Selective global overrides (per query)**: Strictly honor XML `applyGlobalColumns` (policy phase), then safely apply only to rows that actually contain those columns (row phase)
+- **Column metadata consistency**: `getTableColumns()` now returns `{ name }[]`, improving consistency for SELECT * expansion and schema matching
+- **Robust selection logic**: Handles column arrays with mixed `{name}` objects and strings in `selectivelyApplyGlobalColumnOverrides()`
+- **Post-process statistics**: Prefer `EXEC sp_updatestats;` or `UPDATE STATISTICS ... WITH FULLSCAN;` instead of `ALTER DATABASE ... SET AUTO_UPDATE_STATISTICS ON`
+
 ## 🛠️ Installation and Setup
 
 ### 1. System Requirements

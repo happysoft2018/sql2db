@@ -33,6 +33,12 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - 🆕 **대량 데이터 지원**: SQL Server 2100 파라미터 제한 자동 처리
 - 🆕 **향상된 디버깅**: 삭제 작업 문제 해결을 위한 상세 진단
 
+### 🆕 v0.9.0 주요 변경
+- **전역 컬럼 오버라이드 선택 적용 강화**: XML `applyGlobalColumns` 정책을 먼저 적용(정책 단계) → 각 행에 실제 존재하는 컬럼에만 안전 적용(행 단계)
+- **컬럼 메타 일관화**: `getTableColumns()`가 `{ name }[]`로 반환되어 SELECT * 확장 및 스키마 매칭의 일관성 향상
+- **선택 적용 로직 견고화**: `{name}`/문자열 혼재 컬럼 배열도 안전하게 처리하도록 선택 적용 로직 보강
+- **후처리 통계 갱신 권장**: `ALTER DATABASE ... SET AUTO_UPDATE_STATISTICS ON` 대신 `EXEC sp_updatestats;` 또는 `UPDATE STATISTICS ... WITH FULLSCAN;` 권장
+
 ## 🛠️ 설치 및 설정
 
 ### 1. 환경 요구사항
