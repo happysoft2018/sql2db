@@ -141,7 +141,8 @@ class QueryProcessor {
             }
             
             if (result && result.recordset) {
-                const columns = result.recordset.map(row => row.COLUMN_NAME);
+                // 반환 형태를 { name: COLUMN_NAME } 객체 배열로 통일
+                const columns = result.recordset.map(row => ({ name: row.COLUMN_NAME }));
                 this.tableColumnCache[cacheKey] = columns;
                 this.log(format(msg.cacheSaved, { table: tableName, db: database, count: columns.length }));
                 return columns;
@@ -294,13 +295,14 @@ class QueryProcessor {
                 const aliasText = tableAlias ? ` (${LANGUAGE === 'kr' ? '별칭: ' : 'alias: '}${tableAlias})` : '';
                 this.log(format(msg.selectAllDetected, { table: tableName, alias: aliasText }));
                 
-                const columns = await this.connectionManager.getTableColumns(queryConfig.targetTable, false);
+                // QueryProcessor의 캐시 포함 메서드 사용, 대상 DB는 'target'
+                const columns = await this.getTableColumns(queryConfig.targetTable, 'target');
                 
                 if (columns.length === 0) {
                     throw new Error(format(msg.targetTableNotFound, { table: queryConfig.targetTable }));
                 }
                 
-                const identityColumns = await this.getIdentityColumns(queryConfig.targetTable, false);
+                const identityColumns = await this.getIdentityColumns(queryConfig.targetTable, 'target');
                 const columnNames = columns.map(col => col.name);
                 const filteredColumnNames = columnNames.filter(col => !identityColumns.includes(col));
                 
