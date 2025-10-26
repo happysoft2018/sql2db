@@ -5,6 +5,7 @@ const path = require('path');
 const MetadataCache = require('./db/metadata-cache');
 const PKDeleter = require('./db/pk-deleter');
 const { getAppRoot } = require('./modules/paths');
+const { format } = require('./modules/i18n');
 
  
 
@@ -292,14 +293,14 @@ class MSSQLConnectionManager {
             if (fs.existsSync(configPath)) {
                 const configData = fs.readFileSync(configPath, 'utf8');
                 this.dbConfigs = JSON.parse(configData);
-                console.log(msg.dbinfoLoaded.replace('{count}', Object.keys(this.dbConfigs).length));
+                console.log(format(msg.dbinfoLoaded, { count: Object.keys(this.dbConfigs).length }));
                 return this.dbConfigs;
             } else {
                 console.warn(msg.dbinfoNotFound);
                 return null;
             }
         } catch (error) {
-            console.error(msg.dbinfoLoadFailed.replace('{message}', error.message));
+            console.error(format(msg.dbinfoLoadFailed, { message: error.message }));
             return null;
         }
     }
@@ -322,11 +323,7 @@ class MSSQLConnectionManager {
             const dbConfig = this.dbConfigs[dbKey];
             const config = this.getDBConfig(dbConfig);
             
-            console.log(msg.dbConnecting
-                .replace('{key}', dbKey)
-                .replace('{server}', config.server)
-                .replace('{port}', config.port)
-                .replace('{database}', config.database));
+            console.log(format(msg.dbConnecting, { key: dbKey, server: config.server, port: config.port, database: config.database }));
             
             const pool = new sql.ConnectionPool(config);
             await pool.connect();
@@ -334,12 +331,12 @@ class MSSQLConnectionManager {
             this.dbPools[dbKey] = pool;
             this.dbConnections[dbKey] = true;
             
-            console.log(msg.dbConnectionSuccess.replace('{key}', dbKey));
+            console.log(format(msg.dbConnectionSuccess, { key: dbKey }));
             return pool;
             
         } catch (error) {
-            console.error(msg.dbConnectionFailed.replace('{key}', dbKey).replace('{message}', error.message));
-            throw new Error(msg.dbConnectionFailed.replace('{key}', dbKey).replace('{message}', error.message));
+            console.error(format(msg.dbConnectionFailed, { key: dbKey, message: error.message }));
+            throw new Error(format(msg.dbConnectionFailed, { key: dbKey, message: error.message }));
         }
     }
 
@@ -351,8 +348,8 @@ class MSSQLConnectionManager {
             const result = await request.query(query);
             return result.recordset || result;
         } catch (error) {
-            console.error(msg.dbQueryFailed.replace('{key}', dbKey).replace('{message}', error.message));
-            throw new Error(msg.dbQueryFailed.replace('{key}', dbKey).replace('{message}', error.message));
+            console.error(format(msg.dbQueryFailed, { key: dbKey, message: error.message }));
+            throw new Error(format(msg.dbQueryFailed, { key: dbKey, message: error.message }));
         }
     }
 
@@ -376,10 +373,10 @@ class MSSQLConnectionManager {
                 await this.dbPools[dbKey].close();
                 delete this.dbPools[dbKey];
                 this.dbConnections[dbKey] = false;
-                console.log(msg.dbDisconnected.replace('{key}', dbKey));
+                console.log(format(msg.dbDisconnected, { key: dbKey }));
             }
         } catch (error) {
-            console.error(msg.dbDisconnectFailed.replace('{key}', dbKey).replace('{message}', error.message));
+            console.error(format(msg.dbDisconnectFailed, { key: dbKey, message: error.message }));
         }
     }
 
@@ -391,7 +388,7 @@ class MSSQLConnectionManager {
             }
             console.log(msg.allDbsDisconnected);
         } catch (error) {
-            console.error(msg.dbDisconnectError.replace('{message}', error.message));
+            console.error(format(msg.dbDisconnectError, { message: error.message }));
         }
     }
 
@@ -434,10 +431,7 @@ class MSSQLConnectionManager {
             }
 
             const config = this.getDBConfig(this.customSourceConfig);
-            console.log(msg.sourceDbConnecting
-                .replace('{server}', config.server)
-                .replace('{port}', config.port)
-                .replace('{database}', config.database));
+            console.log(format(msg.sourceDbConnecting, { server: config.server, port: config.port, database: config.database }));
             
             this.sourcePool = new sql.ConnectionPool(config);
             await this.sourcePool.connect();
@@ -446,8 +440,8 @@ class MSSQLConnectionManager {
             console.log(msg.sourceDbConnectionSuccess);
             return this.sourcePool;
         } catch (error) {
-            console.error(msg.sourceDbConnectionFailed.replace('{message}', error.message));
-            throw new Error(msg.sourceDbConnectionFailed.replace('{message}', error.message));
+            console.error(format(msg.sourceDbConnectionFailed, { message: error.message }));
+            throw new Error(format(msg.sourceDbConnectionFailed, { message: error.message }));
         }
     }
 
@@ -459,10 +453,7 @@ class MSSQLConnectionManager {
             }
 
             const config = this.getDBConfig(this.customTargetConfig);
-            console.log(msg.targetDbConnecting
-                .replace('{server}', config.server)
-                .replace('{port}', config.port)
-                .replace('{database}', config.database));
+            console.log(format(msg.targetDbConnecting, { server: config.server, port: config.port, database: config.database }));
             
             this.targetPool = new sql.ConnectionPool(config);
             await this.targetPool.connect();
@@ -471,8 +462,8 @@ class MSSQLConnectionManager {
             console.log(msg.targetDbConnectionSuccess);
             return this.targetPool;
         } catch (error) {
-            console.error(msg.targetDbConnectionFailed.replace('{message}', error.message));
-            throw new Error(msg.targetDbConnectionFailed.replace('{message}', error.message));
+            console.error(format(msg.targetDbConnectionFailed, { message: error.message }));
+            throw new Error(format(msg.targetDbConnectionFailed, { message: error.message }));
         }
     }
 
@@ -508,12 +499,12 @@ class MSSQLConnectionManager {
                 this.targetSession = session;
             }
             
-            console.log(msg.sessionStarted.replace('{type}', connectionType));
+            console.log(format(msg.sessionStarted, { type: connectionType }));
             return session;
             
         } catch (error) {
-            console.error(msg.sessionStartFailed.replace('{db}', database).replace('{message}', error.message));
-            throw new Error(msg.sessionStartFailed.replace('{db}', database).replace('{message}', error.message));
+            console.error(format(msg.sessionStartFailed, { db: database, message: error.message }));
+            throw new Error(format(msg.sessionStartFailed, { db: database, message: error.message }));
         }
     }
 
@@ -524,15 +515,15 @@ class MSSQLConnectionManager {
             const connectionType = database === 'source' ? msg.sourceDb : msg.targetDb;
             
             if (!session) {
-                throw new Error(msg.sessionNotStarted.replace('{type}', connectionType));
+                throw new Error(format(msg.sessionNotStarted, { type: connectionType }));
             }
             
             const result = await session.query(query);
             return result;
             
         } catch (error) {
-            console.error(msg.sessionQueryFailed.replace('{db}', database).replace('{message}', error.message));
-            throw new Error(msg.sessionQueryFailed.replace('{db}', database).replace('{message}', error.message));
+            console.error(format(msg.sessionQueryFailed, { db: database, message: error.message }));
+            throw new Error(format(msg.sessionQueryFailed, { db: database, message: error.message }));
         }
     }
 
@@ -547,11 +538,11 @@ class MSSQLConnectionManager {
                 this.targetSession = null;
             }
             
-            console.log(msg.sessionEnded.replace('{type}', connectionType));
+            console.log(format(msg.sessionEnded, { type: connectionType }));
             
         } catch (error) {
-            console.error(msg.sessionEndFailed.replace('{db}', database).replace('{message}', error.message));
-            throw new Error(msg.sessionEndFailed.replace('{db}', database).replace('{message}', error.message));
+            console.error(format(msg.sessionEndFailed, { db: database, message: error.message }));
+            throw new Error(format(msg.sessionEndFailed, { db: database, message: error.message }));
         }
     }
 
@@ -562,15 +553,15 @@ class MSSQLConnectionManager {
             const connectionType = database === 'source' ? msg.sourceDb : msg.targetDb;
             
             if (!session) {
-                throw new Error(msg.sessionNotStarted.replace('{type}', connectionType));
+                throw new Error(format(msg.sessionNotStarted, { type: connectionType }));
             }
             
             this.sessionTransaction = await session.beginTransaction();
-            console.log(msg.transactionStarted.replace('{type}', connectionType));
+            console.log(format(msg.transactionStarted, { type: connectionType }));
             
         } catch (error) {
-            console.error(msg.transactionStartFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionStartFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionStartFailed, { message: error.message }));
+            throw new Error(format(msg.transactionStartFailed, { message: error.message }));
         }
     }
 
@@ -580,11 +571,11 @@ class MSSQLConnectionManager {
             if (this.sessionTransaction) {
                 await this.sessionTransaction.commit();
                 this.sessionTransaction = null;
-                console.log(msg.transactionCommitted.replace('{type}', ''));
+                console.log(format(msg.transactionCommitted, { type: '' }));
             }
         } catch (error) {
-            console.error(msg.transactionCommitFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionCommitFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionCommitFailed, { message: error.message }));
+            throw new Error(format(msg.transactionCommitFailed, { message: error.message }));
         }
     }
 
@@ -594,11 +585,11 @@ class MSSQLConnectionManager {
             if (this.sessionTransaction) {
                 await this.sessionTransaction.rollback();
                 this.sessionTransaction = null;
-                console.log(msg.transactionRolledBack.replace('{type}', ''));
+                console.log(format(msg.transactionRolledBack, { type: '' }));
             }
         } catch (error) {
-            console.error(msg.transactionRollbackFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionRollbackFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionRollbackFailed, { message: error.message }));
+            throw new Error(format(msg.transactionRollbackFailed, { message: error.message }));
         }
     }
 
@@ -613,8 +604,8 @@ class MSSQLConnectionManager {
             const result = await request.query(query);
             return result.recordset;
         } catch (error) {
-            console.error(msg.sourceQueryFailed.replace('{message}', error.message));
-            throw new Error(msg.sourceQueryFailed.replace('{message}', error.message));
+            console.error(format(msg.sourceQueryFailed, { message: error.message }));
+            throw new Error(format(msg.sourceQueryFailed, { message: error.message }));
         }
     }
 
@@ -653,8 +644,8 @@ class MSSQLConnectionManager {
             
             return { rowsAffected: [totalRowsAffected] };
         } catch (error) {
-            console.error(msg.targetInsertFailed.replace('{message}', error.message));
-            throw new Error(msg.targetInsertFailed.replace('{message}', error.message));
+            console.error(format(msg.targetInsertFailed, { message: error.message }));
+            throw new Error(format(msg.targetInsertFailed, { message: error.message }));
         }
     }
 
@@ -691,14 +682,14 @@ class MSSQLConnectionManager {
             const request = this.targetPool.request();
             const deleteQuery = `DELETE FROM ${tableName}`;
             
-            console.log(msg.deletingAll.replace('{query}', deleteQuery));
+            console.log(format(msg.deletingAll, { query: deleteQuery }));
             const result = await request.query(deleteQuery);
             
-            console.log(msg.deletedRows.replace('{count}', result.rowsAffected[0]));
+            console.log(format(msg.deletedRows, { count: result.rowsAffected[0] }));
             return result;
         } catch (error) {
-            console.error(msg.deleteAllFailed.replace('{message}', error.message));
-            throw new Error(msg.deleteAllFailed.replace('{message}', error.message));
+            console.error(format(msg.deleteAllFailed, { message: error.message }));
+            throw new Error(format(msg.deleteAllFailed, { message: error.message }));
         }
     }
 
@@ -713,8 +704,8 @@ class MSSQLConnectionManager {
             await transaction.begin();
             return transaction;
         } catch (error) {
-            console.error(msg.transactionBeginFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionBeginFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionBeginFailed, { message: error.message }));
+            throw new Error(format(msg.transactionBeginFailed, { message: error.message }));
         }
     }
 
@@ -733,7 +724,7 @@ class MSSQLConnectionManager {
                 console.log(msg.targetDbClosed);
             }
         } catch (error) {
-            console.error(msg.closeConnectionError.replace('{message}', error.message));
+            console.error(format(msg.closeConnectionError, { message: error.message }));
         }
     }
 
@@ -778,7 +769,7 @@ class MSSQLConnectionManager {
                 ORDER BY tp.name, fk.name
             `;
             
-            console.log(msg.fkQueryingDb.replace('{db}', connectionType));
+            console.log(format(msg.fkQueryingDb, { db: connectionType }));
             const result = await request.query(query);
             
             const relations = result.recordset.map(row => ({
@@ -791,18 +782,18 @@ class MSSQLConnectionManager {
                 updateAction: row.update_referential_action_desc
             }));
 
-            console.log(msg.fkFoundInDb.replace('{db}', connectionType).replace('{count}', relations.length));
+            console.log(format(msg.fkFoundInDb, { db: connectionType, count: relations.length }));
             return relations;
         } catch (error) {
-            console.error(msg.fkQueryFailed.replace('{db}', connectionType).replace('{message}', error.message));
-            throw new Error(msg.fkQueryFailed.replace('{db}', connectionType).replace('{message}', error.message));
+            console.error(format(msg.fkQueryFailed, { db: connectionType, message: error.message }));
+            throw new Error(format(msg.fkQueryFailed, { db: connectionType, message: error.message }));
         }
     }
 
     // Calculate table deletion order (topological sort)
     async calculateTableDeletionOrder(tableNames, isSource = false) {
         try {
-            console.log(msg.calculatingDeletionOrder.replace('{count}', tableNames.length));
+            console.log(format(msg.calculatingDeletionOrder, { count: tableNames.length }));
             
             // Query FK relations
             const fkRelations = await this.getForeignKeyRelations(isSource);
@@ -812,7 +803,7 @@ class MSSQLConnectionManager {
                 tableNames.includes(rel.parentTable) && tableNames.includes(rel.referencedTable)
             );
 
-            console.log(msg.relevantFkCount.replace('{count}', relevantRelations.length));
+            console.log(format(msg.relevantFkCount, { count: relevantRelations.length }));
 
             // Create dependency graph
             const dependencies = new Map();
@@ -861,14 +852,14 @@ class MSSQLConnectionManager {
             // Check for circular references
             if (result.length !== tableNames.length) {
                 const remainingTables = tableNames.filter(table => !result.includes(table));
-                console.warn(msg.circularRefDetected.replace('{tables}', remainingTables.join(', ')));
-                console.warn(msg.circularRefWarning);
+                console.warn(format(msg.circularRefDetected, { tables: remainingTables.join(', ') }));
+                console.warn(format(msg.circularRefWarning));
                 
                 // Add tables with circular references to result
                 result.push(...remainingTables);
             }
 
-            console.log(msg.calculatedDeletionOrder.replace('{order}', result.join(' → ')));
+            console.log(format(msg.calculatedDeletionOrder, { order: result.join(' → ') }));
             
             return {
                 order: result,
@@ -879,8 +870,8 @@ class MSSQLConnectionManager {
             };
 
         } catch (error) {
-            console.error(msg.deletionOrderFailed.replace('{message}', error.message));
-            throw new Error(msg.deletionOrderFailed.replace('{message}', error.message));
+            console.error(format(msg.deletionOrderFailed, { message: error.message }));
+            throw new Error(format(msg.deletionOrderFailed, { message: error.message }));
         }
     }
 

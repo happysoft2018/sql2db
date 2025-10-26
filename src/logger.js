@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getAppRoot } = require('./modules/paths');
+const { format } = require('./modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -85,14 +86,14 @@ class Logger {
                 fs.mkdirSync(this.logDir, { recursive: true });
             }
         } catch (error) {
-            console.warn(msg.logDirCreateFailed.replace('{message}', error.message));
+            console.warn(format(msg.logDirCreateFailed, { message: error.message }));
             this.logDir = path.join(process.cwd(), 'logs');
             try {
                 if (!fs.existsSync(this.logDir)) {
                     fs.mkdirSync(this.logDir, { recursive: true });
                 }
             } catch (fallbackError) {
-                console.error(msg.logDirCreateFailedFallback.replace('{message}', fallbackError.message));
+                console.error(format(msg.logDirCreateFailedFallback, { message: fallbackError.message }));
             }
         }
         
@@ -179,7 +180,7 @@ class Logger {
             const fileMessage = message.replace(/\x1b\[[0-9;]*m/g, '');
             fs.appendFileSync(this.logFile, fileMessage + '\n');
         } catch (error) {
-            console.error(msg.logFileWriteFailed.replace('{message}', error.message));
+            console.error(format(msg.logFileWriteFailed, { message: error.message }));
         }
     }
     
@@ -233,7 +234,7 @@ class Logger {
     }
     
     logQuery(queryId, query, params = null) {
-        this.debug(msg.queryExecution.replace('{queryId}', queryId), {
+        this.debug(format(msg.queryExecution, { queryId }), {
             query: query,
             params: params
         });
@@ -241,41 +242,29 @@ class Logger {
     
     logConnection(server, database, success, error = null) {
         if (success) {
-            this.info(msg.dbConnectionSuccess
-                .replace('{database}', database)
-                .replace('{server}', server));
+            this.info(format(msg.dbConnectionSuccess, { database, server }));
         } else {
-            this.error(msg.dbConnectionFailed
-                .replace('{database}', database)
-                .replace('{server}', server), error);
+            this.error(format(msg.dbConnectionFailed, { database, server }), error);
         }
     }
     
     logConfig(queryFilePath, success, error = null) {
         if (success) {
-            this.info(msg.configLoadSuccess.replace('{path}', queryFilePath));
+            this.info(format(msg.configLoadSuccess, { path: queryFilePath }));
         } else {
-            this.error(msg.configLoadFailed.replace('{path}', queryFilePath), error);
+            this.error(format(msg.configLoadFailed, { path: queryFilePath }), error);
         }
     }
     
     logBatch(batchNumber, totalBatches, processedRows, totalRows) {
         const percentage = Math.round((processedRows / totalRows) * 100);
         const batchPercentage = Math.round((batchNumber / totalBatches) * 100);
-        this.debug(msg.batchProcessing
-            .replace('{batch}', batchNumber)
-            .replace('{totalBatches}', totalBatches)
-            .replace('{batchPct}', batchPercentage)
-            .replace('{processed}', processedRows)
-            .replace('{total}', totalRows)
-            .replace('{pct}', percentage));
+        this.debug(format(msg.batchProcessing, { batch: batchNumber, totalBatches, batchPct: batchPercentage, processed: processedRows, total: totalRows, pct: percentage }));
     }
     
     logPerformance(operation, startTime, endTime, additionalInfo = null) {
         const duration = endTime - startTime;
-        const message = msg.operationCompleted
-            .replace('{operation}', operation)
-            .replace('{duration}', duration);
+        const message = format(msg.operationCompleted, { operation, duration });
         this.info(message, additionalInfo);
     }
     
@@ -286,28 +275,28 @@ class Logger {
             variables: variables
         });
     }
-    
+
     logDynamicVariableExtraction(variableName, query, extractedValue) {
-        this.debug(msg.dynamicVariableExtraction.replace('{name}', variableName), {
+        this.debug(format(msg.dynamicVariableExtraction, { name: variableName }), {
             query: query,
             extractedValue: extractedValue
         });
     }
-    
+
     logFkAnalysis(table, fkRelations) {
-        this.debug(msg.fkAnalysis.replace('{table}', table), {
+        this.debug(format(msg.fkAnalysis, { table }), {
             fkRelations: fkRelations
         });
     }
-    
+
     logTransaction(action, success, error = null) {
         if (success) {
-            this.info(msg.transactionSuccess.replace('{action}', action));
+            this.info(format(msg.transactionSuccess, { action }));
         } else {
-            this.error(msg.transactionFailed.replace('{action}', action), error);
+            this.error(format(msg.transactionFailed, { action }), error);
         }
     }
-    
+
     logMemoryUsage() {
         const memUsage = process.memoryUsage();
         this.debug(msg.memoryUsage, {
@@ -317,7 +306,7 @@ class Logger {
             external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
         });
     }
-    
+
     logLevelInfo() {
         this.info(msg.loggerInitialized, {
             currentLevel: this.logLevelNames[this.logLevel],

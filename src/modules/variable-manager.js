@@ -1,4 +1,5 @@
 const logger = require('../logger');
+const { format } = require('../modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -124,14 +125,14 @@ class VariableManager {
             // 데이터 조회
             const availableDBs = this.connectionManager.getAvailableDBKeys();
             if (!availableDBs.includes(database)) {
-                throw new Error(this.msg.unknownDatabase.replace('{db}', database).replace('{dbs}', availableDBs.join(', ')));
+                throw new Error(format(this.msg.unknownDatabase, { db: database, dbs: availableDBs.join(', ') }));
             }
             
             const data = await this.connectionManager.queryDB(database, processedQuery);
             this.log(`${this.msg.extractedRowsCount} ${data.length}`);
             
             if (data.length === 0) {
-                this.log(`⚠️ ${this.msg.noDataExtracted.replace('{var}', extractConfig.variableName)}`);
+                this.log(`⚠️ ${format(this.msg.noDataExtracted, { var: extractConfig.variableName })}`);
                 this.setDynamicVariable(extractConfig.variableName, []);
                 return [];
             }
@@ -142,11 +143,11 @@ class VariableManager {
             // 동적 변수 설정
             this.setDynamicVariable(extractConfig.variableName, extractedValue);
             
-            this.log(`${this.msg.dynamicVarExtractComplete} ${extractConfig.variableName} ===\n`);
+            this.log(format(this.msg.dynamicVarExtractComplete, { var: extractConfig.variableName }) + '\n');
             return extractedValue;
             
         } catch (error) {
-            this.log(this.msg.dynamicVarExtractFailed.replace('{var}', extractConfig.variableName).replace('{error}', error.message));
+            this.log(format(this.msg.dynamicVarExtractFailed, { var: extractConfig.variableName, error: error.message }));
             throw error;
         }
     }
@@ -160,13 +161,13 @@ class VariableManager {
                 const firstRow = data[0];
                 const firstColumn = Object.keys(firstRow)[0];
                 const value = firstRow[firstColumn];
-                this.log(this.msg.singleValueExtract.replace('{value}', value));
+                this.log(format(this.msg.singleValueExtract, { value }));
                 return value;
                 
             case 'single_column':
                 const columnName = extractConfig.columnName || Object.keys(data[0])[0];
                 const values = data.map(row => row[columnName]).filter(val => val !== null && val !== undefined);
-                this.log(this.msg.singleColumnExtract.replace('{col}', columnName).replace('{count}', values.length + (LANGUAGE === 'kr' ? '개' : '')));
+                this.log(format(this.msg.singleColumnExtract, { col: columnName, count: values.length + (LANGUAGE === 'kr' ? '개' : '') }));
                 return values;
                 
             case 'multiple_columns':
@@ -179,7 +180,7 @@ class VariableManager {
                         }
                     });
                 });
-                this.log(this.msg.multiColumnExtract.replace('{cols}', columns.join(', ')).replace('{count}', allValues.length + (LANGUAGE === 'kr' ? '개' : '')));
+                this.log(format(this.msg.multiColumnExtract, { cols: columns.join(', '), count: allValues.length + (LANGUAGE === 'kr' ? '개' : '') }));
                 return allValues;
                 
             case 'column_identified':
@@ -203,10 +204,7 @@ class VariableManager {
                 });
                 
                 const totalValues = Object.values(identified).reduce((sum, arr) => sum + arr.length, 0);
-                this.log(this.msg.identifiedColumnExtract
-                    .replace('{cols}', identifiedColumns.join(', '))
-                    .replace('{count}', totalValues + (LANGUAGE === 'kr' ? '개' : ''))
-                    .replace('{colCount}', Object.keys(identified).length + (LANGUAGE === 'kr' ? '개' : '')));
+                this.log(format(this.msg.identifiedColumnExtract, { cols: identifiedColumns.join(', '), count: totalValues + (LANGUAGE === 'kr' ? '개' : ''), colCount: Object.keys(identified).length + (LANGUAGE === 'kr' ? '개' : '') }));
                 return identified;
                 
             case 'key_value_pairs':
@@ -222,7 +220,7 @@ class VariableManager {
                         pairs[key] = val;
                     }
                 });
-                this.log(this.msg.keyValuePairExtract.replace('{count}', Object.keys(pairs).length + (LANGUAGE === 'kr' ? '개' : '')));
+                this.log(format(this.msg.keyValuePairExtract, { count: Object.keys(pairs).length + (LANGUAGE === 'kr' ? '개' : '') }));
                 return pairs;
                 
             default:
@@ -247,9 +245,7 @@ class VariableManager {
                 });
                 
                 const defaultTotalValues = Object.values(defaultIdentified).reduce((sum, arr) => sum + arr.length, 0);
-                this.log(this.msg.defaultExtract
-                    .replace('{count}', defaultTotalValues + (LANGUAGE === 'kr' ? '개' : ''))
-                    .replace('{colCount}', Object.keys(defaultIdentified).length + (LANGUAGE === 'kr' ? '개' : '')));
+                this.log(format(this.msg.defaultExtract, { count: defaultTotalValues + (LANGUAGE === 'kr' ? '개' : ''), colCount: Object.keys(defaultIdentified).length + (LANGUAGE === 'kr' ? '개' : '') }));
                 return defaultIdentified;
         }
     }
@@ -314,7 +310,7 @@ class VariableManager {
                     }
                     
                     if (debug && beforeReplace !== result) {
-                        this.log(this.msg.dynamicVarSubst.replace('{key}', key).replace('{count}', value.length));
+                        this.log(format(this.msg.dynamicVarSubst, { key, count: value.length }));
                     }
                 } 
                 // 객체 타입 (column_identified 또는 key_value_pairs)
@@ -357,7 +353,7 @@ class VariableManager {
                     result = result.replace(pattern, value);
                 }
             } catch (error) {
-                this.log(this.msg.dynamicVarSubstError.replace('{key}', key).replace('{error}', error.message));
+                this.log(format(this.msg.dynamicVarSubstError, { key, error: error.message }));
             }
         });
         
@@ -385,13 +381,13 @@ class VariableManager {
                     result = result.replace(pattern, inClause);
                     
                     if (debug && beforeReplace !== result) {
-                        this.log(this.msg.staticVarSubst.replace('{key}', key).replace('{count}', value.length));
+                        this.log(format(this.msg.staticVarSubst, { key, count: value.length }));
                     }
                 } else {
                     result = result.replace(pattern, value);
                     
                     if (debug && beforeReplace !== result) {
-                        this.log(this.msg.staticVarSubstSimple.replace('{key}', key).replace('{value}', value));
+                        this.log(format(this.msg.staticVarSubstSimple, { key, value }));
                     }
                 }
             } catch (error) {
@@ -495,10 +491,10 @@ class VariableManager {
                 result = result.replace(fullMatch, formattedDate);
                 
                 if (debug) {
-                    this.log(this.msg.timeFuncSubst.replace('{func}', `DATE:${format}`).replace('{value}', `${formattedDate} (local time)`));
+                    this.log(format(this.msg.timeFuncSubst, { func: `DATE:${format}`, value: `${formattedDate} (local time)` }));
                 }
             } catch (error) {
-                this.log(this.msg.timeFuncSubstError.replace('{func}', `DATE:${format}`).replace('{error}', error.message));
+                this.log(format(this.msg.timeFuncSubstError, { func: `DATE:${format}`, error: error.message }));
             }
         }
         
@@ -522,10 +518,10 @@ class VariableManager {
                 result = result.replace(fullMatch, formattedDate);
                 
                 if (debug) {
-                    this.log(this.msg.timeFuncSubst.replace('{func}', `DATE.${timezone}:${format}`).replace('{value}', formattedDate));
+                    this.log(format(this.msg.timeFuncSubst, { func: `DATE.${timezone}:${format}`, value: formattedDate }));
                 }
             } catch (error) {
-                this.log(this.msg.timeFuncSubstError.replace('{func}', `DATE.${timezone}:${format}`).replace('{error}', error.message));
+                this.log(format(this.msg.timeFuncSubstError, { func: `DATE.${timezone}:${format}`, error: error.message }));
             }
         }
         
@@ -550,10 +546,10 @@ class VariableManager {
                 result = result.replace(pattern, funcImpl());
                 
                 if (debug && beforeReplace !== result) {
-                    this.log(this.msg.timeFuncSubst.replace('{func}', funcName).replace('{value}', funcImpl()));
+                    this.log(format(this.msg.timeFuncSubst, { func: funcName, value: funcImpl() }));
                 }
             } catch (error) {
-                this.log(this.msg.timeFuncSubstError.replace('{func}', funcName).replace('{error}', error.message));
+                this.log(format(this.msg.timeFuncSubstError, { func: funcName, error: error.message }));
             }
         });
         
@@ -592,20 +588,20 @@ class VariableManager {
                         result = result.replace(fullMatch, inClause);
                         
                         if (debug) {
-                            this.log(this.msg.envVarSubst.replace('{key}', varName).replace('{count}', parsed.length));
+                            this.log(format(this.msg.envVarSubst, { key: varName, count: parsed.length }));
                         }
                     } else {
                         result = result.replace(fullMatch, envValue);
                         
                         if (debug) {
-                            this.log(this.msg.staticVarSubstSimple.replace('{key}', varName).replace('{value}', envValue));
+                            this.log(format(this.msg.staticVarSubstSimple, { key: varName, value: envValue }));
                         }
                     }
                 } catch (e) {
                     result = result.replace(fullMatch, envValue);
                     
                     if (debug) {
-                        this.log(this.msg.envVarSubstSimple.replace('{key}', varName).replace('{value}', envValue));
+                        this.log(format(this.msg.envVarSubstSimple, { key: varName, value: envValue }));
                     }
                 }
             }
@@ -642,7 +638,7 @@ class VariableManager {
                 return firstKey ? jsonObj[firstKey] : value;
                 
             } catch (error) {
-                this.log(this.msg.jsonParseError.replace('{error}', error.message), 'ERROR');
+                this.log(format(this.msg.jsonParseError, { error: error.message }), 'ERROR');
                 return value;
             }
         }
