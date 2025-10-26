@@ -3,6 +3,7 @@ const path = require('path');
 const MSSQLConnectionManager = require('./mssql-connection-manager');
 const ProgressManager = require('./progress-manager');
 const logger = require('./logger');
+const { getAppRoot } = require('./modules/paths');
 
 // 모듈화된 컴포넌트들
 const ConfigManager = require('./modules/config-manager');
@@ -314,8 +315,8 @@ class MSSQLDataMigrator {
     initializeLogging() {
         if (!this.enableLogging) return;
         
-        // pkg 환경 고려
-        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+        // 앱 루트 경로 통일
+        const appRoot = getAppRoot();
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const logFileName = `migration-log-${timestamp}.txt`;
         this.logFile = path.join(appRoot, 'logs', logFileName);

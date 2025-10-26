@@ -3,6 +3,7 @@ const path = require('path');
 const xml2js = require('xml2js');
 const logger = require('../logger');
 const { format } = require('../modules/i18n');
+const { getAppRoot } = require('../modules/paths');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -39,8 +40,8 @@ const msg = messages[LANGUAGE] || messages.en;
 
 class ConfigManager {
     constructor() {
-        // pkg 환경 고려
-        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '../..');
+        // 앱 루트 경로 통일
+        const appRoot = getAppRoot();
         this.dbInfoPath = path.join(appRoot, 'config/dbinfo.json');
         this.dbInfo = null;
     }

@@ -519,7 +519,7 @@ class ProgressManager {
 
     static listProgressFiles() {
         try {
-            const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+            const appRoot = getAppRoot();
             const logsDir = path.join(appRoot, 'logs');
             if (!fs.existsSync(logsDir)) return [];
             
