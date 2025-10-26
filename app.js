@@ -29,7 +29,7 @@ const LANGUAGE = process.env.LANGUAGE || 'en';
 // 다국어 메시지
 const messages = {
     en: {
-        title: 'MSSQL Data Migration Tool v1.0',
+        title: 'MSSQL Data Migration Tool',
         menuTitle: 'Menu Selection',
         menu1: '1. Validate Query Definition File',
         menu2: '2. Test Database Connection',
@@ -114,7 +114,7 @@ const messages = {
         installNodeJs: 'Please install the latest version from https://nodejs.org'
     },
     kr: {
-        title: 'MSSQL 데이터 이관 도구 v1.0',
+        title: 'MSSQL 데이터 이관 도구',
         menuTitle: '메뉴 선택',
         menu1: '1. 쿼리문정의 파일 Syntax검증',
         menu2: '2. DB연결 테스트 (연결 가능 여부 포함)',
@@ -228,12 +228,29 @@ function clearScreen() {
 }
 
 /**
+ * Get application version
+ */
+function getAppVersion() {
+    try {
+        const pkgPath = path.join(APP_ROOT, 'package.json');
+        if (fs.existsSync(pkgPath)) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+            return pkg.version || process.env.npm_package_version || '0.0.0';
+        }
+        return process.env.npm_package_version || '0.0.0';
+    } catch (e) {
+        return process.env.npm_package_version || '0.0.0';
+    }
+}
+
+/**
  * Show title
  */
 function showTitle() {
     console.log(colors.cyan + colors.bright);
     console.log('=========================================');
-    console.log(`  ${msg.title}`);
+    const version = getAppVersion();
+    console.log(`  ${msg.title} v${version}`);
     console.log('=========================================');
     console.log(colors.reset);
 }
