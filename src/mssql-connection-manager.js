@@ -7,6 +7,7 @@ const PKDeleter = require('./db/pk-deleter');
 const { getAppRoot } = require('./modules/paths');
 const { format } = require('./modules/i18n');
 const FKAnalyzer = require('./db/fk-analyzer');
+const QueryExecutor = require('./db/query-executor');
 
  
 
@@ -288,6 +289,14 @@ class MSSQLConnectionManager {
         this.fkAnalyzer = new FKAnalyzer({
             getPool: (isSource) => (isSource ? this.sourcePool : this.targetPool),
             ensureConnected: async (isSource) => (isSource ? this.connectSource() : this.connectTarget()),
+            msg
+        });
+
+        this.queryExecutor = new QueryExecutor({
+            getSourcePool: () => this.sourcePool,
+            getTargetPool: () => this.targetPool,
+            ensureSourceConnected: () => this.connectSource(),
+            ensureTargetConnected: () => this.connectTarget(),
             msg
         });
     }
@@ -600,22 +609,6 @@ class MSSQLConnectionManager {
         }
     }
 
-    // Query data from source database
-    async querySource(query) {
-        try {
-            if (!this.isSourceConnected) {
-                await this.connectSource();
-            }
-            
-            const request = this.sourcePool.request();
-            const result = await request.query(query);
-            return result.recordset;
-        } catch (error) {
-            console.error(format(msg.sourceQueryFailed, { message: error.message }));
-            throw new Error(format(msg.sourceQueryFailed, { message: error.message }));
-        }
-    }
-
     // Insert data into target database
     async insertToTarget(tableName, columns, data) {
         try {
@@ -629,26 +622,22 @@ class MSSQLConnectionManager {
             }
 
             const request = this.targetPool.request();
-            
-            // Generate parameterized query
             const placeholders = columns.map((_, index) => `@param${index}`).join(', ');
             const insertQuery = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
-            
+
             let totalRowsAffected = 0;
-            
+
             for (const row of data) {
-                // Set parameters for each row
                 columns.forEach((column, index) => {
                     request.input(`param${index}`, row[column]);
                 });
-                
+
                 const result = await request.query(insertQuery);
                 totalRowsAffected += result.rowsAffected[0];
-                
-                // Reset parameters for next query
+
                 request.parameters = {};
             }
-            
+
             return { rowsAffected: [totalRowsAffected] };
         } catch (error) {
             console.error(format(msg.targetInsertFailed, { message: error.message }));
@@ -760,36 +749,24 @@ class MSSQLConnectionManager {
 
     // 타겟 데이터베이스에서 SQL 실행 (전처리/후처리용)
     async executeQueryOnTarget(query) {
-        try {
-            if (!this.targetPool) {
-                await this.connectTarget();
-            }
-
-            const request = this.targetPool.request();
-            const result = await request.query(query);
-            
-            return result;
-        } catch (error) {
-            console.error(format(msg.targetQueryFailed, { message: error.message }));
-            throw new Error(format(msg.targetQueryFailed, { message: error.message }));
-        }
+        return this.queryExecutor.executeOnTarget(query);
     }
 
     // 소스 데이터베이스에서 SQL 실행 (전처리/후처리용)
     async executeQueryOnSource(query) {
-        try {
-            if (!this.sourcePool) {
-                await this.connectSource();
-            }
+        return this.queryExecutor.executeOnSource(query);
+    }
 
-            const request = this.sourcePool.request();
-            const result = await request.query(query);
-            
-            return result;
-        } catch (error) {
-            console.error(msg.sourceQueryExecuteFailed.replace('{message}', error.message));
-            throw new Error(msg.sourceQueryExecuteFailed.replace('{message}', error.message));
-        }
+    // 호환 래퍼: 소스 DB에서 데이터 배열 반환
+    async querySource(query) {
+        const result = await this.executeQueryOnSource(query);
+        return (result && result.recordset) ? result.recordset : [];
+    }
+
+    // 호환 래퍼: 타겟 DB에서 데이터 배열 반환
+    async queryTarget(query) {
+        const result = await this.executeQueryOnTarget(query);
+        return (result && result.recordset) ? result.recordset : [];
     }
 }
 
