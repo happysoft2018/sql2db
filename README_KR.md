@@ -22,12 +22,38 @@
 - 🆕 **대량 데이터 지원**: SQL Server 2100 파라미터 제한 자동 처리
 - 🆕 **향상된 디버깅**: 삭제 작업에 대한 상세 진단 정보
 
+## 모듈화 아키텍처
+
+- **config-manager**: dbinfo/query XML 로드 및 파싱. 속성 검증, 전역 컬럼 오버라이드/프로세스/동적변수 파싱.
+- **query-processor**: SELECT * 자동 확장, IDENTITY 컬럼 제외, 타겟 스키마 조회.
+- **variable-manager**: 변수 치환, 날짜/타임존 함수, 전역 컬럼 오버라이드 값 적용(JSON 매핑 포함).
+- **script-processor**: 전/후처리 스크립트 실행과 변수 치환.
+- **mssql-connection-manager**: 소스/타겟 DB 연결, 쿼리 실행, 삭제/배치 작업.
+- **mssql-data-migrator-modular**: 전체 이관 오케스트레이션, 전역/개별 프로세스 실행, 선택적 전역 컬럼 오버라이드 적용.
+
+### 호출 흐름(요약)
+1) ConfigManager → 설정 로드 및 파싱
+2) ScriptProcessor → 전역 preProcess 실행
+3) VariableManager → 동적 변수 추출/치환
+4) QueryProcessor → SELECT * 확장 + 컬럼 준비
+5) DataMigrator → 삭제(deleteBeforeInsert) → 전역 오버라이드 선택 적용 → 배치 삽입
+6) ScriptProcessor → 전역 postProcess 실행
+
+## v0.9.0 리팩토링 하이라이트
+
+- **QueryProcessor.getTableColumns() 일관화**: `{ name }[]` 반환으로 모듈 간 타입 일치 및 오류 감소
+- **선택적 전역 컬럼 오버라이드 적용 분리**:
+  - 정책 단계: `applyGlobalColumns`와 타겟 스키마 교집합으로 대상 컬럼 선별
+  - 적용 단계: VariableManager가 행 단위로 실제 존재 컬럼에만 안전 적용(치환/JSON 매핑 포함)
+- **견고성 개선**: `{name}`/string 혼재 컬럼 배열 대응, 대소문자 무시 매칭 강화
+- **운영 권장사항**: 후처리 통계는 `sp_updatestats`/`UPDATE STATISTICS ... WITH FULLSCAN` 권장
+
 ## 빠른 시작
 
 ### 옵션 1: 독립 실행 파일 사용 (권장)
 
 1. **배포 패키지 다운로드**
-   - `sql2db-v0.8.7-bin.zip` 다운로드
+   - `sql2db-v0.9.1-win-x64.zip` 다운로드
    - 원하는 위치에 압축 해제
 
 2. **데이터베이스 연결 설정**
@@ -97,12 +123,35 @@ npm run start:kr
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
 
+### 비대화형 CLI (v0.9.1 신규)
+
+대화형 메뉴 없이 `app.js --mode`로 바로 실행할 수 있습니다. Node/배포 EXE 모두에서 동일하게 동작합니다.
+
+```bash
+# 설정 검증
+node app.js --lang=kr --mode=validate --query=queries/migration-queries.xml
+
+# 연결 테스트
+node app.js --lang=kr --mode=test
+
+# 이관 실행
+node app.js --lang=kr --mode=migrate --query=queries/migration-queries.xml
+
+# 도움말
+node app.js --mode=help
+
+# 독립 실행 파일(EXE)
+sql2db.exe --lang=kr --mode=validate --query=queries/migration-queries.xml
+sql2db.exe --lang=kr --mode=test
+sql2db.exe --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
 ## 대화형 메뉴 기능
 
 ```
 =========================================
   MSSQL 데이터 이관 도구
-  버전 0.8.4
+  버전 0.9.1
 =========================================
 
 1. 쿼리문정의 파일 Syntax검증
@@ -269,6 +318,58 @@ SELECT * 감지됨. 테이블 users의 컬럼 정보를 자동으로 가져옵�
 IDENTITY 컬럼 자동 제외: id
 자동 설정된 컬럼 목록 (15개, IDENTITY 제외): name, email, status, created_date, ...
 변경된 소스 쿼리: SELECT name, email, status, created_date, ... FROM users WHERE status = 'ACTIVE'
+```
+
+## 전역 컬럼 오버라이드 적용 로직
+
+전역 컬럼 오버라이드(Map)는 쿼리별 `applyGlobalColumns` 정책을 통해 “선택 적용”됩니다. 선택된 컬럼만 실제 데이터에 안전하게 적용됩니다.
+
+### 동작 개요
+- 정책 단계: XML의 `applyGlobalColumns` 값(`all`, `none`, `created_date`, `col1,col2` 등)에 따라 대상 테이블 스키마와 교집합만 선별
+- 적용 단계: 선별된 컬럼들만 각 행(row)에 대해 실제 존재하는 컬럼에 한해 적용
+- 컬럼 매칭은 대소문자를 구분하지 않습니다
+
+### XML 예시
+```xml
+<globalColumnOverrides>
+  <override column="processed_at">GETDATE()</override>
+  <override column="data_version">2.1</override>
+  <override column="CREATED_DATE">${DATE:yyyy-MM-dd HH:mm:ss}</override>
+  <override column="company_code">{"COMPANY01":"APPLE","COMPANY02":"AMAZON"}</override>
+  <override column="email">{"a@company.com":"a@gmail.com"}</override>
+</globalColumnOverrides>
+
+<query id="migrate_users_all" enabled="true">
+  <sourceQuery targetTable="users" targetColumns="*" applyGlobalColumns="created_date">
+    <![CDATA[
+      SELECT * FROM users
+    ]]>
+  </sourceQuery>
+</query>
+```
+
+위 설정은 전역에 여러 오버라이드가 있어도, 이 쿼리에는 `created_date`만 적용합니다. 대상 테이블의 실제 컬럼명이 `created_date` 혹은 대소문자 변형이면 매칭되어 적용됩니다.
+
+### 값 처리
+- `${DATE:...}`, `${DATE.UTC:...}` 등 시간 함수 지원 (타임존 22개)
+- JSON 매핑 문자열은 원본 값에 매핑되는 경우에만 변환되고, 그 외에는 원본 유지
+
+### 로그 예시
+```
+전역 컬럼 오버라이드 선택 적용: created_date
+적용된 컬럼: created_date
+행 적용 완료: N rows
+```
+
+## 후처리 통계 스크립트 권장 사항
+
+일부 환경에서 `ALTER DATABASE ... SET AUTO_UPDATE_STATISTICS ON`은 경고를 유발할 수 있습니다. 이관 후 통계 갱신은 다음 방법을 권장합니다.
+
+```sql
+EXEC sp_updatestats;
+-- 또는 필요 시 특정 테이블만
+UPDATE STATISTICS [dbo].[users] WITH FULLSCAN;
+UPDATE STATISTICS [dbo].[products] WITH FULLSCAN;
 ```
 
 ## 테스트

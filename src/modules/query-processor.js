@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('../logger');
+const { format } = require('../modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -114,11 +115,11 @@ class QueryProcessor {
             const cacheKey = `${tableName}_${database}`;
             
             if (this.tableColumnCache[cacheKey]) {
-                this.log(msg.cacheUsed.replace('{table}', tableName).replace('{db}', database));
+                this.log(format(msg.cacheUsed, { table: tableName, db: database }));
                 return this.tableColumnCache[cacheKey];
             }
             
-            this.log(msg.columnQuery.replace('{table}', tableName).replace('{db}', database));
+            this.log(format(msg.columnQuery, { table: tableName, db: database }));
             
             const query = `
                 SELECT c.COLUMN_NAME 
@@ -140,15 +141,16 @@ class QueryProcessor {
             }
             
             if (result && result.recordset) {
-                const columns = result.recordset.map(row => row.COLUMN_NAME);
+                // 반환 형태를 { name: COLUMN_NAME } 객체 배열로 통일
+                const columns = result.recordset.map(row => ({ name: row.COLUMN_NAME }));
                 this.tableColumnCache[cacheKey] = columns;
-                this.log(msg.cacheSaved.replace('{table}', tableName).replace('{db}', database).replace('{count}', columns.length));
+                this.log(format(msg.cacheSaved, { table: tableName, db: database, count: columns.length }));
                 return columns;
             }
             
             return [];
         } catch (error) {
-            this.log(msg.columnQueryFailed.replace('{table}', tableName).replace('{error}', error.message));
+            this.log(format(msg.columnQueryFailed, { table: tableName, error: error.message }));
             return [];
         }
     }
@@ -176,13 +178,13 @@ class QueryProcessor {
             
             if (result && result.recordset) {
                 const identityColumns = result.recordset.map(row => row.COLUMN_NAME);
-                this.log(msg.identityQueryComplete.replace('{table}', tableName).replace('{columns}', identityColumns.join(', ')));
+                this.log(format(msg.identityQueryComplete, { table: tableName, columns: identityColumns.join(', ') }));
                 return identityColumns;
             }
             
             return [];
         } catch (error) {
-            this.log(msg.identityQueryFailed.replace('{table}', tableName).replace('{error}', error.message));
+            this.log(format(msg.identityQueryFailed, { table: tableName, error: error.message }));
             return [];
         }
     }
@@ -196,21 +198,21 @@ class QueryProcessor {
                 ? filePath 
                 : path.resolve(path.dirname(queryFilePath), filePath);
             
-            this.log(msg.loadingSqlFile.replace('{path}', fullPath));
+            this.log(format(msg.loadingSqlFile, { path: fullPath }));
             const queryContent = fs.readFileSync(fullPath, 'utf8');
             
             const cleanedQuery = this.removeComments(queryContent);
             
             if (!cleanedQuery) {
-                throw new Error(msg.emptyOrInvalidSql.replace('{file}', filePath));
+                throw new Error(format(msg.emptyOrInvalidSql, { file: filePath }));
             }
             
             const preview = `${cleanedQuery.substring(0, 100)}${cleanedQuery.length > 100 ? '...' : ''}`;
-            this.log(msg.sqlFileLoadComplete.replace('{preview}', preview));
+            this.log(format(msg.sqlFileLoadComplete, { preview }));
             return cleanedQuery;
         } catch (error) {
-            this.log(msg.sqlFileLoadFailed.replace('{file}', filePath).replace('{error}', error.message));
-            throw new Error(msg.sqlFileLoadFailed.replace('{file}', filePath).replace('{error}', error.message));
+            this.log(format(msg.sqlFileLoadFailed, { file: filePath, error: error.message }));
+            throw new Error(format(msg.sqlFileLoadFailed, { file: filePath, error: error.message }));
         }
     }
 
@@ -258,7 +260,7 @@ class QueryProcessor {
             result = result.trim();
             
         } catch (error) {
-            this.log(msg.commentRemovalError.replace('{error}', error.message));
+            this.log(format(msg.commentRemovalError, { error: error.message }));
             return script;
         }
         
@@ -272,11 +274,11 @@ class QueryProcessor {
         try {
             // SQL 파일에서 쿼리 로드
             if (queryConfig.sourceQueryFile) {
-                this.log(msg.usingExternalSql.replace('{file}', queryConfig.sourceQueryFile));
+                this.log(format(msg.usingExternalSql, { file: queryConfig.sourceQueryFile }));
                 const fileQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile, queryFilePath);
                 queryConfig.sourceQuery = this.variableManager.replaceVariables(fileQuery);
                 const preview = `${queryConfig.sourceQuery.substring(0, 200)}${queryConfig.sourceQuery.length > 200 ? '...' : ''}`;
-                this.log(msg.fileQueryWithVars.replace('{preview}', preview));
+                this.log(format(msg.fileQueryWithVars, { preview }));
             } else if (queryConfig.sourceQuery) {
                 queryConfig.sourceQuery = this.variableManager.replaceVariables(queryConfig.sourceQuery);
             } else {
@@ -291,24 +293,25 @@ class QueryProcessor {
                 const tableName = match[1];
                 const tableAlias = match[2];
                 const aliasText = tableAlias ? ` (${LANGUAGE === 'kr' ? '별칭: ' : 'alias: '}${tableAlias})` : '';
-                this.log(msg.selectAllDetected.replace('{table}', tableName).replace('{alias}', aliasText));
+                this.log(format(msg.selectAllDetected, { table: tableName, alias: aliasText }));
                 
-                const columns = await this.connectionManager.getTableColumns(queryConfig.targetTable, false);
+                // QueryProcessor의 캐시 포함 메서드 사용, 대상 DB는 'target'
+                const columns = await this.getTableColumns(queryConfig.targetTable, 'target');
                 
                 if (columns.length === 0) {
-                    throw new Error(msg.targetTableNotFound.replace('{table}', queryConfig.targetTable));
+                    throw new Error(format(msg.targetTableNotFound, { table: queryConfig.targetTable }));
                 }
                 
-                const identityColumns = await this.getIdentityColumns(queryConfig.targetTable, false);
+                const identityColumns = await this.getIdentityColumns(queryConfig.targetTable, 'target');
                 const columnNames = columns.map(col => col.name);
                 const filteredColumnNames = columnNames.filter(col => !identityColumns.includes(col));
                 
                 if (identityColumns.length > 0) {
-                    this.log(msg.identityExcluded.replace('{columns}', identityColumns.join(', ')));
+                    this.log(format(msg.identityExcluded, { columns: identityColumns.join(', ') }));
                 }
                 
                 queryConfig.targetColumns = filteredColumnNames;
-                this.log(msg.autoColumns.replace('{count}', filteredColumnNames.length).replace('{columns}', filteredColumnNames.join(', ')));
+                this.log(format(msg.autoColumns, { count: filteredColumnNames.length, columns: filteredColumnNames.join(', ') }));
                 
                 // sourceQuery도 컬럼명으로 변경
                 let explicitColumns;
@@ -320,12 +323,12 @@ class QueryProcessor {
                 
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/[;]+$/, '');
                 queryConfig.sourceQuery = queryConfig.sourceQuery.replace(/SELECT\s+\*/i, `SELECT ${explicitColumns}`);
-                this.log(msg.modifiedSourceQuery.replace('{query}', queryConfig.sourceQuery));
+                this.log(format(msg.modifiedSourceQuery, { query: queryConfig.sourceQuery }));
             }
             
             return queryConfig;
         } catch (error) {
-            this.log(msg.queryConfigError.replace('{error}', error.message));
+            this.log(format(msg.queryConfigError, { error: error.message }));
             throw error;
         }
     }
@@ -387,7 +390,7 @@ class QueryProcessor {
             let sourceQuery;
             
             if (queryConfig.sourceQueryFile) {
-                this.log(msg.estimatingRowCount.replace('{file}', queryConfig.sourceQueryFile));
+                this.log(format(msg.estimatingRowCount, { file: queryConfig.sourceQueryFile }));
                 const fileQuery = await this.loadQueryFromFile(queryConfig.sourceQueryFile, queryFilePath);
                 sourceQuery = this.variableManager.replaceVariables(fileQuery);
             } else if (queryConfig.sourceQuery) {
@@ -405,7 +408,7 @@ class QueryProcessor {
             );
             
             if (missingDynamicVars.length > 0) {
-                this.log(msg.dynamicVarsNotExtracted.replace('{vars}', missingDynamicVars.join(', ')));
+                this.log(format(msg.dynamicVarsNotExtracted, { vars: missingDynamicVars.join(', ') }));
                 return 0;
             }
             
@@ -413,16 +416,16 @@ class QueryProcessor {
                 const countQuery = `SELECT COUNT(*) as row_count FROM (${sourceQuery.trim().replace(/[;]+$/, '')}) as sub_query`;
                 const countData = await this.connectionManager.querySource(countQuery);
                 const rowCount = countData[0]?.row_count || 0;
-                this.log(msg.estimatedRows.replace('{id}', queryConfig.id).replace('{count}', rowCount.toLocaleString()));
+                this.log(format(msg.estimatedRows, { id: queryConfig.id, count: rowCount.toLocaleString() }));
                 return rowCount;
             } catch (countError) {
-                this.log(msg.countQueryFailed.replace('{error}', countError.message));
+                this.log(format(msg.countQueryFailed, { error: countError.message }));
                 const sourceData = await this.connectionManager.querySource(sourceQuery);
                 return sourceData.length;
             }
             
         } catch (error) {
-            this.log(msg.rowEstimationError.replace('{id}', queryConfig.id).replace('{error}', error.message));
+            this.log(format(msg.rowEstimationError, { id: queryConfig.id, error: error.message }));
             return 0;
         }
     }
@@ -440,7 +443,7 @@ class QueryProcessor {
                 return script;
             }
             
-            this.log(msg.insertSelectProcessing.replace('{count}', matches.length));
+            this.log(format(msg.insertSelectProcessing, { count: matches.length }));
             
             for (const match of matches) {
                 const fullMatch = match[0];
@@ -457,7 +460,7 @@ class QueryProcessor {
                     const insertColumnNames = insertTableColumns.map(col => col.name);
                     
                     if (insertColumnNames.length === 0) {
-                        this.log(msg.insertTableNotFound.replace('{table}', insertTableName));
+                        this.log(format(msg.insertTableNotFound, { table: insertTableName }));
                         continue;
                     }
                     
@@ -470,7 +473,7 @@ class QueryProcessor {
                         if (selectColumns.length <= insertColumnNames.length) {
                             alignedInsertColumns = insertColumnNames.slice(0, selectColumns.length);
                         } else {
-                            this.log(msg.columnCountMismatch.replace('{select}', selectColumns.length).replace('{insert}', insertColumnNames.length));
+                            this.log(format(msg.columnCountMismatch, { select: selectColumns.length, insert: insertColumnNames.length }));
                             alignedInsertColumns = insertColumnNames;
                         }
                         
@@ -478,18 +481,18 @@ class QueryProcessor {
                         const result = `INSERT INTO ${insertTableName} (${alignedInsertColumnsPart}) SELECT ${selectColumnsPart}${fromPart}`;
                         
                         processedScript = processedScript.replace(fullMatch, result);
-                        this.log(msg.insertSelectComplete.replace('{table}', insertTableName));
+                        this.log(format(msg.insertSelectComplete, { table: insertTableName }));
                     }
                     
                 } catch (error) {
-                    this.log(msg.insertSelectProcessError.replace('{error}', error.message));
+                    this.log(format(msg.insertSelectProcessError, { error: error.message }));
                 }
             }
             
             return processedScript;
             
         } catch (error) {
-            this.log(msg.insertSelectError.replace('{error}', error.message));
+            this.log(format(msg.insertSelectError, { error: error.message }));
             return script;
         }
     }

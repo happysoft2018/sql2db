@@ -1,6 +1,7 @@
 const ProgressManager = require('./progress-manager');
 const fs = require('fs');
 const path = require('path');
+const { format } = require('./modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -371,7 +372,8 @@ class ProgressCLI {
             const progressManager = ProgressManager.loadProgress(migrationId);
             
             if (!progressManager) {
-                console.log(msg.progressNotFound.replace('{id}', migrationId));
+                console.log(format(msg.progressNotFound, { id: migrationId }));
+
                 return;
             }
 
@@ -379,7 +381,8 @@ class ProgressCLI {
             const detailed = progressManager.getDetailedProgress();
 
             console.log('='.repeat(80));
-            console.log(msg.progressDetail.replace('{id}', migrationId));
+            console.log(format(msg.progressDetail, { id: migrationId }));
+
             console.log('='.repeat(80));
             console.log();
 
@@ -388,7 +391,8 @@ class ProgressCLI {
             console.log(`   ${msg.idLabel}: ${summary.migrationId}`);
             console.log(`   ${msg.statusLabel}: ${this.getStatusIcon(summary.status)} ${summary.status}`);
             console.log(`   ${msg.currentPhase}: ${summary.currentPhase}`);
-            console.log(`   ${msg.currentQuery}: ${summary.currentQuery || msg.none}`);
+            console.log(`   ${msg.currentQuery.replace('{query}', summary.currentQuery || msg.none)}`);
+
             console.log(`   ${msg.startTime}: ${new Date(detailed.startTime).toLocaleString('ko-KR')}`);
             if (detailed.endTime) {
                 console.log(`   ${msg.endTime}: ${new Date(detailed.endTime).toLocaleString('ko-KR')}`);
@@ -471,7 +475,8 @@ class ProgressCLI {
             let progressManager = ProgressManager.loadProgress(migrationId);
             
             if (!progressManager) {
-                console.log(msg.monitorNotFound.replace('{id}', migrationId));
+                console.log(format(msg.monitorNotFound, { id: migrationId }));
+
                 return;
             }
 
@@ -500,7 +505,8 @@ class ProgressCLI {
             let lastProgressTime = Date.now();
             let notificationHistory = [];
 
-            console.log(msg.monitorStart.replace('{id}', migrationId));
+            console.log(format(msg.monitorStart, { id: migrationId }));
+
             console.log('━'.repeat(80));
             console.log(msg.keyboardCommands);
             const line1 = `   ${msg.keyQuit}           ${msg.keyPause}     ${msg.keyDetailed}`;

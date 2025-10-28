@@ -1,5 +1,32 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.9.1 - 비대화형 CLI 및 문서 (2025-10-29)
+
+### ✨ 새로운 기능
+
+#### 비대화형 CLI (app.js)
+- 대화형 메뉴 없이 `--mode`로 직접 실행
+  - 모드: `validate`, `test`, `migrate`, `help`
+  - Node 환경과 배포 EXE 모두 지원
+
+### 📝 문서
+- USER_MANUAL.md: Non-interactive CLI 섹션 추가 (Node/EXE 예시 포함)
+- USER_MANUAL_KR.md: 비대화형 CLI 섹션과 예시 추가
+
+---
+
+## 🚀 v0.9.0 - 코드 모듈화 및 리팩토링 (2025-10-26)
+
+### 🔧 개선 사항
+- **config-manager**: dbinfo/query XML 로드 및 파싱. 속성 검증, 전역 컬럼 오버라이드/프로세스/동적변수 파싱.
+- **query-processor**: SELECT * 자동 확장, IDENTITY 컬럼 제외, 타겟 스키마 조회.
+- **variable-manager**: 변수 치환, 날짜/타임존 함수, 전역 컬럼 오버라이드 값 적용(JSON 매핑 포함).
+- **script-processor**: 전/후처리 스크립트 실행과 변수 치환.
+- **mssql-connection-manager**: 소스/타겟 DB 연결, 쿼리 실행, 삭제/배치 작업.
+- **mssql-data-migrator-modular**: 전체 이관 오케스트레이션, 전역/개별 프로세스 실행, 선택적 전역 컬럼 오버라이드 적용.
+
+---
+
 ## 🚀 v0.8.7 - JSON 매핑 로직 수정 (2025-10-24)
 
 ### 🐛 버그 수정

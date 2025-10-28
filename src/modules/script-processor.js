@@ -1,4 +1,5 @@
 const logger = require('../logger');
+const { format } = require('../modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -90,11 +91,11 @@ class ScriptProcessor {
         const phaseText = phase === 'preProcess' ? msg.preProcess : msg.postProcess;
         
         if (enabledGroups.length === 0) {
-            this.log(msg.noActiveGroups.replace('{phase}', phaseText));
+            this.log(format(msg.noActiveGroups, { phase: phaseText }));
             return;
         }
         
-        this.log(msg.executingGroups.replace('{phase}', phaseText).replace('{count}', enabledGroups.length));
+        this.log(format(msg.executingGroups, { phase: phaseText, count: enabledGroups.length }));
         progressManager.updatePhase(
             phase === 'preProcess' ? 'PRE_PROCESSING' : 'POST_PROCESSING', 
             'RUNNING', 
@@ -102,7 +103,7 @@ class ScriptProcessor {
         );
         
         for (const group of enabledGroups) {
-            this.log(msg.executingGroup.replace('{id}', group.id).replace('{description}', group.description));
+            this.log(format(msg.executingGroup, { id: group.id, description: group.description }));
             
             try {
                 const scriptConfig = {
@@ -113,39 +114,39 @@ class ScriptProcessor {
                 const hasTempTables = this.detectTempTableUsageInScript(group.script);
                 
                 if (hasTempTables) {
-                    this.log(msg.tempTableDetected.replace('{phase}', phaseText).replace('{id}', group.id));
+                    this.log(format(msg.tempTableDetected, { phase: phaseText, id: group.id }));
                 }
                 
                 const result = await this.executeProcessScript(scriptConfig, 'target', hasTempTables);
                 
                 if (!result.success) {
-                    const errorMsg = msg.groupFailed.replace('{phase}', phaseText).replace('{id}', group.id).replace('{error}', result.error);
+                    const errorMsg = format(msg.groupFailed, { phase: phaseText, id: group.id, error: result.error });
                     this.log(errorMsg);
                     
                     if (phase === 'preProcess') {
                         progressManager.updatePhase('PRE_PROCESSING', 'FAILED', errorMsg);
                         throw new Error(errorMsg);
                     } else {
-                        this.log(msg.errorContinuing.replace('{error}', errorMsg));
+                        this.log(format(msg.errorContinuing, { error: errorMsg }));
                     }
                 } else {
-                    this.log(msg.groupCompleted.replace('{id}', group.id).replace('{description}', group.description));
+                    this.log(format(msg.groupCompleted, { id: group.id, description: group.description }));
                     if (result.executedCount !== undefined) {
-                        this.log(msg.executionStats.replace('{executed}', result.executedCount).replace('{total}', result.totalStatements));
+                        this.log(format(msg.executionStats, { executed: result.executedCount, total: result.totalStatements }));
                         if (result.errors && result.errors.length > 0) {
-                            this.log(msg.errorsOccurred.replace('{count}', result.errors.length));
+                            this.log(format(msg.errorsOccurred, { count: result.errors.length }));
                         }
                     }
                 }
             } catch (error) {
-                const errorMsg = msg.groupFailed.replace('{phase}', phaseText).replace('{id}', group.id).replace('{error}', error.message);
+                const errorMsg = format(msg.groupFailed, { phase: phaseText, id: group.id, error: error.message });
                 this.log(errorMsg);
                 
                 if (phase === 'preProcess') {
                     progressManager.updatePhase('PRE_PROCESSING', 'FAILED', errorMsg);
                     throw new Error(errorMsg);
                 } else {
-                    this.log(msg.errorContinuing.replace('{error}', errorMsg));
+                    this.log(format(msg.errorContinuing, { error: errorMsg }));
                 }
             }
         }
@@ -155,7 +156,7 @@ class ScriptProcessor {
             'COMPLETED', 
             `Global ${phase === 'preProcess' ? 'pre' : 'post'}-processing groups completed`
         );
-        this.log(msg.groupsCompleted.replace('{phase}', phaseText));
+        this.log(format(msg.groupsCompleted, { phase: phaseText }));
     }
 
     /**
@@ -170,7 +171,7 @@ class ScriptProcessor {
                 return { success: true };
             }
             
-            this.log(msg.executing.replace('{description}', scriptConfig.description));
+            this.log(format(msg.executing, { description: scriptConfig.description }));
             
             if (useSession) {
                 await this.connectionManager.beginSession(database);
@@ -202,7 +203,7 @@ class ScriptProcessor {
                 return { success: true };
             }
             
-            this.log(msg.executingSqlCount.replace('{count}', sqlStatements.length));
+            this.log(format(msg.executingSqlCount, { count: sqlStatements.length }));
             
             let executedCount = 0;
             const errors = [];
@@ -212,10 +213,7 @@ class ScriptProcessor {
                 try {
                     if (debugScripts) {
                         const preview = `${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`;
-                        this.log(msg.executingStatement
-                            .replace('{current}', i + 1)
-                            .replace('{total}', sqlStatements.length)
-                            .replace('{preview}', preview));
+                        this.log(format(msg.executingStatement, { current: i + 1, total: sqlStatements.length, preview }));
                     }
                     
                     let result;
@@ -233,12 +231,12 @@ class ScriptProcessor {
                     if (result && result.rowsAffected && result.rowsAffected.length > 0) {
                         const affectedRows = result.rowsAffected.reduce((sum, count) => sum + count, 0);
                         if (affectedRows > 0) {
-                            this.log(msg.statementSuccess.replace('{index}', i + 1).replace('{rows}', affectedRows));
+                            this.log(format(msg.statementSuccess, { index: i + 1, rows: affectedRows }));
                         }
                     }
                     
                 } catch (sqlError) {
-                    const errorMsg = msg.sqlExecutionWarning.replace('{error}', sqlError.message);
+                    const errorMsg = format(msg.sqlExecutionWarning, { error: sqlError.message });
                     this.log(errorMsg);
                     
                     errors.push({
@@ -250,14 +248,14 @@ class ScriptProcessor {
             }
             
             if (errors.length > 0) {
-                this.log(msg.totalErrors.replace('{count}', errors.length));
+                this.log(format(msg.totalErrors, { count: errors.length }));
             }
             
-            this.log(msg.executionResult.replace('{description}', scriptConfig.description));
-            this.log(msg.totalStatements.replace('{count}', sqlStatements.length));
-            this.log(msg.successful.replace('{count}', executedCount));
+            this.log(format(msg.executionResult, { description: scriptConfig.description }));
+            this.log(format(msg.totalStatements, { count: sqlStatements.length }));
+            this.log(format(msg.successful, { count: executedCount }));
             if (errors.length > 0) {
-                this.log(msg.failed.replace('{count}', errors.length));
+                this.log(format(msg.failed, { count: errors.length }));
             }
             
             return { 
@@ -268,15 +266,15 @@ class ScriptProcessor {
             };
             
         } catch (error) {
-            this.log(msg.executionFailed.replace('{description}', scriptConfig.description).replace('{error}', error.message));
+            this.log(format(msg.executionFailed, { description: scriptConfig.description, error: error.message }));
             return { success: false, error: error.message };
         } finally {
             if (sessionStarted) {
                 try {
                     await this.connectionManager.endSession(database);
-                    this.log(msg.sessionCleanupComplete.replace('{description}', scriptConfig.description));
+                    this.log(format(msg.sessionCleanupComplete, { description: scriptConfig.description }));
                 } catch (sessionError) {
-                    this.log(msg.sessionCleanupError.replace('{description}', scriptConfig.description).replace('{error}', sessionError.message));
+                    this.log(format(msg.sessionCleanupError, { description: scriptConfig.description, error: sessionError.message }));
                 }
             }
         }

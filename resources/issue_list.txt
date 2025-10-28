@@ -19,3 +19,9 @@ If you can't delete them all at once, how about dividing them into 2100 each?
 
 4. Apply the version to the executable file name
 
+
+----------------------
+2025-10-26
+----------------------
+I am working on refactoring branch.
+

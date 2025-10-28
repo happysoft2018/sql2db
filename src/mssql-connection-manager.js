@@ -2,8 +2,14 @@ const sql = require('mssql');
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const MetadataCache = require('./db/metadata-cache');
+const PKDeleter = require('./db/pk-deleter');
+const { getAppRoot } = require('./modules/paths');
+const { format } = require('./modules/i18n');
+const FKAnalyzer = require('./db/fk-analyzer');
+const QueryExecutor = require('./db/query-executor');
 
-const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
+ 
 
 // Language setting (using environment variable, default to English)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -254,7 +260,7 @@ class MSSQLConnectionManager {
         this.isTargetConnected = false;
         this.customSourceConfig = null;
         this.customTargetConfig = null;
-        this.tableColumnCache = {}; // Table column information cache
+        this.tableColumnCache = {}; // Table column information cache (deprecated: maintained in MetadataCache)
         
         // Session management attributes
         this.sourceSession = null;
@@ -265,25 +271,52 @@ class MSSQLConnectionManager {
         this.dbPools = {}; // Connection pool storage for each DB
         this.dbConnections = {}; // Connection status storage for each DB
         this.dbConfigs = null; // dbinfo.json configuration
+
+        // Initialize helpers
+        this.metadataCache = new MetadataCache({
+            getPool: (isSource) => (isSource ? this.sourcePool : this.targetPool),
+            ensureConnected: async (isSource) => (isSource ? this.connectSource() : this.connectTarget()),
+            msg
+        });
+
+        this.pkDeleter = new PKDeleter({
+            getTargetPool: () => this.targetPool,
+            ensureTargetConnected: () => this.connectTarget(),
+            getTableColumns: (tableName) => this.metadataCache.getTableColumns(tableName, false),
+            msg
+        });
+
+        this.fkAnalyzer = new FKAnalyzer({
+            getPool: (isSource) => (isSource ? this.sourcePool : this.targetPool),
+            ensureConnected: async (isSource) => (isSource ? this.connectSource() : this.connectTarget()),
+            msg
+        });
+
+        this.queryExecutor = new QueryExecutor({
+            getSourcePool: () => this.sourcePool,
+            getTargetPool: () => this.targetPool,
+            ensureSourceConnected: () => this.connectSource(),
+            ensureTargetConnected: () => this.connectTarget(),
+            msg
+        });
     }
 
     // Load DB configuration from dbinfo.json
     loadDBConfigs() {
         try {
-            const configPath = process.pkg 
-                ? path.join(APP_ROOT, 'config', 'dbinfo.json')
-                : path.join(__dirname, '..', 'config', 'dbinfo.json');
+            const appRoot = getAppRoot();
+            const configPath = path.join(appRoot, 'config', 'dbinfo.json');
             if (fs.existsSync(configPath)) {
                 const configData = fs.readFileSync(configPath, 'utf8');
                 this.dbConfigs = JSON.parse(configData);
-                console.log(msg.dbinfoLoaded.replace('{count}', Object.keys(this.dbConfigs).length));
+                console.log(format(msg.dbinfoLoaded, { count: Object.keys(this.dbConfigs).length }));
                 return this.dbConfigs;
             } else {
                 console.warn(msg.dbinfoNotFound);
                 return null;
             }
         } catch (error) {
-            console.error(msg.dbinfoLoadFailed.replace('{message}', error.message));
+            console.error(format(msg.dbinfoLoadFailed, { message: error.message }));
             return null;
         }
     }
@@ -306,11 +339,7 @@ class MSSQLConnectionManager {
             const dbConfig = this.dbConfigs[dbKey];
             const config = this.getDBConfig(dbConfig);
             
-            console.log(msg.dbConnecting
-                .replace('{key}', dbKey)
-                .replace('{server}', config.server)
-                .replace('{port}', config.port)
-                .replace('{database}', config.database));
+            console.log(format(msg.dbConnecting, { key: dbKey, server: config.server, port: config.port, database: config.database }));
             
             const pool = new sql.ConnectionPool(config);
             await pool.connect();
@@ -318,12 +347,12 @@ class MSSQLConnectionManager {
             this.dbPools[dbKey] = pool;
             this.dbConnections[dbKey] = true;
             
-            console.log(msg.dbConnectionSuccess.replace('{key}', dbKey));
+            console.log(format(msg.dbConnectionSuccess, { key: dbKey }));
             return pool;
             
         } catch (error) {
-            console.error(msg.dbConnectionFailed.replace('{key}', dbKey).replace('{message}', error.message));
-            throw new Error(msg.dbConnectionFailed.replace('{key}', dbKey).replace('{message}', error.message));
+            console.error(format(msg.dbConnectionFailed, { key: dbKey, message: error.message }));
+            throw new Error(format(msg.dbConnectionFailed, { key: dbKey, message: error.message }));
         }
     }
 
@@ -335,8 +364,8 @@ class MSSQLConnectionManager {
             const result = await request.query(query);
             return result.recordset || result;
         } catch (error) {
-            console.error(msg.dbQueryFailed.replace('{key}', dbKey).replace('{message}', error.message));
-            throw new Error(msg.dbQueryFailed.replace('{key}', dbKey).replace('{message}', error.message));
+            console.error(format(msg.dbQueryFailed, { key: dbKey, message: error.message }));
+            throw new Error(format(msg.dbQueryFailed, { key: dbKey, message: error.message }));
         }
     }
 
@@ -360,10 +389,10 @@ class MSSQLConnectionManager {
                 await this.dbPools[dbKey].close();
                 delete this.dbPools[dbKey];
                 this.dbConnections[dbKey] = false;
-                console.log(msg.dbDisconnected.replace('{key}', dbKey));
+                console.log(format(msg.dbDisconnected, { key: dbKey }));
             }
         } catch (error) {
-            console.error(msg.dbDisconnectFailed.replace('{key}', dbKey).replace('{message}', error.message));
+            console.error(format(msg.dbDisconnectFailed, { key: dbKey, message: error.message }));
         }
     }
 
@@ -375,7 +404,7 @@ class MSSQLConnectionManager {
             }
             console.log(msg.allDbsDisconnected);
         } catch (error) {
-            console.error(msg.dbDisconnectError.replace('{message}', error.message));
+            console.error(format(msg.dbDisconnectError, { message: error.message }));
         }
     }
 
@@ -418,10 +447,7 @@ class MSSQLConnectionManager {
             }
 
             const config = this.getDBConfig(this.customSourceConfig);
-            console.log(msg.sourceDbConnecting
-                .replace('{server}', config.server)
-                .replace('{port}', config.port)
-                .replace('{database}', config.database));
+            console.log(format(msg.sourceDbConnecting, { server: config.server, port: config.port, database: config.database }));
             
             this.sourcePool = new sql.ConnectionPool(config);
             await this.sourcePool.connect();
@@ -430,8 +456,8 @@ class MSSQLConnectionManager {
             console.log(msg.sourceDbConnectionSuccess);
             return this.sourcePool;
         } catch (error) {
-            console.error(msg.sourceDbConnectionFailed.replace('{message}', error.message));
-            throw new Error(msg.sourceDbConnectionFailed.replace('{message}', error.message));
+            console.error(format(msg.sourceDbConnectionFailed, { message: error.message }));
+            throw new Error(format(msg.sourceDbConnectionFailed, { message: error.message }));
         }
     }
 
@@ -443,10 +469,7 @@ class MSSQLConnectionManager {
             }
 
             const config = this.getDBConfig(this.customTargetConfig);
-            console.log(msg.targetDbConnecting
-                .replace('{server}', config.server)
-                .replace('{port}', config.port)
-                .replace('{database}', config.database));
+            console.log(format(msg.targetDbConnecting, { server: config.server, port: config.port, database: config.database }));
             
             this.targetPool = new sql.ConnectionPool(config);
             await this.targetPool.connect();
@@ -455,8 +478,8 @@ class MSSQLConnectionManager {
             console.log(msg.targetDbConnectionSuccess);
             return this.targetPool;
         } catch (error) {
-            console.error(msg.targetDbConnectionFailed.replace('{message}', error.message));
-            throw new Error(msg.targetDbConnectionFailed.replace('{message}', error.message));
+            console.error(format(msg.targetDbConnectionFailed, { message: error.message }));
+            throw new Error(format(msg.targetDbConnectionFailed, { message: error.message }));
         }
     }
 
@@ -492,12 +515,12 @@ class MSSQLConnectionManager {
                 this.targetSession = session;
             }
             
-            console.log(msg.sessionStarted.replace('{type}', connectionType));
+            console.log(format(msg.sessionStarted, { type: connectionType }));
             return session;
             
         } catch (error) {
-            console.error(msg.sessionStartFailed.replace('{db}', database).replace('{message}', error.message));
-            throw new Error(msg.sessionStartFailed.replace('{db}', database).replace('{message}', error.message));
+            console.error(format(msg.sessionStartFailed, { db: database, message: error.message }));
+            throw new Error(format(msg.sessionStartFailed, { db: database, message: error.message }));
         }
     }
 
@@ -508,15 +531,15 @@ class MSSQLConnectionManager {
             const connectionType = database === 'source' ? msg.sourceDb : msg.targetDb;
             
             if (!session) {
-                throw new Error(msg.sessionNotStarted.replace('{type}', connectionType));
+                throw new Error(format(msg.sessionNotStarted, { type: connectionType }));
             }
             
             const result = await session.query(query);
             return result;
             
         } catch (error) {
-            console.error(msg.sessionQueryFailed.replace('{db}', database).replace('{message}', error.message));
-            throw new Error(msg.sessionQueryFailed.replace('{db}', database).replace('{message}', error.message));
+            console.error(format(msg.sessionQueryFailed, { db: database, message: error.message }));
+            throw new Error(format(msg.sessionQueryFailed, { db: database, message: error.message }));
         }
     }
 
@@ -531,11 +554,11 @@ class MSSQLConnectionManager {
                 this.targetSession = null;
             }
             
-            console.log(msg.sessionEnded.replace('{type}', connectionType));
+            console.log(format(msg.sessionEnded, { type: connectionType }));
             
         } catch (error) {
-            console.error(msg.sessionEndFailed.replace('{db}', database).replace('{message}', error.message));
-            throw new Error(msg.sessionEndFailed.replace('{db}', database).replace('{message}', error.message));
+            console.error(format(msg.sessionEndFailed, { db: database, message: error.message }));
+            throw new Error(format(msg.sessionEndFailed, { db: database, message: error.message }));
         }
     }
 
@@ -546,15 +569,15 @@ class MSSQLConnectionManager {
             const connectionType = database === 'source' ? msg.sourceDb : msg.targetDb;
             
             if (!session) {
-                throw new Error(msg.sessionNotStarted.replace('{type}', connectionType));
+                throw new Error(format(msg.sessionNotStarted, { type: connectionType }));
             }
             
             this.sessionTransaction = await session.beginTransaction();
-            console.log(msg.transactionStarted.replace('{type}', connectionType));
+            console.log(format(msg.transactionStarted, { type: connectionType }));
             
         } catch (error) {
-            console.error(msg.transactionStartFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionStartFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionStartFailed, { message: error.message }));
+            throw new Error(format(msg.transactionStartFailed, { message: error.message }));
         }
     }
 
@@ -564,11 +587,11 @@ class MSSQLConnectionManager {
             if (this.sessionTransaction) {
                 await this.sessionTransaction.commit();
                 this.sessionTransaction = null;
-                console.log(msg.transactionCommitted.replace('{type}', ''));
+                console.log(format(msg.transactionCommitted, { type: '' }));
             }
         } catch (error) {
-            console.error(msg.transactionCommitFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionCommitFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionCommitFailed, { message: error.message }));
+            throw new Error(format(msg.transactionCommitFailed, { message: error.message }));
         }
     }
 
@@ -578,27 +601,11 @@ class MSSQLConnectionManager {
             if (this.sessionTransaction) {
                 await this.sessionTransaction.rollback();
                 this.sessionTransaction = null;
-                console.log(msg.transactionRolledBack.replace('{type}', ''));
+                console.log(format(msg.transactionRolledBack, { type: '' }));
             }
         } catch (error) {
-            console.error(msg.transactionRollbackFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionRollbackFailed.replace('{message}', error.message));
-        }
-    }
-
-    // Query data from source database
-    async querySource(query) {
-        try {
-            if (!this.isSourceConnected) {
-                await this.connectSource();
-            }
-            
-            const request = this.sourcePool.request();
-            const result = await request.query(query);
-            return result.recordset;
-        } catch (error) {
-            console.error(msg.sourceQueryFailed.replace('{message}', error.message));
-            throw new Error(msg.sourceQueryFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionRollbackFailed, { message: error.message }));
+            throw new Error(format(msg.transactionRollbackFailed, { message: error.message }));
         }
     }
 
@@ -615,401 +622,50 @@ class MSSQLConnectionManager {
             }
 
             const request = this.targetPool.request();
-            
-            // Generate parameterized query
             const placeholders = columns.map((_, index) => `@param${index}`).join(', ');
             const insertQuery = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
-            
+
             let totalRowsAffected = 0;
-            
+
             for (const row of data) {
-                // Set parameters for each row
                 columns.forEach((column, index) => {
                     request.input(`param${index}`, row[column]);
                 });
-                
+
                 const result = await request.query(insertQuery);
                 totalRowsAffected += result.rowsAffected[0];
-                
-                // Reset parameters for next query
+
                 request.parameters = {};
             }
-            
+
             return { rowsAffected: [totalRowsAffected] };
         } catch (error) {
-            console.error(msg.targetInsertFailed.replace('{message}', error.message));
-            throw new Error(msg.targetInsertFailed.replace('{message}', error.message));
+            console.error(format(msg.targetInsertFailed, { message: error.message }));
+            throw new Error(format(msg.targetInsertFailed, { message: error.message }));
         }
     }
 
     // Clear table column cache
     clearTableColumnCache() {
+        // Backward-compatible wrapper
+        this.metadataCache.clear();
+        // Keep local field in sync for any legacy access
         this.tableColumnCache = {};
-        console.log(msg.cacheCleared);
     }
 
     // Get table column cache statistics
     getTableColumnCacheStats() {
-        const cacheKeys = Object.keys(this.tableColumnCache);
-        const stats = {
-            cachedTables: cacheKeys.length,
-            cacheKeys: cacheKeys,
-            totalColumns: 0
-        };
-        
-        cacheKeys.forEach(key => {
-            const columns = this.tableColumnCache[key];
-            if (Array.isArray(columns)) {
-                stats.totalColumns += columns.length;
-            }
-        });
-        
-        console.log(msg.cacheStats
-            .replace('{cachedTables}', stats.cachedTables)
-            .replace('{totalColumns}', stats.totalColumns));
-        return stats;
+        return this.metadataCache.getStats();
     }
 
     // Query table column information (with caching)
     async getTableColumns(tableName, isSource = false) {
-        try {
-            // Generate cache key (table name + database type)
-            const cacheKey = `${tableName}_${isSource ? 'source' : 'target'}`;
-            const dbType = isSource ? msg.sourceDb : msg.targetDb;
-            
-            // Check cache first
-            if (this.tableColumnCache[cacheKey]) {
-                console.log(msg.cacheUsed.replace('{table}', tableName).replace('{db}', dbType));
-                return this.tableColumnCache[cacheKey];
-            }
-            
-            const pool = isSource ? this.sourcePool : this.targetPool;
-            
-            if (!pool || !(isSource ? this.isSourceConnected : this.isTargetConnected)) {
-                if (isSource) {
-                    await this.connectSource();
-                } else {
-                    await this.connectTarget();
-                }
-            }
-
-            const request = (isSource ? this.sourcePool : this.targetPool).request();
-            const query = `
-                SELECT 
-                    c.COLUMN_NAME, 
-                    c.DATA_TYPE, 
-                    c.IS_NULLABLE, 
-                    c.COLUMN_DEFAULT,
-                    c.ORDINAL_POSITION
-                FROM INFORMATION_SCHEMA.COLUMNS c
-                INNER JOIN sys.columns sc ON c.COLUMN_NAME = sc.name 
-                    AND c.TABLE_NAME = OBJECT_NAME(sc.object_id)
-                WHERE c.TABLE_NAME = '${tableName}'
-                    AND sc.is_computed = 0  -- Exclude computed columns
-                    AND sc.is_identity = 0  -- Exclude identity columns
-                    AND c.DATA_TYPE NOT IN ('varbinary', 'binary', 'image')  -- Exclude VARBINARY columns
-                ORDER BY c.ORDINAL_POSITION
-            `;
-            
-            console.log(msg.loadingColumns.replace('{db}', dbType).replace('{table}', tableName));
-            const result = await request.query(query);
-            
-            const columns = result.recordset.map(row => ({
-                name: row.COLUMN_NAME,
-                dataType: row.DATA_TYPE,
-                isNullable: row.IS_NULLABLE === 'YES',
-                defaultValue: row.COLUMN_DEFAULT
-            }));
-            
-            // Save to cache
-            this.tableColumnCache[cacheKey] = columns;
-            console.log(msg.cacheSaved
-                .replace('{table}', tableName)
-                .replace('{db}', dbType)
-                .replace('{count}', columns.length));
-            
-            return columns;
-        } catch (error) {
-            console.error(msg.columnLoadFailed.replace('{table}', tableName).replace('{message}', error.message));
-            throw new Error(msg.columnLoadFailed.replace('{table}', tableName).replace('{message}', error.message));
-        }
+        return this.metadataCache.getTableColumns(tableName, isSource);
     }
 
     // Delete table data from target database (by PK)
     async deleteFromTargetByPK(tableName, identityColumns, sourceData) {
-        try {
-            if (!this.isTargetConnected) {
-                await this.connectTarget();
-            }
-
-            // Display target DB info clearly
-            const targetConfig = this.targetPool.config;
-            console.log(msg.targetDbInfo
-                .replace('{server}', targetConfig.server)
-                .replace('{database}', targetConfig.database));
-
-            if (!sourceData || sourceData.length === 0) {
-                console.log(msg.noSourceData.replace('{table}', tableName));
-                return { rowsAffected: [0] };
-            }
-
-            // Query actual column names from target table (exact case matching)
-            const targetColumnsInfo = await this.getTableColumns(tableName, 'target');
-            const targetColumnNames = targetColumnsInfo.map(col => col.name);
-            
-            // Match identityColumns to actual column names in target table
-            const normalizeColumnName = (columnName) => {
-                // Use as-is if exact match exists
-                if (targetColumnNames.includes(columnName)) {
-                    return columnName;
-                }
-                
-                // Match case-insensitively
-                const normalizedName = columnName.toLowerCase();
-                const matchedColumn = targetColumnNames.find(col => col.toLowerCase() === normalizedName);
-                
-                if (matchedColumn) {
-                    if (matchedColumn !== columnName) {
-                        console.log(msg.columnNameCorrected
-                            .replace('{from}', columnName)
-                            .replace('{to}', matchedColumn));
-                    }
-                    return matchedColumn;
-                }
-                
-                console.log(msg.columnNotExists.replace('{column}', columnName));
-                console.log(msg.targetTableColumns.replace('{columns}', targetColumnNames.join(', ')));
-                return columnName; // Return original
-            };
-            
-            // Normalize identityColumns
-            const normalizedIdentityColumns = Array.isArray(identityColumns)
-                ? identityColumns.map(col => normalizeColumnName(col))
-                : normalizeColumnName(identityColumns);
-
-            // Extract PK values
-            const pkValues = [];
-            sourceData.forEach(row => {
-                if (Array.isArray(identityColumns)) {
-                    // Composite key case
-                    const pkSet = {};
-                    identityColumns.forEach(pk => {
-                        pkSet[pk] = row[pk];
-                    });
-                    pkValues.push(pkSet);
-                } else {
-                    // Single key case
-                    if (row[identityColumns] !== undefined && row[identityColumns] !== null) {
-                        pkValues.push(row[identityColumns]);
-                    }
-                }
-            });
-
-            if (pkValues.length === 0) {
-                console.log(msg.noPkValues.replace('{table}', tableName));
-                console.log(msg.identityColumnsInfo.replace('{columns}', 
-                    Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns));
-                console.log(msg.sourceDataRows.replace('{count}', sourceData.length));
-                if (sourceData.length > 0) {
-                    console.log(msg.firstRowColumns.replace('{columns}', Object.keys(sourceData[0]).join(', ')));
-                }
-                return { rowsAffected: [0] };
-            }
-            
-            // Log successful PK value extraction
-            const identityColumnsDisplay = Array.isArray(identityColumns) ? identityColumns.join(', ') : identityColumns;
-            const normalizedColumnsDisplay = Array.isArray(normalizedIdentityColumns) ? normalizedIdentityColumns.join(', ') : normalizedIdentityColumns;
-            
-            if (identityColumnsDisplay !== normalizedColumnsDisplay) {
-                console.log(msg.pkExtractedCorrected
-                    .replace('{count}', pkValues.length)
-                    .replace('{from}', identityColumnsDisplay)
-                    .replace('{to}', normalizedColumnsDisplay));
-            } else {
-                console.log(msg.pkExtracted
-                    .replace('{count}', pkValues.length)
-                    .replace('{columns}', identityColumnsDisplay));
-            }
-            
-            // Output sample PK values for debugging
-            if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-                if (pkValues.length <= 10) {
-                    console.log(msg.pkValues.replace('{values}', JSON.stringify(pkValues)));
-                } else {
-                    console.log(msg.pkValuesFirst10.replace('{values}', JSON.stringify(pkValues.slice(0, 10))));
-                }
-            }
-
-            // Set chunk size considering SQL Server parameter limit (2100)
-            const isCompositeKey = Array.isArray(normalizedIdentityColumns);
-            const maxChunkSize = isCompositeKey 
-                ? Math.floor(2000 / normalizedIdentityColumns.length)  // Composite key: 2000 / number of key columns
-                : 2000;  // Single key: 2000 at a time
-            
-            let totalDeletedRows = 0;
-            
-            // Process pkValues in chunks
-            for (let i = 0; i < pkValues.length; i += maxChunkSize) {
-                const chunk = pkValues.slice(i, i + maxChunkSize);
-                const chunkNumber = Math.floor(i / maxChunkSize) + 1;
-                const totalChunks = Math.ceil(pkValues.length / maxChunkSize);
-                
-                if (totalChunks > 1) {
-                    console.log(msg.deletingChunk
-                        .replace('{current}', chunkNumber)
-                        .replace('{total}', totalChunks)
-                        .replace('{count}', chunk.length));
-                }
-                
-                let deleteQuery;
-                const request = this.targetPool.request();
-
-                if (isCompositeKey) {
-                    // Composite key case
-                    const conditions = chunk.map((pkSet, index) => {
-                        const conditions = normalizedIdentityColumns.map((normalizedPk, pkIndex) => {
-                            const originalPk = Array.isArray(identityColumns) ? identityColumns[pkIndex] : identityColumns;
-                            const paramName = `pk_${normalizedPk}_${index}`;
-                            const value = pkSet[originalPk];
-                            if (typeof value === 'string') {
-                                request.input(paramName, sql.NVarChar, value);
-                            } else if (typeof value === 'number') {
-                                request.input(paramName, sql.Int, value);
-                            } else {
-                                request.input(paramName, sql.Variant, value);
-                            }
-                            return `${normalizedPk} = @${paramName}`;
-                        }).join(' AND ');
-                        return `(${conditions})`;
-                    }).join(' OR ');
-                    
-                    deleteQuery = `DELETE FROM ${tableName} WHERE ${conditions}`;
-                } else {
-                    // Single key case
-                    if (chunk.length === 1) {
-                        const value = chunk[0];
-                        if (typeof value === 'string') {
-                            request.input('pk_value', sql.NVarChar, value);
-                        } else if (typeof value === 'number') {
-                            request.input('pk_value', sql.Int, value);
-                        } else {
-                            request.input('pk_value', sql.Variant, value);
-                        }
-                        deleteQuery = `DELETE FROM ${tableName} WHERE ${normalizedIdentityColumns} = @pk_value`;
-                    } else {
-                        // Process multiple PK values with IN clause
-                        const inClause = chunk.map((value, index) => {
-                            const paramName = `pk_${index}`;
-                            if (typeof value === 'string') {
-                                request.input(paramName, sql.NVarChar, value);
-                            } else if (typeof value === 'number') {
-                                request.input(paramName, sql.Int, value);
-                            } else {
-                                request.input(paramName, sql.Variant, value);
-                            }
-                            return `@${paramName}`;
-                        }).join(', ');
-                        
-                        deleteQuery = `DELETE FROM ${tableName} WHERE ${normalizedIdentityColumns} IN (${inClause})`;
-                    }
-                }
-                
-                if (totalChunks === 1) {
-                    console.log(msg.deletingByPk
-                        .replace('{table}', tableName)
-                        .replace('{count}', pkValues.length));
-                } else {
-                    console.log(msg.deletingChunkExecute
-                        .replace('{current}', chunkNumber)
-                        .replace('{total}', totalChunks));
-                }
-                
-                // Detailed logs for debugging
-                if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-                    console.log(msg.deleteQuery.replace('{query}', deleteQuery));
-                    if (chunk.length <= 5) {
-                        console.log(msg.deletingPkValues.replace('{values}', JSON.stringify(chunk)));
-                    } else {
-                        console.log(msg.deletingPkValuesFirst5.replace('{values}', JSON.stringify(chunk.slice(0, 5))));
-                    }
-                }
-                
-                const result = await request.query(deleteQuery);
-                const deletedCount = result.rowsAffected[0];
-                totalDeletedRows += deletedCount;
-                
-                // Log deleted row count (always output)
-                if (totalChunks === 1) {
-                    console.log(msg.deleteComplete.replace('{count}', deletedCount));
-                } else {
-                    console.log(msg.chunkDeleteComplete
-                        .replace('{current}', chunkNumber)
-                        .replace('{count}', deletedCount));
-                }
-                
-                // Output info if no rows deleted
-                if (deletedCount === 0 && chunk.length > 0) {
-                    // Check if target table has data
-                    try {
-                        const checkRequest = this.targetPool.request();
-                        const checkQuery = `SELECT COUNT(*) as cnt FROM ${tableName}`;
-                        const checkResult = await checkRequest.query(checkQuery);
-                        const totalRows = checkResult.recordset[0].cnt;
-                        
-                        if (totalRows === 0) {
-                            console.log(msg.targetTableEmpty);
-                        } else {
-                            console.log(msg.noMatchingData
-                                .replace('{totalRows}', totalRows)
-                                .replace('{count}', chunk.length));
-                            
-                            // Debug info
-                            if (process.env.LOG_LEVEL === 'DEBUG' || process.env.LOG_LEVEL === 'TRACE') {
-                                const firstPkValue = chunk[0];
-                                const testRequest = this.targetPool.request();
-                                
-                                if (isCompositeKey) {
-                                    const testConditions = normalizedIdentityColumns.map((col, idx) => {
-                                        const originalCol = Array.isArray(identityColumns) ? identityColumns[idx] : identityColumns;
-                                        const value = firstPkValue[originalCol];
-                                        testRequest.input(`test_${col}`, typeof value === 'string' ? sql.NVarChar : sql.Int, value);
-                                        return `${col} = @test_${col}`;
-                                    }).join(' AND ');
-                                    const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${testConditions}`;
-                                    const testResult = await testRequest.query(testQuery);
-                                    console.log(msg.debugSampleQuery.replace('{count}', testResult.recordset.length));
-                                } else {
-                                    testRequest.input('test_pk', typeof firstPkValue === 'string' ? sql.NVarChar : sql.Int, firstPkValue);
-                                    const testQuery = `SELECT TOP 1 * FROM ${tableName} WHERE ${normalizedIdentityColumns} = @test_pk`;
-                                    const testResult = await testRequest.query(testQuery);
-                                    console.log(msg.debugSamplePk.replace('{value}', firstPkValue));
-                                    
-                                    // Query sample PK values from target table
-                                    const sampleRequest = this.targetPool.request();
-                                    const sampleQuery = `SELECT TOP 5 ${normalizedIdentityColumns} FROM ${tableName}`;
-                                    const sampleResult = await sampleRequest.query(sampleQuery);
-                                    console.log(msg.debugTargetPkSample
-                                        .replace('{column}', normalizedIdentityColumns)
-                                        .replace('{values}', JSON.stringify(sampleResult.recordset.map(r => r[normalizedIdentityColumns]))));
-                                }
-                            } else {
-                                console.log(msg.debugHint);
-                            }
-                            
-                            console.log(msg.insertWillProceed);
-                        }
-                    } catch (checkError) {
-                        console.log(msg.noDeleteTarget.replace('{message}', checkError.message));
-                    }
-                }
-            }
-            
-            console.log(msg.totalDeleted.replace('{count}', totalDeletedRows));
-            return { rowsAffected: [totalDeletedRows] };
-        } catch (error) {
-            console.error(msg.pkDeleteFailed.replace('{message}', error.message));
-            throw new Error(msg.pkDeleteFailed.replace('{message}', error.message));
-        }
+        return this.pkDeleter.deleteFromTargetByPK(tableName, identityColumns, sourceData);
     }
 
     // Delete all data from target table (used when considering FK order)
@@ -1022,14 +678,14 @@ class MSSQLConnectionManager {
             const request = this.targetPool.request();
             const deleteQuery = `DELETE FROM ${tableName}`;
             
-            console.log(msg.deletingAll.replace('{query}', deleteQuery));
+            console.log(format(msg.deletingAll, { query: deleteQuery }));
             const result = await request.query(deleteQuery);
             
-            console.log(msg.deletedRows.replace('{count}', result.rowsAffected[0]));
+            console.log(format(msg.deletedRows, { count: result.rowsAffected[0] }));
             return result;
         } catch (error) {
-            console.error(msg.deleteAllFailed.replace('{message}', error.message));
-            throw new Error(msg.deleteAllFailed.replace('{message}', error.message));
+            console.error(format(msg.deleteAllFailed, { message: error.message }));
+            throw new Error(format(msg.deleteAllFailed, { message: error.message }));
         }
     }
 
@@ -1044,8 +700,8 @@ class MSSQLConnectionManager {
             await transaction.begin();
             return transaction;
         } catch (error) {
-            console.error(msg.transactionBeginFailed.replace('{message}', error.message));
-            throw new Error(msg.transactionBeginFailed.replace('{message}', error.message));
+            console.error(format(msg.transactionBeginFailed, { message: error.message }));
+            throw new Error(format(msg.transactionBeginFailed, { message: error.message }));
         }
     }
 
@@ -1064,7 +720,7 @@ class MSSQLConnectionManager {
                 console.log(msg.targetDbClosed);
             }
         } catch (error) {
-            console.error(msg.closeConnectionError.replace('{message}', error.message));
+            console.error(format(msg.closeConnectionError, { message: error.message }));
         }
     }
 
@@ -1078,213 +734,39 @@ class MSSQLConnectionManager {
 
     // Query FK relations between tables
     async getForeignKeyRelations(isSource = false) {
-        try {
-            const pool = isSource ? this.sourcePool : this.targetPool;
-            const connectionType = isSource ? msg.sourceDb : msg.targetDb;
-            
-            if (!pool || !(isSource ? this.isSourceConnected : this.isTargetConnected)) {
-                if (isSource) {
-                    await this.connectSource();
-                } else {
-                    await this.connectTarget();
-                }
-            }
-
-            const request = (isSource ? this.sourcePool : this.targetPool).request();
-            const query = `
-                SELECT 
-                    fk.name AS foreign_key_name,
-                    tp.name AS parent_table,
-                    cp.name AS parent_column,
-                    tr.name AS referenced_table,
-                    cr.name AS referenced_column,
-                    fk.delete_referential_action_desc,
-                    fk.update_referential_action_desc
-                FROM sys.foreign_keys fk
-                INNER JOIN sys.tables tp ON fk.parent_object_id = tp.object_id
-                INNER JOIN sys.tables tr ON fk.referenced_object_id = tr.object_id
-                INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-                INNER JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
-                INNER JOIN sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
-                ORDER BY tp.name, fk.name
-            `;
-            
-            console.log(msg.fkQueryingDb.replace('{db}', connectionType));
-            const result = await request.query(query);
-            
-            const relations = result.recordset.map(row => ({
-                foreignKeyName: row.foreign_key_name,
-                parentTable: row.parent_table,
-                parentColumn: row.parent_column,
-                referencedTable: row.referenced_table,
-                referencedColumn: row.referenced_column,
-                deleteAction: row.delete_referential_action_desc,
-                updateAction: row.update_referential_action_desc
-            }));
-
-            console.log(msg.fkFoundInDb.replace('{db}', connectionType).replace('{count}', relations.length));
-            return relations;
-        } catch (error) {
-            console.error(msg.fkQueryFailed.replace('{db}', connectionType).replace('{message}', error.message));
-            throw new Error(msg.fkQueryFailed.replace('{db}', connectionType).replace('{message}', error.message));
-        }
+        return this.fkAnalyzer.getForeignKeyRelations(isSource);
     }
 
     // Calculate table deletion order (topological sort)
     async calculateTableDeletionOrder(tableNames, isSource = false) {
-        try {
-            console.log(msg.calculatingDeletionOrder.replace('{count}', tableNames.length));
-            
-            // Query FK relations
-            const fkRelations = await this.getForeignKeyRelations(isSource);
-            
-            // Filter relevant tables only
-            const relevantRelations = fkRelations.filter(rel => 
-                tableNames.includes(rel.parentTable) && tableNames.includes(rel.referencedTable)
-            );
-
-            console.log(msg.relevantFkCount.replace('{count}', relevantRelations.length));
-
-            // Create dependency graph
-            const dependencies = new Map();
-            const inDegree = new Map();
-            
-            // Initialize all tables
-            tableNames.forEach(table => {
-                dependencies.set(table, []);
-                inDegree.set(table, 0);
-            });
-
-            // Build dependency graph based on FK relations
-            relevantRelations.forEach(rel => {
-                // Add dependency only if not CASCADE delete
-                if (rel.deleteAction !== 'CASCADE') {
-                    // Parent references referenced, so parent must be deleted first
-                    dependencies.get(rel.referencedTable).push(rel.parentTable);
-                    inDegree.set(rel.parentTable, inDegree.get(rel.parentTable) + 1);
-                }
-            });
-
-            // Perform topological sort
-            const result = [];
-            const queue = [];
-            
-            // Add tables with in-degree 0 to queue
-            inDegree.forEach((degree, table) => {
-                if (degree === 0) {
-                    queue.push(table);
-                }
-            });
-
-            while (queue.length > 0) {
-                const currentTable = queue.shift();
-                result.push(currentTable);
-
-                // Decrease in-degree of tables depending on current table
-                dependencies.get(currentTable).forEach(dependentTable => {
-                    inDegree.set(dependentTable, inDegree.get(dependentTable) - 1);
-                    if (inDegree.get(dependentTable) === 0) {
-                        queue.push(dependentTable);
-                    }
-                });
-            }
-
-            // Check for circular references
-            if (result.length !== tableNames.length) {
-                const remainingTables = tableNames.filter(table => !result.includes(table));
-                console.warn(msg.circularRefDetected.replace('{tables}', remainingTables.join(', ')));
-                console.warn(msg.circularRefWarning);
-                
-                // Add tables with circular references to result
-                result.push(...remainingTables);
-            }
-
-            console.log(msg.calculatedDeletionOrder.replace('{order}', result.join(' → ')));
-            
-            return {
-                order: result,
-                hasCircularReference: result.length !== tableNames.length,
-                circularTables: result.length !== tableNames.length ? 
-                    tableNames.filter(table => !result.includes(table)) : [],
-                fkRelations: relevantRelations
-            };
-
-        } catch (error) {
-            console.error(msg.deletionOrderFailed.replace('{message}', error.message));
-            throw new Error(msg.deletionOrderFailed.replace('{message}', error.message));
-        }
+        return this.fkAnalyzer.calculateTableDeletionOrder(tableNames, isSource);
     }
 
     // FK 제약 조건 비활성화/활성화
     async toggleForeignKeyConstraints(enable = true, isSource = false) {
-        try {
-            const pool = isSource ? this.sourcePool : this.targetPool;
-            const connectionType = isSource ? msg.sourceDb : msg.targetDb;
-            const action = enable ? msg.fkEnable : msg.fkDisable;
-            
-            if (!pool || !(isSource ? this.isSourceConnected : this.isTargetConnected)) {
-                if (isSource) {
-                    await this.connectSource();
-                } else {
-                    await this.connectTarget();
-                }
-            }
-
-            const request = (isSource ? this.sourcePool : this.targetPool).request();
-            
-            // 모든 FK 제약 조건 활성화/비활성화
-            const toggleCommand = enable ? 'CHECK' : 'NOCHECK';
-            const query = `
-                DECLARE @sql NVARCHAR(MAX) = '';
-                SELECT @sql = @sql + 'ALTER TABLE [' + SCHEMA_NAME(t.schema_id) + '].[' + t.name + '] ${toggleCommand} CONSTRAINT [' + fk.name + '];' + CHAR(13)
-                FROM sys.foreign_keys fk
-                INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id;
-                EXEC sp_executesql @sql;
-            `;
-            
-            console.log(msg.togglingFk.replace('{db}', connectionType).replace('{action}', action));
-            await request.query(query);
-            console.log(msg.fkToggleComplete.replace('{db}', connectionType).replace('{action}', action));
-            
-        } catch (error) {
-            const action = enable ? msg.fkEnable : msg.fkDisable;
-            console.error(msg.fkToggleFailed.replace('{action}', action).replace('{message}', error.message));
-            throw new Error(msg.fkToggleFailed.replace('{action}', action).replace('{message}', error.message));
-        }
+        return this.fkAnalyzer.toggleForeignKeyConstraints(enable, isSource);
     }
 
     // 타겟 데이터베이스에서 SQL 실행 (전처리/후처리용)
     async executeQueryOnTarget(query) {
-        try {
-            if (!this.targetPool) {
-                await this.connectTarget();
-            }
-
-            const request = this.targetPool.request();
-            const result = await request.query(query);
-            
-            return result;
-        } catch (error) {
-            console.error(msg.targetQueryFailed.replace('{message}', error.message));
-            throw new Error(msg.targetQueryFailed.replace('{message}', error.message));
-        }
+        return this.queryExecutor.executeOnTarget(query);
     }
 
     // 소스 데이터베이스에서 SQL 실행 (전처리/후처리용)
     async executeQueryOnSource(query) {
-        try {
-            if (!this.sourcePool) {
-                await this.connectSource();
-            }
+        return this.queryExecutor.executeOnSource(query);
+    }
 
-            const request = this.sourcePool.request();
-            const result = await request.query(query);
-            
-            return result;
-        } catch (error) {
-            console.error(msg.sourceQueryExecuteFailed.replace('{message}', error.message));
-            throw new Error(msg.sourceQueryExecuteFailed.replace('{message}', error.message));
-        }
+    // 호환 래퍼: 소스 DB에서 데이터 배열 반환
+    async querySource(query) {
+        const result = await this.executeQueryOnSource(query);
+        return (result && result.recordset) ? result.recordset : [];
+    }
+
+    // 호환 래퍼: 타겟 DB에서 데이터 배열 반환
+    async queryTarget(query) {
+        const result = await this.executeQueryOnTarget(query);
+        return (result && result.recordset) ? result.recordset : [];
     }
 }
 

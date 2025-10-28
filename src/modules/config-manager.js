@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const xml2js = require('xml2js');
 const logger = require('../logger');
+const { format } = require('../modules/i18n');
+const { getAppRoot } = require('../modules/paths');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -38,8 +40,8 @@ const msg = messages[LANGUAGE] || messages.en;
 
 class ConfigManager {
     constructor() {
-        // pkg 환경 고려
-        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '../..');
+        // 앱 루트 경로 통일
+        const appRoot = getAppRoot();
         this.dbInfoPath = path.join(appRoot, 'config/dbinfo.json');
         this.dbInfo = null;
     }
@@ -50,7 +52,7 @@ class ConfigManager {
     async loadDbInfo() {
         try {
             if (!fs.existsSync(this.dbInfoPath)) {
-                logger.warn(msg.dbInfoNotFound.replace('{path}', this.dbInfoPath));
+                logger.warn(format(msg.dbInfoNotFound, { path: this.dbInfoPath }));
                 return null;
             }
 
@@ -71,9 +73,7 @@ class ConfigManager {
 
     getDbConfigById(dbId) {
         if (!this.dbInfo || !this.dbInfo[dbId]) {
-            throw new Error(msg.dbIdNotFound
-                .replace('{id}', dbId)
-                .replace('{dbs}', Object.keys(this.dbInfo || {}).join(', ')));
+            throw new Error(format(msg.dbIdNotFound, { id: dbId, dbs: Object.keys(this.dbInfo || {}).join(', ') }));
         }
         
         const dbConfig = this.dbInfo[dbId];
@@ -104,13 +104,13 @@ class ConfigManager {
             await this.loadDbInfo();
             
             if (!fs.existsSync(queryFilePath)) {
-                throw new Error(msg.queryFileNotFound.replace('{path}', queryFilePath));
+                throw new Error(format(msg.queryFileNotFound, { path: queryFilePath }));
             }
 
             const configData = fs.readFileSync(queryFilePath, 'utf8');
             
             if (!queryFilePath.toLowerCase().endsWith('.xml')) {
-                throw new Error(msg.unsupportedFileType.replace('{path}', queryFilePath));
+                throw new Error(format(msg.unsupportedFileType, { path: queryFilePath }));
             }
             
             const config = await this.parseXmlConfig(configData);
@@ -123,8 +123,8 @@ class ConfigManager {
             
             return config;
         } catch (error) {
-            logger.error(msg.queryFileLoadFailed.replace('{message}', error.message), error);
-            throw new Error(msg.queryFileLoadFailed.replace('{message}', error.message));
+            logger.error(format(msg.queryFileLoadFailed, { message: error.message }), error);
+            throw new Error(format(msg.queryFileLoadFailed, { message: error.message }));
         }
     }
 

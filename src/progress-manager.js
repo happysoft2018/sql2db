@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const { getAppRoot } = require('./modules/paths');
+const { format } = require('./modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -81,7 +83,7 @@ class ProgressManager {
         };
         
         // pkg 환경 고려
-        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+        const appRoot = getAppRoot();
         const logsDir = path.join(appRoot, 'logs');
         
         try {
@@ -89,7 +91,7 @@ class ProgressManager {
                 fs.mkdirSync(logsDir, { recursive: true });
             }
         } catch (error) {
-            console.warn(msg.logDirCreateFailed.replace('{message}', error.message));
+            console.warn(format(msg.logDirCreateFailed, { message: error.message }));
         }
         
         this.progressFile = path.join(logsDir, `progress-${this.migrationId}.json`);
@@ -496,51 +498,28 @@ class ProgressManager {
         console.log('='.repeat(80));
         console.log(msg.migrationProgress.replace('{migrationId}', this.migrationId));
         console.log('='.repeat(80));
-        console.log(msg.status
-            .replace('{status}', summary.status)
-            .replace('{phase}', summary.currentPhase));
-        console.log(msg.currentQuery.replace('{query}', summary.currentQuery || msg.none));
+        console.log(format(msg.status, { status: summary.status, phase: summary.currentPhase }));
+        console.log(format(msg.currentQuery, { query: summary.currentQuery || msg.none }));
         console.log('');
-        console.log(msg.queries
-            .replace('{bar}', progressBar)
-            .replace('{percent}', summary.totalProgress.toFixed(1))
-            .replace('{completed}', summary.queries.completed)
-            .replace('{total}', summary.queries.total));
-        console.log(msg.rows
-            .replace('{bar}', rowProgressBar)
-            .replace('{percent}', summary.rowProgress.toFixed(1))
-            .replace('{processed}', summary.rows.processed.toLocaleString())
-            .replace('{total}', summary.rows.total.toLocaleString()));
+        console.log(format(msg.queries, { bar: progressBar, percent: summary.totalProgress.toFixed(1), completed: summary.queries.completed, total: summary.queries.total }));
+        console.log(format(msg.rows, { bar: rowProgressBar, percent: summary.rowProgress.toFixed(1), processed: summary.rows.processed.toLocaleString(), total: summary.rows.total.toLocaleString() }));
         console.log('');
-        console.log(msg.duration.replace('{duration}', this.formatDuration(summary.duration)));
-        console.log(msg.speed.replace('{speed}', summary.performance.avgRowsPerSecond.toFixed(0)));
+        console.log(format(msg.duration, { duration: this.formatDuration(summary.duration) }));
+        console.log(format(msg.speed, { speed: summary.performance.avgRowsPerSecond.toFixed(0) }));
         if (summary.performance.estimatedTimeRemaining > 0) {
-            console.log(msg.eta.replace('{eta}', this.formatDuration(summary.performance.estimatedTimeRemaining)));
+            console.log(format(msg.eta, { eta: this.formatDuration(summary.performance.estimatedTimeRemaining) }));
         }
         if (summary.errors > 0) {
-            console.log(msg.errors.replace('{count}', summary.errors));
+            console.log(format(msg.errors, { count: summary.errors }));
         }
         console.log('='.repeat(80));
     }
 
-    // 진행률 바 생성
-    createProgressBar(percentage, length = 40) {
-        const filled = Math.round((percentage / 100) * length);
-        const empty = length - filled;
-        return `[${'█'.repeat(filled)}${' '.repeat(empty)}]`;
-    }
+    // ...
 
-    // 시간 형식화
-    formatDuration(seconds) {
-        if (seconds < 60) return `${seconds.toFixed(0)}s`;
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
-        return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${(seconds % 60).toFixed(0)}s`;
-    }
-
-    // 모든 진행 상황 파일 목록 조회
     static listProgressFiles() {
         try {
-            const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+            const appRoot = getAppRoot();
             const logsDir = path.join(appRoot, 'logs');
             if (!fs.existsSync(logsDir)) return [];
             
@@ -576,7 +555,7 @@ class ProgressManager {
                 })
                 .sort((a, b) => b.lastModified - a.lastModified);
         } catch (error) {
-            console.error(msg.listProgressFailed.replace('{message}', error.message));
+            console.error(format(msg.listProgressFailed, { message: error.message }));
             return [];
         }
     }
@@ -593,16 +572,14 @@ class ProgressManager {
                         fs.unlinkSync(progress.filePath);
                         deletedCount++;
                     } catch (error) {
-                        console.error(msg.deleteFailed
-                            .replace('{path}', progress.filePath)
-                            .replace('{message}', error.message));
+                        console.error(format(msg.deleteFailed, { path: progress.filePath, message: error.message }));
                     }
                 }
             });
             
             return deletedCount;
         } catch (error) {
-            console.error(msg.cleanupFailed.replace('{message}', error.message));
+            console.error(format(msg.cleanupFailed, { message: error.message }));
             return 0;
         }
     }

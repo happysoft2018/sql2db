@@ -37,6 +37,7 @@
     <override column="company_code">{"COMPANY01":"APPLE", "COMPANY02":"AMAZON", "COMPANY03":"GOOGLE", "COMPANY04":"TESLA"}</override>
     <override column="username">{"david.brown":"david","emily.davis":"emily","robert.miller":"robert","lisa.garcia":"lisa"}</override>
     <override column="email">{"david.brown@company.com":"david@gmail.com","emily.davis@company.com":"emily@gmail.com","robert.miller@company.com":"robert@gmail.com","lisa.garcia@company.com":"lisa@gmail.com"}</override>
+    <override column="CREATED_DATE">${DATE:yyyy-MM-dd HH:mm:ss}</override>
   </globalColumnOverrides>
 
   <!-- 전역 전처리/후처리 그룹 -->
@@ -250,7 +251,7 @@
       <sourceQuery targetTable="categories" 
                   targetColumns="*" 
                   identityColumns="category_id" 
-                  applyGlobalColumns="none" 
+                  applyGlobalColumns="created_date" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
@@ -266,7 +267,7 @@
       <sourceQuery targetTable="departments" 
                   targetColumns="*" 
                   identityColumns="department_code" 
-                  applyGlobalColumns="none" 
+                  applyGlobalColumns="created_date" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
@@ -282,7 +283,7 @@
       <sourceQuery targetTable="companies" 
                   targetColumns="*" 
                   identityColumns="company_code" 
-                  applyGlobalColumns="none" 
+                  applyGlobalColumns="created_date" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *
@@ -300,7 +301,7 @@
       <sourceQuery targetTable="users" 
                   targetColumns="*" 
                   identityColumns="user_id" 
-                  applyGlobalColumns="none">
+                  applyGlobalColumns="created_date">
         <![CDATA[
           SELECT *
           FROM users 
@@ -316,7 +317,7 @@
       <sourceQuery targetTable="products" 
                   targetColumns="*" 
                   identityColumns="product_code" 
-                  applyGlobalColumns="none" 
+                  applyGlobalColumns="created_date" 
                   deleteBeforeInsert="true">
         <![CDATA[
           SELECT *

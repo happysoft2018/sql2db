@@ -7,6 +7,7 @@ const MSSQLDataMigrator = require('./mssql-data-migrator-modular');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
+const { format } = require('./modules/i18n');
 
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
@@ -340,12 +341,12 @@ async function main() {
                 const progressManager = ProgressManager.loadProgress(migrationId);
                 
                 if (!progressManager) {
-                    console.log(`❌ ${msg.progressNotFound.replace('{id}', migrationId)}`);
+                    console.log(`❌ ${format(msg.progressNotFound, { id: migrationId })}`);
                     process.exit(1);
                 }
                 
                 if (!progressManager.canResume()) {
-                    console.log(`❌ ${msg.cannotResume.replace('{status}', progressManager.progressData.status).replace('{id}', migrationId)}`);
+                    console.log(`❌ ${format(msg.cannotResume, { status: progressManager.progressData.status, id: migrationId })}`);
                     process.exit(1);
                 }
                 
@@ -401,7 +402,7 @@ async function main() {
                     
                     console.log(`📊 ${msg.databaseListTitle}`);
                     console.log('=' .repeat(80));
-                    console.log(msg.totalDatabases.replace('{count}', dbList.length) + '\n');
+                    console.log(format(msg.totalDatabases, { count: dbList.length }) + '\n');
                     
                     // 각 DB의 연결 상태 테스트
                     console.log(`🔍 ${msg.testingConnection}\n`);
@@ -468,7 +469,7 @@ async function main() {
                 break;
                 
             default:
-                console.log(msg.invalidCommand.replace('{command}', command));
+                console.log(format(msg.invalidCommand, { command }));
                 console.log(msg.seeHelp);
                 process.exit(1);
         }

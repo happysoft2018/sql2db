@@ -1,5 +1,31 @@
 # SQL2DB Migration Tool Update Log
 
+## 🚀 v0.9.1 - Non-interactive CLI & Docs (2025-10-29)
+
+### ✨ New Features
+
+#### Non-interactive CLI (app.js)
+- Added direct execution without interactive menu using `--mode`
+  - Modes: `validate`, `test`, `migrate`, `help`
+  - Works in Node and packaged EXE
+
+### 📝 Documentation
+- Updated USER_MANUAL.md: Added "Non-interactive CLI" section with Node/EXE examples
+- Updated USER_MANUAL_KR.md: Added "비대화형 CLI" 섹션과 예시
+
+---
+
+## 🚀 v0.9.0 - Code modularization and refactoring (2025-10-26)
+
+### ✨ Improvements
+- **config-manager**: Loads and parses dbinfo/query XML, validates attributes, and parses global column overrides/processes/dynamic variables.
+- **query-processor**: Automatically expands SELECT *, excludes IDENTITY columns, and queries the target schema.
+- **variable-manager**: Apply variable substitution, date/timezone functions, and global column override values ​​(including JSON mapping).
+- **script-processor**: Executes pre- and post-processing scripts and variable substitution.
+- **mssql-connection-manager**: Connects to source and target databases, executes queries, and handles delete and batch operations.
+- **mssql-data-migrator-modular**: Orchestrates full migrations, executes global and individual processes, and applies optional global column overrides.
+---
+
 ## 🚀 v0.8.7 - JSON Mapping Logic Fix (2025-10-24)
 
 ### 🐛 Bug Fixes

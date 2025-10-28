@@ -3,6 +3,7 @@ const path = require('path');
 const MSSQLConnectionManager = require('./mssql-connection-manager');
 const ProgressManager = require('./progress-manager');
 const logger = require('./logger');
+const { getAppRoot } = require('./modules/paths');
 
 // 모듈화된 컴포넌트들
 const ConfigManager = require('./modules/config-manager');
@@ -314,8 +315,8 @@ class MSSQLDataMigrator {
     initializeLogging() {
         if (!this.enableLogging) return;
         
-        // pkg 환경 고려
-        const appRoot = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+        // 앱 루트 경로 통일
+        const appRoot = getAppRoot();
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const logFileName = `migration-log-${timestamp}.txt`;
         this.logFile = path.join(appRoot, 'logs', logFileName);
@@ -426,8 +427,9 @@ class MSSQLDataMigrator {
             case 'all':
                 if (tableName) {
                     const tableColumns = await this.queryProcessor.getTableColumns(tableName, database);
-                    // 대소문자 구분 없이 비교하기 위해 소문자로 변환
-                    const tableColumnsLower = tableColumns.map(col => col.toLowerCase());
+                    // 대소문자 구분 없이 비교하기 위해 소문자로 변환 (객체/문자열 모두 지원)
+                    const tableColumnNames = tableColumns.map(col => typeof col === 'string' ? col : col.name);
+                    const tableColumnsLower = tableColumnNames.map(col => col.toLowerCase());
                     const existingOverrides = {};
                     
                     globalColumnOverrides.forEach((value, column) => {
@@ -436,7 +438,7 @@ class MSSQLDataMigrator {
                         
                         if (matchIndex !== -1) {
                             // 테이블의 실제 컬럼명 사용
-                            const actualColumnName = tableColumns[matchIndex];
+                            const actualColumnName = tableColumnNames[matchIndex];
                             // JSON 문자열은 그대로 유지 (실제 데이터 적용 시 매핑됨)
                             existingOverrides[actualColumnName] = value;
                         }
@@ -540,8 +542,30 @@ class MSSQLDataMigrator {
                 return { success: true, rowsProcessed: 0 };
             }
             
-            // globalColumnOverrides 적용
-            const processedData = this.variableManager.applyGlobalColumnOverrides(sourceData, queryConfig.columnOverrides);
+            // globalColumnOverrides 선택 적용 (applyGlobalColumns 설정 기반)
+            let processedData = sourceData;
+            try {
+                const selected = await this.selectivelyApplyGlobalColumnOverrides(
+                    this.config.globalColumnOverrides,
+                    queryConfig.sourceQueryApplyGlobalColumns,
+                    queryConfig.targetTable,
+                    'target'
+                );
+
+                // 선택된 오버라이드가 있는 경우에만 Map으로 변환하여 적용
+                if (selected && Object.keys(selected).length > 0) {
+                    const selectedMap = new Map(Object.entries(selected));
+                    processedData = this.variableManager.applyGlobalColumnOverrides(sourceData, selectedMap);
+                    const appliedCols = Object.keys(selected).join(', ');
+                    this.log(`${this.msg.globalColumnApplied} ${appliedCols}`);
+                } else if (queryConfig.sourceQueryApplyGlobalColumns) {
+                    this.log(`${this.msg.globalColumnNotFound} ${queryConfig.sourceQueryApplyGlobalColumns} ${this.msg.globalColumnNotFoundEnd}`);
+                } else {
+                    this.log(`${this.msg.globalColumnNotApplied}`);
+                }
+            } catch (gcoError) {
+                this.log(`${this.msg.globalColumnNotApplied} (${gcoError.message})`);
+            }
             
             // 데이터 삽입
             const insertedRows = await this.insertDataInBatches(
