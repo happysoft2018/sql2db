@@ -33,6 +33,11 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - 🆕 **대량 데이터 지원**: SQL Server 2100 파라미터 제한 자동 처리
 - 🆕 **향상된 디버깅**: 삭제 작업 문제 해결을 위한 상세 진단
 
+### 🆕 v0.9.1 주요 변경
+- `app.js --mode` 기반 비대화형 CLI 지원 (validate/test/migrate/help)
+- Node 환경 및 배포 EXE에서 동일하게 동작
+- 문서 정리 및 일관성 개선
+
 ### 🆕 v0.9.0 주요 변경
 - **전역 컬럼 오버라이드 선택 적용 강화**: XML `applyGlobalColumns` 정책을 먼저 적용(정책 단계) → 각 행에 실제 존재하는 컬럼에만 안전 적용(행 단계)
 - **컬럼 메타 일관화**: `getTableColumns()`가 `{ name }[]`로 반환되어 SELECT * 확장 및 스키마 매칭의 일관성 향상
@@ -66,7 +71,7 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - Node.js에 익숙하지 않은 사용자
 
 **설치 단계:**
-1. 릴리스 페이지에서 `sql2db-v0.9.1-bin.zip` 다운로드
+1. 릴리스 페이지에서 `sql2db-v0.9.1-win-x64.zip` 다운로드
 2. 원하는 위치에 압축 해제 (예: `C:\Tools\sql2db\`)
 3. 추가 설치 불필요 - 바로 사용 가능!
 

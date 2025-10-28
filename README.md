@@ -52,7 +52,7 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 ### Option 1: Using Standalone Executable (Recommended)
 
 1. **Download Release Package**
-   - Download `sql2db-v0.8.7-bin.zip`
+   - Download `sql2db-v0.9.1-win-x64.zip`
    - Extract to your desired location
 
 2. **Configure Database Connection**
@@ -122,12 +122,35 @@ npm run start:kr
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
 
+### Non-interactive CLI (New in v0.9.1)
+
+Run tasks directly without the interactive menu using `app.js --mode` (works with Node and packaged EXE):
+
+```bash
+# Validate configuration
+node app.js --lang=kr --mode=validate --query=queries/migration-queries.xml
+
+# Test database connections
+node app.js --lang=kr --mode=test
+
+# Run migration
+node app.js --lang=kr --mode=migrate --query=queries/migration-queries.xml
+
+# Help
+node app.js --mode=help
+
+# Standalone EXE
+sql2db.exe --lang=kr --mode=validate --query=queries/migration-queries.xml
+sql2db.exe --lang=kr --mode=test
+sql2db.exe --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
 ## Interactive Menu Features
 
 ```
 =========================================
   MSSQL Data Migration Tool
-  Version 0.8.4
+  Version 0.9.1
 =========================================
 
 1. Validate Query Definition File

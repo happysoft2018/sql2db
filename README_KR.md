@@ -53,7 +53,7 @@
 ### 옵션 1: 독립 실행 파일 사용 (권장)
 
 1. **배포 패키지 다운로드**
-   - `sql2db-v0.8.7-bin.zip` 다운로드
+   - `sql2db-v0.9.1-win-x64.zip` 다운로드
    - 원하는 위치에 압축 해제
 
 2. **데이터베이스 연결 설정**
@@ -123,12 +123,35 @@ npm run start:kr
 node src/migrate-cli.js migrate --query ./queries/migration-queries.xml
 ```
 
+### 비대화형 CLI (v0.9.1 신규)
+
+대화형 메뉴 없이 `app.js --mode`로 바로 실행할 수 있습니다. Node/배포 EXE 모두에서 동일하게 동작합니다.
+
+```bash
+# 설정 검증
+node app.js --lang=kr --mode=validate --query=queries/migration-queries.xml
+
+# 연결 테스트
+node app.js --lang=kr --mode=test
+
+# 이관 실행
+node app.js --lang=kr --mode=migrate --query=queries/migration-queries.xml
+
+# 도움말
+node app.js --mode=help
+
+# 독립 실행 파일(EXE)
+sql2db.exe --lang=kr --mode=validate --query=queries/migration-queries.xml
+sql2db.exe --lang=kr --mode=test
+sql2db.exe --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
 ## 대화형 메뉴 기능
 
 ```
 =========================================
   MSSQL 데이터 이관 도구
-  버전 0.8.4
+  버전 0.9.1
 =========================================
 
 1. 쿼리문정의 파일 Syntax검증

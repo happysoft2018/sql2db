@@ -33,6 +33,11 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - 🆕 **Large Dataset Support**: Handles SQL Server 2100 parameter limit automatically
 - 🆕 **Enhanced Debugging**: Detailed diagnostics for troubleshooting delete operations
 
+### 🆕 What's New in v0.9.1
+- Non-interactive CLI via `app.js --mode` (validate/test/migrate/help)
+- Works in Node and packaged EXE
+- Documentation updates and consistency improvements
+
 ### 🆕 What's New in v0.9.0
 - **Selective global overrides (per query)**: Strictly honor XML `applyGlobalColumns` (policy phase), then safely apply only to rows that actually contain those columns (row phase)
 - **Column metadata consistency**: `getTableColumns()` now returns `{ name }[]`, improving consistency for SELECT * expansion and schema matching
@@ -66,7 +71,7 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - Users unfamiliar with Node.js
 
 **Installation Steps:**
-1. Download `sql2db-v0.9.1-bin.zip` from the release page
+1. Download `sql2db-v0.9.1-win-x64.zip` from the release page
 2. Extract to your desired location (e.g., `C:\Tools\sql2db\`)
 3. No additional installation required - ready to use!
 
