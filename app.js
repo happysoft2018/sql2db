@@ -23,6 +23,23 @@ const colors = {
     white: '\x1b[37m'
 };
 
+// 간단한 CLI 인수 파서 및 언어 설정
+function parseArgs(argv) {
+    const out = {};
+    for (const a of argv.slice(2)) {
+        if (!a.startsWith('--')) continue;
+        const i = a.indexOf('=');
+        if (i === -1) {
+            out[a.slice(2)] = true;
+        } else {
+            out[a.slice(2, i)] = a.slice(i + 1);
+        }
+    }
+    return out;
+}
+const ARGS = parseArgs(process.argv);
+if (ARGS.lang) process.env.LANGUAGE = ARGS.lang;
+
 // 언어 설정 (환경 변수 사용, 기본값 영어)
 const LANGUAGE = process.env.LANGUAGE || 'en';
 
@@ -199,6 +216,98 @@ const messages = {
         installNodeJs: 'https://nodejs.org 에서 최신 버전을 설치해주세요.'
     }
 };
+
+/**
+ * 비대화형 CLI 실행 경로 처리
+ */
+async function maybeRunFromCliArgs() {
+    const mode = ARGS.mode; // validate | test | migrate | progress | help
+    if (!mode && !ARGS.help) return false;
+
+    // 제목 출력
+    clearScreen();
+    showTitle();
+
+    try {
+        if (ARGS.help || mode === 'help') {
+            if (!process.pkg) {
+                try {
+                    execSync('node src/migrate-cli.js help', { stdio: 'inherit', cwd: APP_ROOT });
+                } catch (_) {}
+            }
+            console.log();
+            console.log('Examples:');
+            console.log('  node app.js --lang=kr --mode=validate --query=queries/sample.xml');
+            console.log('  node app.js --lang=kr --mode=test');
+            console.log('  node app.js --lang=kr --mode=migrate --query=queries/sample.xml');
+            return true;
+        }
+
+        switch (mode) {
+            case 'validate': {
+                const query = ARGS.query || ARGS.file;
+                if (!query) {
+                    console.error('❌ Missing --query path');
+                    return true;
+                }
+                const queryPath = path.isAbsolute(query) ? query : path.join(APP_ROOT, query);
+                if (process.pkg) {
+                    const migrator = new MSSQLDataMigrator(queryPath);
+                    const ok = await migrator.validateConfiguration();
+                    console.log(ok ? msg.validationCompleted : msg.validationFailed);
+                } else {
+                    execSync(`node src/migrate-cli.js validate --query "${queryPath}"`, { stdio: 'inherit', cwd: APP_ROOT });
+                }
+                return true;
+            }
+            case 'test': {
+                if (process.pkg) {
+                    const ConfigManager = require('./src/modules/config-manager');
+                    const configManager = new ConfigManager();
+                    await configManager.loadDbInfo();
+                    const dbInfo = configManager.getDbInfo();
+                    if (!dbInfo || Object.keys(dbInfo).length === 0) {
+                        console.log(msg.connectionFailed);
+                        console.log(msg.checkConfig);
+                    } else {
+                        console.log('Available databases:');
+                        for (const [dbId, dbConfig] of Object.entries(dbInfo)) {
+                            console.log(`${dbId}: ${dbConfig.server}/${dbConfig.database}`);
+                        }
+                        console.log(msg.connectionSuccess);
+                    }
+                } else {
+                    execSync('node src/migrate-cli.js list-dbs', { stdio: 'inherit', cwd: APP_ROOT });
+                }
+                return true;
+            }
+            case 'migrate': {
+                const query = ARGS.query || ARGS.file;
+                if (!query) {
+                    console.error('❌ Missing --query path');
+                    return true;
+                }
+                const queryPath = path.isAbsolute(query) ? query : path.join(APP_ROOT, query);
+                if (process.pkg) {
+                    const migrator = new MSSQLDataMigrator(queryPath);
+                    const result = await migrator.executeMigration();
+                    console.log(result && result.success ? msg.migrationSuccess : msg.migrationFailed);
+                } else {
+                    execSync(`node src/migrate-cli.js migrate --query "${queryPath}"`, { stdio: 'inherit', cwd: APP_ROOT });
+                }
+                return true;
+            }
+            default: {
+                console.error(`❌ Unknown mode: ${mode}`);
+                console.log('Use --help to see usage.');
+                return true;
+            }
+        }
+    } catch (error) {
+        console.error(msg.errorOccurred, error.message || error);
+        return true;
+    }
+}
 
 // 현재 언어의 메시지 가져오기
 const msg = messages[LANGUAGE] || messages.en;
@@ -822,7 +931,14 @@ async function showHelp() {
  */
 async function main() {
     console.log();
-    
+    // 비대화형 실행 경로 우선 처리
+    const handled = await maybeRunFromCliArgs();
+    if (handled) {
+        rl.close();
+        process.exit(0);
+        return;
+    }
+
     while (true) {
         clearScreen();
         showTitle();
