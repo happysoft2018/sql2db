@@ -39,6 +39,13 @@
 5) DataMigrator → 삭제(deleteBeforeInsert) → 전역 오버라이드 선택 적용 → 배치 삽입
 6) ScriptProcessor → 전역 postProcess 실행
 
+## v0.9.1 하이라이트
+
+- **비대화식 CLI**: `app.js --mode`로 메뉴 없이 바로 실행
+  - 모드: `validate`, `test`, `migrate`, `help`
+  - Node 실행 및 배포 EXE 모두 지원
+- 아래 "비대화형 CLI (v0.9.1 신규)" 섹션에 예시 제공
+
 ## v0.9.0 리팩토링 하이라이트
 
 - **QueryProcessor.getTableColumns() 일관화**: `{ name }[]` 반환으로 모듈 간 타입 일치 및 오류 감소

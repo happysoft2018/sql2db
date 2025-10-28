@@ -39,6 +39,13 @@ A Node.js-based solution for data migration between MSSQL databases with an inte
 5) DataMigrator → Deletes (deleteBeforeInsert) → selective global overrides → batch inserts
 6) ScriptProcessor → Global postProcess
 
+## v0.9.1 Highlights
+
+- **Non-interactive CLI**: Run tasks directly with `app.js --mode` (no menu)
+  - Modes: `validate`, `test`, `migrate`, `help`
+  - Works in both Node and packaged EXE
+- See "Non-interactive CLI (New in v0.9.1)" section below for examples
+
 ## v0.9.0 Refactor Highlights
 
 - **Consistent getTableColumns()**: Returns `{ name }[]` to align types across modules
