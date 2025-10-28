@@ -1,5 +1,20 @@
 # SQL2DB Migration Tool 업데이트 로그
 
+## 🚀 v0.9.1 - 비대화형 CLI 및 문서 (2025-10-29)
+
+### ✨ 새로운 기능
+
+#### 비대화형 CLI (app.js)
+- 대화형 메뉴 없이 `--mode`로 직접 실행
+  - 모드: `validate`, `test`, `migrate`, `help`
+  - Node 환경과 배포 EXE 모두 지원
+
+### 📝 문서
+- USER_MANUAL.md: Non-interactive CLI 섹션 추가 (Node/EXE 예시 포함)
+- USER_MANUAL_KR.md: 비대화형 CLI 섹션과 예시 추가
+
+---
+
 ## 🚀 v0.9.0 - 코드 모듈화 및 리팩토링 (2025-10-26)
 
 ### 🔧 개선 사항

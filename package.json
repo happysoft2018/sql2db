@@ -1,6 +1,6 @@
 {
   "name": "sql2db",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "MSSQL 데이터베이스 간 데이터 이관 도구",
   "main": "app.js",
   "scripts": {

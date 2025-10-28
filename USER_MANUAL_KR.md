@@ -66,13 +66,13 @@ MSSQL 데이터 이관 도구는 Microsoft SQL Server 간의 데이터 이관을
 - Node.js에 익숙하지 않은 사용자
 
 **설치 단계:**
-1. 릴리스 페이지에서 `sql2db-v0.8.7-bin.zip` 다운로드
+1. 릴리스 페이지에서 `sql2db-v0.9.1-bin.zip` 다운로드
 2. 원하는 위치에 압축 해제 (예: `C:\Tools\sql2db\`)
 3. 추가 설치 불필요 - 바로 사용 가능!
 
 **패키지 내용:**
 ```
-sql2db-v0.8.7/
+sql2db-v0.9.1/
 ├── sql2db.exe              # 메인 실행 파일 (Node.js 불필요)
 ├── run.bat                 # 영문 실행 스크립트
 ├── 실행하기.bat             # 한글 실행 스크립트
@@ -249,11 +249,48 @@ set LANGUAGE=en && sql2db.exe
 set LANGUAGE=kr && sql2db.exe
 ```
 
+### 비대화형 CLI (신규)
+
+대화형 메뉴 없이 `--mode` 인자와 선택 옵션으로 바로 실행할 수 있습니다.
+
+지원 모드:
+
+- `--mode=validate` 쿼리문정의 파일 검증
+- `--mode=test` DB 연결 테스트(목록/테스트)
+- `--mode=migrate` 데이터 이관 실행
+- `--help` 또는 `--mode=help` 도움말 표시
+
+예시 (Node.js):
+
+```bash
+# 설정 검증
+node app.js --lang=kr --mode=validate --query=queries/migration-queries.xml
+
+# 연결 테스트
+node app.js --lang=kr --mode=test
+
+# 이관 실행
+node app.js --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
+예시 (독립 실행 파일):
+
+```bash
+sql2db.exe --lang=kr --mode=validate --query=queries/migration-queries.xml
+sql2db.exe --lang=kr --mode=test
+sql2db.exe --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
+참고:
+
+- `--query`는 절대/상대 경로 모두 가능하며, 배포 빌드(EXE)에서는 실행 파일 위치 기준으로 상대 경로가 해석됩니다.
+- `--lang=en|kr`로 메시지 언어를 설정할 수 있습니다.
+
 ### 대화형 메뉴
 ```
 =========================================
   MSSQL 데이터 이관 도구
-  버전 0.8.4
+  버전 0.9.1
 =========================================
 
 1. 쿼리문정의 파일 Syntax검증

@@ -66,13 +66,13 @@ The MSSQL Data Migration Tool is a Node.js-based tool for efficiently performing
 - Users unfamiliar with Node.js
 
 **Installation Steps:**
-1. Download `sql2db-v0.8.7-bin.zip` from the release page
+1. Download `sql2db-v0.9.1-bin.zip` from the release page
 2. Extract to your desired location (e.g., `C:\Tools\sql2db\`)
 3. No additional installation required - ready to use!
 
 **Package Contents:**
 ```
-sql2db-v0.8.7/
+sql2db-v0.9.1/
 ├── sql2db.exe              # Main executable (no Node.js needed)
 ├── run.bat                 # English launcher
 ├── 실행하기.bat             # Korean launcher
@@ -249,11 +249,48 @@ set LANGUAGE=en && sql2db.exe
 set LANGUAGE=kr && sql2db.exe
 ```
 
+### Non-interactive CLI (New)
+
+Run tasks directly without the interactive menu using `--mode` and optional flags.
+
+Supported modes:
+
+- `--mode=validate` Validate a query definition file
+- `--mode=test` Test DB connections (list-dbs)
+- `--mode=migrate` Execute data migration
+- `--help` or `--mode=help` Show help
+
+Examples (Node.js):
+
+```bash
+# Validate configuration
+node app.js --lang=kr --mode=validate --query=queries/migration-queries.xml
+
+# Test connections
+node app.js --lang=kr --mode=test
+
+# Run migration
+node app.js --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
+Examples (Standalone EXE):
+
+```bash
+sql2db.exe --lang=kr --mode=validate --query=queries/migration-queries.xml
+sql2db.exe --lang=kr --mode=test
+sql2db.exe --lang=kr --mode=migrate --query=queries/migration-queries.xml
+```
+
+Notes:
+
+- `--query` accepts absolute or relative path (relative to the executable folder in release builds).
+- `--lang=en|kr` sets message language.
+
 ### Interactive Menu
 ```
 =========================================
   MSSQL Data Migration Tool
-  Version 0.8.4
+  Version 0.9.1
 =========================================
 
 1. Validate Query Definition File
